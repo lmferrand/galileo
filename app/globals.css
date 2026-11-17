@@ -302,7 +302,7 @@ p {
 
 .roseta {
   position: relative;
-  width: min(74vw, 32svh, 380px);
+  width: min(70vw, 29svh, 360px);
   aspect-ratio: 1;
   container-type: inline-size;
 }
@@ -615,6 +615,7 @@ p {
   flex: 1;
   min-height: 0;
   margin-top: 4px;
+  margin-bottom: calc(-1 * max(14px, env(safe-area-inset-bottom)));
 }
 
 /* Marco que recorta la pala por abajo y la funde: las cuerdas siguen hacia el mástil. */
@@ -626,15 +627,13 @@ p {
   align-items: flex-start;
   overflow: hidden;
   container-type: size;
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent);
 }
 
 .pala {
   position: relative;
   flex: none;
-  width: min(100cqw, 380px, 78cqh);
-  aspect-ratio: 820 / 1428;
+  width: min(100cqw, 380px, 57cqh);
+  aspect-ratio: 820 / 1412;
   container-type: inline-size;
 }
 .pala.es-desactivada {
@@ -675,6 +674,32 @@ p {
   stroke-width: 2px;
 }
 
+/* Cuerdas dibujadas encima de la foto */
+.pala-cuerda,
+.pala-cuerda-sombra {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.pala-cuerda-sombra {
+  stroke: rgba(0, 0, 0, 0.5);
+}
+.pala-cuerda.entorchada {
+  stroke: #d2a965;
+}
+.pala-cuerda.lisa {
+  stroke: #e9eaee;
+}
+.pala-cuerda.afinada.entorchada {
+  stroke: #b5e8cf;
+}
+.pala-cuerda.afinada.lisa {
+  stroke: #d6fbec;
+}
+.pala-cuerda {
+  transition: stroke 300ms ease;
+}
+
 /* Luz sobre la cuerda que suena (o la elegida a mano) */
 .pala-luz-cuerda,
 .pala-luz-halo {
@@ -684,11 +709,9 @@ p {
 }
 .pala-luz-cuerda {
   stroke: #fff3d2;
-  stroke-width: 4;
 }
 .pala-luz-halo {
   stroke: #f1d59d;
-  stroke-width: 16;
   opacity: 0.55;
 }
 .pala-luz-poste {
@@ -697,7 +720,6 @@ p {
 }
 .pala-luz.elegida .pala-luz-cuerda {
   stroke: #f1d59d;
-  stroke-width: 3;
   opacity: 0.8;
 }
 .pala-luz.elegida .pala-luz-halo {
@@ -1231,10 +1253,10 @@ li.actual .nota-chip {
   .zona-pala {
     flex: none;
     width: 440px;
-    height: min(640px, 80svh);
+    align-self: stretch;
   }
   .pala {
-    width: min(100cqw, 440px, 86cqh);
+    width: min(100cqw, 440px, 58cqh);
   }
 }
 
