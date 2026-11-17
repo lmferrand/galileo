@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Navegacion from "./Navegacion";
 import Reproduccion from "./Reproduccion";
+import Nube from "./Nube";
+import { sesionActual } from "@/lib/nube/cliente";
+import { encolarSubida } from "@/lib/nube/cola";
 import { borrarCancion, espacio, listarCanciones } from "@/lib/pistas/almacen";
 import { olvidarAviso, pararSeparacion, separarCancion, suscribirSeparacion, type EstadoSeparacion, type Trabajo } from "@/lib/pistas/separar";
 import { formatoMB, formatoTiempo, PISTAS, type Cancion } from "@/lib/pistas/tipos";
@@ -62,6 +65,9 @@ export default function Pistas() {
     const nueva = sep.terminada;
     olvidarAviso();
     recargar().then(() => setAbierta(nueva));
+    sesionActual().then((s) => {
+      if (s) encolarSubida(nueva);
+    });
   }, [sep.terminada, recargar]);
 
   // Pantalla encendida mientras separa (si se apaga, el iPhone lo para).
@@ -172,6 +178,8 @@ export default function Pistas() {
         </div>
       )}
 
+      {canciones !== null && <Nube canciones={canciones} esMovil={esMovil} onCambio={recargar} onAbrir={setAbierta} />}
+
       <section className="biblioteca" aria-label="Canciones separadas">
         {canciones === null ? null : canciones.length === 0 ? (
           !trabajando && <p className="biblioteca-vacia">Aquí aparecerán las canciones que separes.</p>
@@ -183,6 +191,7 @@ export default function Pistas() {
                   <span className="biblioteca-nombre">{c.nombre}</span>
                   <span className="biblioteca-datos">
                     {formatoTiempo(c.duracion)}, {formatoMB(c.bytes)}
+                    {c.nube ? ", también en la nube" : ""}
                   </span>
                 </button>
                 {borrando === c.id ? (

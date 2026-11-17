@@ -659,3 +659,80 @@ a.marca {
   color: var(--texto);
   margin-bottom: 4px;
 }
+
+/* ---------- Nube ---------- */
+.nube {
+  margin-top: 22px;
+}
+.nube-cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.nube-titulo {
+  font-family: var(--f-display);
+  font-size: 22px;
+  line-height: 1.15;
+}
+.nube-texto {
+  margin-top: 4px;
+  font-size: 14.5px;
+  color: var(--texto-2);
+}
+.nube-texto.suave {
+  color: var(--texto-3);
+  margin-top: 10px;
+}
+.nube-form {
+  margin-top: 6px;
+}
+.nube-form .ancho {
+  margin-top: 14px;
+}
+.nube-error {
+  display: block;
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: var(--peligro);
+}
+.nube-lista {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--linea);
+}
+.nube-lista li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--linea);
+}
+.nube-fila-textos {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.nube-nombre {
+  font-family: var(--f-display);
+  font-size: 19px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.nube-datos {
+  font-size: 13px;
+  color: var(--texto-3);
+}
+.nube-progreso {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--laton);
+  min-width: 48px;
+  text-align: right;
+}
+.nube-acciones {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}

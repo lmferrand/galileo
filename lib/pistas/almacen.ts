@@ -78,15 +78,19 @@ export async function leerAudios(id: string, pistas: Pista[]): Promise<Record<Pi
   return resultado;
 }
 
-export async function renombrarCancion(id: string, nombre: string) {
+export async function actualizarCancion(id: string, cambios: Partial<Cancion>) {
   const db = await abrir();
   const tx = db.transaction("canciones", "readwrite");
   const store = tx.objectStore("canciones");
   const pet = store.get(id);
   pet.onsuccess = () => {
-    if (pet.result) store.put({ ...(pet.result as Cancion), nombre });
+    if (pet.result) store.put({ ...(pet.result as Cancion), ...cambios, id });
   };
   await hecho(tx);
+}
+
+export async function renombrarCancion(id: string, nombre: string) {
+  await actualizarCancion(id, { nombre });
 }
 
 export async function borrarCancion(id: string, pistas: Pista[]) {

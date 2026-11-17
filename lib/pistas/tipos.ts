@@ -27,6 +27,8 @@ export interface Cancion {
   segundosSeparando?: number;
   /** Autoría y licencia (la canción de ejemplo). */
   credito?: string;
+  /** Ya está subida a la nube (para tenerla en el móvil). */
+  nube?: boolean;
 }
 
 export function formatoTiempo(segundos: number): string {
