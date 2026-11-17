@@ -25,6 +25,8 @@ export interface Cancion {
   /** cómo se separó: con la gráfica (webgpu) o solo con el procesador (wasm) */
   motor?: string;
   segundosSeparando?: number;
+  /** Autoría y licencia (la canción de ejemplo). */
+  credito?: string;
 }
 
 export function formatoTiempo(segundos: number): string {

@@ -86,6 +86,17 @@ export class Reproductor {
     this.nodo?.port.postMessage({ tipo: "ganancias", valores });
   }
 
+  /** 0,5 = a la mitad de velocidad, sin cambiar el tono. */
+  velocidad(valor: number) {
+    this.nodo?.port.postMessage({ tipo: "velocidad", valor });
+  }
+
+  /** Repetir de `desde` a `hasta` (segundos); null para dejar de repetir. */
+  bucle(desde: number | null, hasta?: number) {
+    if (desde === null || hasta === undefined) this.nodo?.port.postMessage({ tipo: "bucle", a: null });
+    else this.nodo?.port.postMessage({ tipo: "bucle", a: Math.round(desde * FRECUENCIA), b: Math.round(hasta * FRECUENCIA) });
+  }
+
   async cerrar() {
     this.nodo?.port.postMessage({ tipo: "vaciar" });
     this.nodo?.disconnect();

@@ -2,27 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Navegacion from "./Navegacion";
-import { borrarCancion, espacio, leerAudios, listarCanciones } from "@/lib/pistas/almacen";
+import Reproduccion from "./Reproduccion";
+import { borrarCancion, espacio, listarCanciones } from "@/lib/pistas/almacen";
 import { olvidarAviso, pararSeparacion, separarCancion, suscribirSeparacion, type EstadoSeparacion, type Trabajo } from "@/lib/pistas/separar";
-import { Reproductor } from "@/lib/pistas/reproductor";
-import { leerWav } from "@/lib/pistas/wav";
-import { formatoMB, formatoTiempo, PISTAS, type Cancion, type Pista } from "@/lib/pistas/tipos";
+import { formatoMB, formatoTiempo, PISTAS, type Cancion } from "@/lib/pistas/tipos";
+import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
+import { cargarEjemplo, ID_EJEMPLO, PESO_EJEMPLO } from "@/lib/pistas/ejemplo";
 
 const IDS = PISTAS.map((p) => p.id);
 const PESO_MODELO = "285 MB";
-
-interface WakeLock {
-  release: () => Promise<void>;
-}
-
-async function mantenerPantalla(): Promise<WakeLock | null> {
-  try {
-    const wl = (navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<WakeLock> } }).wakeLock;
-    return wl ? await wl.request("screen") : null;
-  } catch {
-    return null;
-  }
-}
 
 export default function Pistas() {
   const [canciones, setCanciones] = useState<Cancion[] | null>(null);
@@ -31,6 +19,7 @@ export default function Pistas() {
   const [sinGpu, setSinGpu] = useState(false);
   const [uso, setUso] = useState<{ usado: number; disponible: number } | null>(null);
   const [borrando, setBorrando] = useState<string | null>(null);
+  const [ejemplo, setEjemplo] = useState<{ fraccion: number } | { error: string } | null>(null);
   const entrada = useRef<HTMLInputElement>(null);
 
   const recargar = useCallback(async () => {
@@ -41,6 +30,18 @@ export default function Pistas() {
     }
     setUso(await espacio());
   }, []);
+
+  const abrirEjemplo = async () => {
+    setEjemplo({ fraccion: 0 });
+    try {
+      const c = await cargarEjemplo((fraccion) => setEjemplo({ fraccion }));
+      setEjemplo(null);
+      await recargar();
+      setAbierta(c);
+    } catch (e) {
+      setEjemplo({ error: (e as Error).message || "No se ha podido cargar la canción de ejemplo." });
+    }
+  };
 
   useEffect(() => {
     recargar();
@@ -63,7 +64,7 @@ export default function Pistas() {
   const trabajando = sep.trabajo !== null;
   useEffect(() => {
     if (!trabajando) return;
-    let bloqueo: WakeLock | null = null;
+    let bloqueo: BloqueoPantalla | null = null;
     let vivo = true;
     mantenerPantalla().then((b) => {
       if (vivo) bloqueo = b;
@@ -81,7 +82,17 @@ export default function Pistas() {
   };
 
   if (abierta) {
-    return <Reproduccion key={abierta.id} cancion={abierta} onVolver={() => setAbierta(null)} />;
+    return (
+      <Reproduccion
+        key={abierta.id}
+        cancion={abierta}
+        onVolver={() => {
+          setAbierta(null);
+          recargar();
+        }}
+        onRenombrada={recargar}
+      />
+    );
   }
 
   return (
@@ -113,6 +124,24 @@ export default function Pistas() {
           <p className="pistas-aviso">
             Este navegador solo deja usar un núcleo del procesador, así que separar irá unas cuatro veces más lento.
           </p>
+        )}
+
+        {canciones !== null && !canciones.some((c) => c.id === ID_EJEMPLO) && (
+          <div className="ejemplo">
+            <button
+              type="button"
+              className="boton-secundario ancho"
+              onClick={abrirEjemplo}
+              disabled={ejemplo !== null && "fraccion" in ejemplo}
+            >
+              {ejemplo && "fraccion" in ejemplo ? `Bajando la canción de ejemplo… ${Math.round(ejemplo.fraccion * 100)} %` : "Probar con una canción de ejemplo"}
+            </button>
+            <p className="pistas-letra-pequena">
+              {ejemplo && "error" in ejemplo
+                ? ejemplo.error
+                : `Viene ya separada: se descargan ${PESO_EJEMPLO} y no hace falta el separador. La puedes borrar cuando quieras.`}
+            </p>
+          </div>
         )}
       </section>
 
@@ -230,269 +259,5 @@ function TarjetaTrabajo({ trabajo }: { trabajo: Trabajo }) {
       </div>
       <p className="pistas-letra-pequena">Deja esta pantalla abierta hasta que acabe.</p>
     </div>
-  );
-}
-
-// ------------------------------------------------------------------
-// Reproductor de una canción
-// ------------------------------------------------------------------
-
-const MEZCLAS: { nombre: string; sin: Pista | null }[] = [
-  { nombre: "Todo", sin: null },
-  { nombre: "Sin guitarra", sin: "guitarra" },
-  { nombre: "Sin voz", sin: "voz" },
-  { nombre: "Sin batería", sin: "bateria" },
-  { nombre: "Sin bajo", sin: "bajo" },
-];
-
-function Reproduccion({ cancion, onVolver }: { cancion: Cancion; onVolver: () => void }) {
-  const rep = useRef<Reproductor | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [tocando, setTocando] = useState(false);
-  const [segundo, setSegundo] = useState(0);
-  const [volumen, setVolumen] = useState<number[]>(() => PISTAS.map(() => 1));
-  const [silencio, setSilencio] = useState<boolean[]>(() => PISTAS.map(() => false));
-  const [solo, setSolo] = useState<boolean[]>(() => PISTAS.map(() => false));
-  const ultimo = useRef({ segundo: -1, tocando: false });
-  const bloqueo = useRef<WakeLock | null>(null);
-
-  const algunSolo = solo.some(Boolean);
-  const efectivas = PISTAS.map((_, i) => (silencio[i] || (algunSolo && !solo[i]) ? 0 : volumen[i] * volumen[i]));
-  const claveGanancias = efectivas.join(",");
-  const gananciasIniciales = useRef(efectivas);
-
-  // Cargar las pistas del aparato y montar el reproductor.
-  useEffect(() => {
-    const r = new Reproductor();
-    rep.current = r;
-    let vivo = true;
-    r.alCambiar = ({ tocando: t, segundo: s }) => {
-      // Solo se repinta cuando cambia algo que se ve (décimas de segundo).
-      if (t !== ultimo.current.tocando || Math.abs(s - ultimo.current.segundo) >= 0.1) {
-        ultimo.current = { tocando: t, segundo: s };
-        setTocando(t);
-        setSegundo(s);
-      }
-    };
-    (async () => {
-      try {
-        const audios = await leerAudios(cancion.id, IDS);
-        const datos = await Promise.all(IDS.map((id) => leerWav(audios[id])));
-        if (!vivo) return;
-        await r.cargar(datos, cancion.frames, gananciasIniciales.current);
-        if (vivo) setCargando(false);
-      } catch (e) {
-        if (vivo) setError((e as Error).message || "No se han podido abrir las pistas.");
-      }
-    })();
-    return () => {
-      vivo = false;
-      r.cerrar();
-      rep.current = null;
-    };
-  }, [cancion.id, cancion.frames]);
-
-  useEffect(() => {
-    rep.current?.ganancias(claveGanancias.split(",").map(Number));
-  }, [claveGanancias]);
-
-  // Pantalla encendida mientras suena.
-  useEffect(() => {
-    if (!tocando) return;
-    let vivo = true;
-    mantenerPantalla().then((b) => {
-      if (vivo) bloqueo.current = b;
-      else b?.release().catch(() => undefined);
-    });
-    return () => {
-      vivo = false;
-      bloqueo.current?.release().catch(() => undefined);
-      bloqueo.current = null;
-    };
-  }, [tocando]);
-
-  const alternar = () => {
-    if (!rep.current || cargando) return;
-    if (tocando) rep.current.pausar();
-    else rep.current.tocar();
-  };
-
-  const saltar = (delta: number) => {
-    const s = Math.max(0, Math.min(cancion.duracion, segundo + delta));
-    rep.current?.ir(s);
-    setSegundo(s);
-  };
-
-  const aplicarMezcla = (sin: Pista | null) => {
-    setSolo(PISTAS.map(() => false));
-    setSilencio(PISTAS.map((p) => p.id === sin));
-    setVolumen(PISTAS.map(() => 1));
-  };
-  const mezclaActiva = (sin: Pista | null) =>
-    !algunSolo && volumen.every((v) => v === 1) && PISTAS.every((p, i) => silencio[i] === (p.id === sin));
-
-  const cambiar = (lista: boolean[], i: number) => lista.map((v, j) => (j === i ? !v : v));
-
-  return (
-    <main className="app app-pistas">
-      <header className="cabecera">
-        <Navegacion actual="pistas" />
-      </header>
-
-      <button type="button" className="volver" onClick={onVolver}>
-        <svg viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M10 3 L5 8 L10 13" />
-        </svg>
-        Tus pistas
-      </button>
-
-      <h1 className="reproductor-titulo">{cancion.nombre}</h1>
-
-      {error ? (
-        <div className="tarjeta tarjeta-error" role="alert">
-          <p>{error}</p>
-        </div>
-      ) : (
-        <>
-          <section className="transporte" aria-label="Reproducción">
-            <input
-              type="range"
-              className="barra-tiempo"
-              min={0}
-              max={cancion.duracion}
-              step={0.1}
-              value={Math.min(segundo, cancion.duracion)}
-              onChange={(e) => {
-                const s = Number(e.target.value);
-                setSegundo(s);
-                rep.current?.ir(s);
-              }}
-              disabled={cargando}
-              aria-label="Posición en la canción"
-              aria-valuetext={`${formatoTiempo(segundo)} de ${formatoTiempo(cancion.duracion)}`}
-              style={{ "--hecho": `${(Math.min(segundo, cancion.duracion) / Math.max(1, cancion.duracion)) * 100}%` } as React.CSSProperties}
-            />
-            <div className="tiempos">
-              <span>{formatoTiempo(segundo)}</span>
-              <span>{formatoTiempo(cancion.duracion)}</span>
-            </div>
-            <div className="mandos">
-              <button type="button" className="boton-salto" onClick={() => saltar(-10)} disabled={cargando} aria-label="Atrás 10 segundos">
-                <IconoSalto atras />
-              </button>
-              <button type="button" className="boton-tocar" onClick={alternar} disabled={cargando} aria-label={tocando ? "Pausa" : "Tocar"}>
-                {cargando ? <span className="girando" aria-hidden="true" /> : tocando ? <IconoPausa /> : <IconoTocar />}
-              </button>
-              <button type="button" className="boton-salto" onClick={() => saltar(10)} disabled={cargando} aria-label="Adelante 10 segundos">
-                <IconoSalto />
-              </button>
-            </div>
-          </section>
-
-          <section aria-label="Mezclas rápidas">
-            <div className="mezclas">
-              {MEZCLAS.map((m) => (
-                <button key={m.nombre} type="button" className="chip" aria-pressed={mezclaActiva(m.sin)} onClick={() => aplicarMezcla(m.sin)}>
-                  {m.nombre}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="mesa" aria-label="Pistas">
-            {PISTAS.map((p, i) => {
-              const apagada = efectivas[i] === 0;
-              return (
-                <div key={p.id} className={`canal ${apagada ? "apagado" : ""}`}>
-                  <div className="canal-cabeza">
-                    <span className="canal-nombre">{p.nombre}</span>
-                    <button
-                      type="button"
-                      className="canal-boton"
-                      aria-pressed={solo[i]}
-                      onClick={() => setSolo((s) => cambiar(s, i))}
-                      aria-label={`Solo ${p.nombre}`}
-                    >
-                      Solo
-                    </button>
-                    <button
-                      type="button"
-                      className="canal-boton silencio"
-                      aria-pressed={silencio[i]}
-                      onClick={() => setSilencio((s) => cambiar(s, i))}
-                      aria-label={silencio[i] ? `Volver a oír ${p.nombre}` : `Quitar ${p.nombre}`}
-                    >
-                      {silencio[i] ? <IconoMudo /> : <IconoSuena />}
-                    </button>
-                  </div>
-                  <input
-                    type="range"
-                    className="cuerda-volumen"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={volumen[i]}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      setVolumen((vs) => vs.map((x, j) => (j === i ? v : x)));
-                    }}
-                    aria-label={`Volumen de ${p.nombre}`}
-                    style={{ "--hecho": `${volumen[i] * 100}%` } as React.CSSProperties}
-                  />
-                </div>
-              );
-            })}
-          </section>
-        </>
-      )}
-    </main>
-  );
-}
-
-function IconoTocar() {
-  return (
-    <svg viewBox="0 0 24 24" className="icono-relleno" aria-hidden="true">
-      <path d="M8 5.5v13l10.5-6.5z" />
-    </svg>
-  );
-}
-
-function IconoPausa() {
-  return (
-    <svg viewBox="0 0 24 24" className="icono-relleno" aria-hidden="true">
-      <rect x="6.5" y="5.5" width="4" height="13" rx="1" />
-      <rect x="13.5" y="5.5" width="4" height="13" rx="1" />
-    </svg>
-  );
-}
-
-function IconoSalto({ atras }: { atras?: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" className="icono" aria-hidden="true" style={atras ? { transform: "scaleX(-1)" } : undefined}>
-      <path d="M19 12a7 7 0 1 1-2.05-4.95" />
-      <path d="M19 4.5v3.5h-3.5" />
-      <text x="12" y="15.2" textAnchor="middle" className="icono-texto" style={atras ? { transform: "scaleX(-1)", transformOrigin: "12px 12px" } : undefined}>
-        10
-      </text>
-    </svg>
-  );
-}
-
-function IconoSuena() {
-  return (
-    <svg viewBox="0 0 24 24" className="icono" aria-hidden="true">
-      <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
-      <path d="M15.5 9a4 4 0 0 1 0 6" />
-    </svg>
-  );
-}
-
-function IconoMudo() {
-  return (
-    <svg viewBox="0 0 24 24" className="icono" aria-hidden="true">
-      <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
-      <path d="M16 9.5l5 5M21 9.5l-5 5" />
-    </svg>
   );
 }
