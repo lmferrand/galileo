@@ -297,6 +297,11 @@ export default function Afinador() {
 
       <section className="escenario">
         <div className="zona-roseta">
+          <div className={`estado ${enTolerancia && viva ? "ok" : ""} ${celebrandoAhora ? "fiesta" : ""}`} role="status" aria-live="polite">
+            <p className="estado-principal">{celebrandoAhora ? "Guitarra afinada" : principal}</p>
+            <p className="estado-detalle">{celebrandoAhora ? "Las seis cuerdas están en su sitio." : detalle}</p>
+          </div>
+
           <Roseta cents={viva || lectura?.retenida ? cents : null} afinada={enTolerancia} brillo={celebrandoAhora} apagada={estado !== "escuchando"}>
             {estado !== "escuchando" ? (
               <button type="button" className="boca-boton" onClick={empezar} disabled={estado === "pidiendo"}>
@@ -341,11 +346,6 @@ export default function Afinador() {
               </div>
             )}
           </Roseta>
-
-          <div className={`estado ${enTolerancia && viva ? "ok" : ""} ${celebrandoAhora ? "fiesta" : ""}`} role="status" aria-live="polite">
-            <p className="estado-principal">{celebrandoAhora ? "Guitarra afinada" : principal}</p>
-            <p className="estado-detalle">{celebrandoAhora ? "Las seis cuerdas están en su sitio." : detalle}</p>
-          </div>
         </div>
 
         <div className="zona-pala">

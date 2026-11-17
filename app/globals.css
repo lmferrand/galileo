@@ -1230,34 +1230,104 @@ li.actual .nota-chip {
   color: var(--texto-2);
 }
 
-/* ---------------- Pantallas anchas: roseta y pala lado a lado ---------------- */
+/* ============================================================
+   Clavijero delante del afinador: la pala sube y tapa la mitad
+   de abajo de la ruleta. La escala (arco de arriba) y la nota
+   quedan en la mitad que se ve.
+   ============================================================ */
 
-@media (min-width: 900px) and (min-height: 560px) {
-  .app {
-    max-width: 1080px;
-    padding-left: 32px;
-    padding-right: 32px;
-  }
+.escenario {
+  --d: min(72vw, 30svh, 360px);
+}
+@media (min-width: 700px) and (min-height: 700px) {
   .escenario {
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    gap: 72px;
+    --d: min(36svh, 380px);
   }
-  .zona-roseta {
-    margin-top: 0;
-  }
-  .roseta {
-    width: min(440px, 62svh);
-  }
-  .zona-pala {
-    flex: none;
-    width: 440px;
-    align-self: stretch;
-  }
-  .pala {
-    width: min(100cqw, 440px, 58cqh);
-  }
+}
+.roseta {
+  width: var(--d);
+}
+.zona-roseta {
+  margin-top: 8px;
+  position: relative;
+  z-index: 1;
+}
+.estado {
+  margin: 0 0 10px;
+  min-height: 52px;
+}
+.estado-principal {
+  font-size: 25px;
+}
+.estado-detalle {
+  font-size: 14.5px;
+  margin-top: 1px;
+}
+
+.zona-pala {
+  z-index: 2;
+  margin-top: calc(var(--d) * -0.5);
+  pointer-events: none;
+}
+.llave {
+  pointer-events: auto;
+}
+.pala-acciones {
+  top: auto;
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 6px);
+  padding: 0 2px;
+}
+
+/* Lo de dentro de la boca, en la mitad de arriba */
+.roseta-centro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 32%;
+}
+.boca-boton {
+  position: absolute;
+  inset: 0;
+  padding-bottom: 50%;
+  gap: 2.4cqi;
+  font-size: max(14px, 4.8cqi);
+}
+.icono.grande {
+  width: 34px;
+  height: 34px;
+}
+.lectura-base {
+  font-size: 20cqi;
+}
+.lectura-alt {
+  font-size: 8.5cqi;
+}
+.lectura-octava {
+  font-size: 4cqi;
+}
+.lectura-lado {
+  padding: 0.8cqi 0 1.2cqi;
+}
+.lectura-cents {
+  margin-top: 1.4cqi;
+  font-size: 5cqi;
+}
+.lectura-cents span {
+  font-size: 3.4cqi;
+}
+.lectura-hz {
+  margin-top: 0.3cqi;
+  font-size: 3.2cqi;
+}
+.escuchando {
+  gap: 2cqi;
+}
+.ondas {
+  height: 9cqi;
+}
+.escuchando-texto {
+  font-size: 3.8cqi;
 }
 
 @media (prefers-reduced-motion: reduce) {
