@@ -17,6 +17,8 @@ export default function Pistas() {
   const [abierta, setAbierta] = useState<Cancion | null>(null);
   const [sep, setSep] = useState<EstadoSeparacion>({ trabajo: null, error: null, terminada: null });
   const [sinGpu, setSinGpu] = useState(false);
+  // En el móvil no cabe el separador (pide unos 2,5 GB y Safari cierra la página).
+  const [esMovil, setEsMovil] = useState(false);
   const [uso, setUso] = useState<{ usado: number; disponible: number } | null>(null);
   const [borrando, setBorrando] = useState<string | null>(null);
   const [ejemplo, setEjemplo] = useState<{ fraccion: number } | { error: string } | null>(null);
@@ -47,6 +49,8 @@ export default function Pistas() {
     recargar();
     // Sin aislamiento entre orígenes el separador solo puede usar un núcleo.
     setSinGpu(!self.crossOriginIsolated);
+    const ipadComoMac = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
+    setEsMovil(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || ipadComoMac);
   }, [recargar]);
 
   // Progreso de la separación (sigue aunque cambies de pestaña).
@@ -114,13 +118,25 @@ export default function Pistas() {
             e.target.value = "";
           }}
         />
-        <button type="button" className="boton-principal" onClick={() => entrada.current?.click()} disabled={trabajando}>
-          Elegir una canción
-        </button>
-        <p className="pistas-letra-pequena">
-          Se separa en este aparato y la canción no sale de aquí. La primera vez descarga el separador ({PESO_MODELO}): mejor con wifi.
-        </p>
-        {sinGpu && (
+        {esMovil ? (
+          <div className="tarjeta aviso-movil" role="note">
+            <p className="aviso-movil-titulo">En el móvil, para escuchar</p>
+            <p>
+              Separar una canción necesita unos 2,5 GB de memoria y el teléfono cierra la página antes de acabar. Sepárala en el
+              ordenador, entrando en esta misma dirección con Chrome. Aquí puedes escuchar las pistas, empezando por la canción de ejemplo.
+            </p>
+          </div>
+        ) : (
+          <>
+            <button type="button" className="boton-principal" onClick={() => entrada.current?.click()} disabled={trabajando}>
+              Elegir una canción
+            </button>
+            <p className="pistas-letra-pequena">
+              Se separa en este aparato y la canción no sale de aquí. La primera vez descarga el separador ({PESO_MODELO}): mejor con wifi.
+            </p>
+          </>
+        )}
+        {sinGpu && !esMovil && (
           <p className="pistas-aviso">
             Este navegador solo deja usar un núcleo del procesador, así que separar irá unas cuatro veces más lento.
           </p>
