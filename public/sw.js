@@ -2,7 +2,7 @@
 // en un escenario…). La página se pide a la red primero y, si no hay, se usa
 // la copia guardada. Los archivos con huella (/_next/static) no cambian nunca.
 
-const CACHE = "clavija-app-v6";
+const CACHE = "clavija-app-v7";
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
@@ -45,7 +45,7 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  if (url.pathname.startsWith("/_next/static/") || /\.(png|webp|svg|ico|woff2?|webmanifest)$/.test(url.pathname) || url.pathname === "/manifest.webmanifest") {
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/separador/") || /\.(png|webp|svg|ico|woff2?|webmanifest)$/.test(url.pathname) || url.pathname === "/manifest.webmanifest") {
     e.respondWith(
       caches.match(req).then(
         (hit) =>

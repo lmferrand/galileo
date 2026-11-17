@@ -7,7 +7,8 @@ import Nube from "./Nube";
 import { sesionActual } from "@/lib/nube/cliente";
 import { encolarSubida } from "@/lib/nube/cola";
 import { borrarCancion, espacio, listarCanciones } from "@/lib/pistas/almacen";
-import { olvidarAviso, pararSeparacion, separarCancion, suscribirSeparacion, type EstadoSeparacion, type Trabajo } from "@/lib/pistas/separar";
+import { olvidarAviso, pararSeparacion, separacionCortada, separarCancion, suscribirSeparacion, type EstadoSeparacion, type Trabajo } from "@/lib/pistas/separar";
+import { esMovil as esAparatoMovil } from "@/lib/pistas/aparato";
 import { formatoMB, formatoTiempo, PISTAS, type Cancion } from "@/lib/pistas/tipos";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 import { cargarEjemplo, ID_EJEMPLO, PESO_EJEMPLO } from "@/lib/pistas/ejemplo";
@@ -20,8 +21,9 @@ export default function Pistas() {
   const [abierta, setAbierta] = useState<Cancion | null>(null);
   const [sep, setSep] = useState<EstadoSeparacion>({ trabajo: null, error: null, terminada: null });
   const [sinGpu, setSinGpu] = useState(false);
-  // En el móvil no cabe el separador (pide unos 2,5 GB y Safari cierra la página).
   const [esMovil, setEsMovil] = useState(false);
+  // Nombre de la canción si la última separación se cortó (la página se recargó a medias).
+  const [cortada, setCortada] = useState<string | null>(null);
   const [uso, setUso] = useState<{ usado: number; disponible: number } | null>(null);
   const [borrando, setBorrando] = useState<string | null>(null);
   const [ejemplo, setEjemplo] = useState<{ fraccion: number } | { error: string } | null>(null);
@@ -52,8 +54,8 @@ export default function Pistas() {
     recargar();
     // Sin aislamiento entre orígenes el separador solo puede usar un núcleo.
     setSinGpu(!self.crossOriginIsolated);
-    const ipadComoMac = /Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1;
-    setEsMovil(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || ipadComoMac);
+    setEsMovil(esAparatoMovil());
+    setCortada(separacionCortada());
   }, [recargar]);
 
   // Progreso de la separación (sigue aunque cambies de pestaña).
@@ -88,6 +90,7 @@ export default function Pistas() {
 
   const elegir = (archivo: File | undefined) => {
     if (!archivo) return;
+    setCortada(null);
     separarCancion(archivo);
   };
 
@@ -124,25 +127,19 @@ export default function Pistas() {
             e.target.value = "";
           }}
         />
-        {esMovil ? (
-          <div className="tarjeta aviso-movil" role="note">
-            <p className="aviso-movil-titulo">En el móvil, para escuchar</p>
-            <p>
-              Separar una canción necesita unos 2,5 GB de memoria y el teléfono cierra la página antes de acabar. Sepárala en el
-              ordenador, entrando en esta misma dirección con Chrome. Aquí puedes escuchar las pistas, empezando por la canción de ejemplo.
-            </p>
-          </div>
-        ) : (
-          <>
-            <button type="button" className="boton-principal" onClick={() => entrada.current?.click()} disabled={trabajando}>
-              Elegir una canción
-            </button>
-            <p className="pistas-letra-pequena">
-              Se separa en este aparato y la canción no sale de aquí. La primera vez descarga el separador ({PESO_MODELO}): mejor con wifi.
-            </p>
-          </>
+        <button type="button" className="boton-principal" onClick={() => entrada.current?.click()} disabled={trabajando}>
+          Elegir una canción
+        </button>
+        <p className="pistas-letra-pequena">
+          Se separa en este aparato y la canción no sale de aquí. La primera vez descarga el separador ({PESO_MODELO}): mejor con wifi.
+        </p>
+        {esMovil && (
+          <p className="pistas-letra-pequena">
+            Elige un mp3, m4a o wav de la app Archivos (hasta 8 minutos). Las canciones de Apple Music o Spotify no se pueden abrir porque
+            vienen protegidas. Tarda unos minutos: deja la pantalla encendida y Clavija abierta hasta que acabe.
+          </p>
         )}
-        {sinGpu && !esMovil && (
+        {sinGpu && (
           <p className="pistas-aviso">
             Este navegador solo deja usar un núcleo del procesador, así que separar irá unas cuatro veces más lento.
           </p>
@@ -168,6 +165,20 @@ export default function Pistas() {
       </section>
 
       {sep.trabajo && <TarjetaTrabajo trabajo={sep.trabajo} />}
+
+      {cortada && !sep.trabajo && (
+        <div className="tarjeta tarjeta-error" role="alert">
+          <p>
+            La separación de «{cortada}» se cortó antes de acabar.{" "}
+            {esMovil
+              ? "Suele pasar si se apaga la pantalla, si cambias de app o si el móvil anda justo de memoria. Cierra las demás apps y vuelve a probar."
+              : "Vuelve a elegirla para empezar de nuevo."}
+          </p>
+          <button type="button" className="boton-texto" onClick={() => setCortada(null)}>
+            Vale
+          </button>
+        </div>
+      )}
 
       {sep.error && (
         <div className="tarjeta tarjeta-error" role="alert">
@@ -257,7 +268,8 @@ function TarjetaTrabajo({ trabajo }: { trabajo: Trabajo }) {
       fraccion = hecho / trozos;
       if (hecho >= 2 && trabajo.msPorTrozo) {
         const quedan = Math.max(0, ((trozos - hecho) * trabajo.msPorTrozo) / 1000);
-        detalle = quedan < 60 ? "Queda menos de un minuto." : `Quedan unos ${Math.round(quedan / 60)} min.`;
+        const min = Math.round(quedan / 60);
+        detalle = quedan < 60 ? "Queda menos de un minuto." : min <= 1 ? "Queda un minuto, más o menos." : `Quedan unos ${min} minutos.`;
       } else {
         detalle = "Calculando cuánto falta…";
       }

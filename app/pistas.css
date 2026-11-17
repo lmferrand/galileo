@@ -645,21 +645,6 @@ a.marca {
   color: var(--texto-3);
 }
 
-.aviso-movil {
-  margin-top: 18px;
-  border-color: color-mix(in oklab, var(--laton) 45%, transparent);
-}
-.aviso-movil p {
-  font-size: 14.5px;
-  color: var(--texto-2);
-}
-.aviso-movil .aviso-movil-titulo {
-  font-weight: 700;
-  font-size: 15.5px;
-  color: var(--texto);
-  margin-bottom: 4px;
-}
-
 /* ---------- Nube ---------- */
 .nube {
   margin-top: 22px;

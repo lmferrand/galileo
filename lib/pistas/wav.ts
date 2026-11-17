@@ -4,9 +4,18 @@
 export const CABECERA_WAV = 44;
 
 export function crearWav(muestras: Int16Array, frecuencia: number, canales = 2): Blob {
+  return new Blob([cabeceraWav(muestras.byteLength, frecuencia, canales), muestras.buffer as ArrayBuffer], { type: "audio/wav" });
+}
+
+/** WAV hecho de varios trozos ya guardados (Blobs), sin juntarlos en memoria. */
+export function crearWavDePartes(partes: Blob[], frecuencia: number, canales = 2): Blob {
+  const datos = partes.reduce((s, b) => s + b.size, 0);
+  return new Blob([cabeceraWav(datos, frecuencia, canales), ...partes], { type: "audio/wav" });
+}
+
+function cabeceraWav(datos: number, frecuencia: number, canales: number): ArrayBuffer {
   const cabecera = new ArrayBuffer(CABECERA_WAV);
   const v = new DataView(cabecera);
-  const datos = muestras.byteLength;
   const escribir = (o: number, s: string) => {
     for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i));
   };
@@ -23,7 +32,7 @@ export function crearWav(muestras: Int16Array, frecuencia: number, canales = 2):
   v.setUint16(34, 16, true);
   escribir(36, "data");
   v.setUint32(40, datos, true);
-  return new Blob([cabecera, muestras.buffer as ArrayBuffer], { type: "audio/wav" });
+  return cabecera;
 }
 
 /** Las muestras de un WAV hecho con crearWav (sin copiar más de la cuenta). */

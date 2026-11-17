@@ -54,6 +54,14 @@ export async function guardarCancion(cancion: Cancion, audios: Record<Pista, Blo
   await hecho(tx);
 }
 
+/** Guarda una pista suelta (al separar se van guardando de una en una). */
+export async function guardarAudio(id: string, pista: Pista, blob: Blob) {
+  const db = await abrir();
+  const tx = db.transaction("audios", "readwrite");
+  tx.objectStore("audios").put(blob, `${id}:${pista}`);
+  await hecho(tx);
+}
+
 export async function leerAudios(id: string, pistas: Pista[]): Promise<Record<Pista, Blob>> {
   const db = await abrir();
   const tx = db.transaction("audios");

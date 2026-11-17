@@ -95,10 +95,10 @@ export default function Nube({ canciones, esMovil, onCambio, onAbrir }: Props) {
   if (!sesion) {
     return (
       <section className="tarjeta nube" aria-label="Tus canciones en la nube">
-        <p className="nube-titulo">Tus canciones, también en el móvil</p>
+        <p className="nube-titulo">{esMovil ? "Tus canciones, también en el ordenador" : "Tus canciones, también en el móvil"}</p>
         <p className="nube-texto">
           {esMovil
-            ? "Entra con tu cuenta de Los Teros y aquí te aparecerán las canciones que separes en el ordenador."
+            ? "Entra con tu cuenta de Los Teros: lo que separes aquí se subirá solo y lo tendrás también en el ordenador, y al revés."
             : "Entra con tu cuenta de Los Teros: lo que separes aquí se subirá solo y lo tendrás en el móvil."}
         </p>
         <form
@@ -136,7 +136,7 @@ export default function Nube({ canciones, esMovil, onCambio, onAbrir }: Props) {
 
   const locales = new Set(canciones.map((c) => c.id));
   const paraBajar = (remotas ?? []).filter((r) => !locales.has(r.id));
-  const paraSubir = esMovil ? [] : canciones.filter((c) => !c.nube && c.id !== ID_EJEMPLO);
+  const paraSubir = canciones.filter((c) => !c.nube && c.id !== ID_EJEMPLO);
 
   return (
     <section className="tarjeta nube" aria-label="Tus canciones en la nube">
@@ -148,7 +148,7 @@ export default function Nube({ canciones, esMovil, onCambio, onAbrir }: Props) {
       </div>
       <p className="nube-texto">
         Has entrado como {sesion.correo}.{" "}
-        {esMovil ? "Aquí tienes lo que has separado en el ordenador." : "Lo que separes aquí se sube solo para tenerlo en el móvil."}
+        {esMovil ? "Lo que separes aquí se sube solo, y lo del ordenador lo bajas desde esta lista." : "Lo que separes aquí se sube solo para tenerlo en el móvil."}
       </p>
 
       {error && <p className="nube-error">{error}</p>}
@@ -203,7 +203,7 @@ export default function Nube({ canciones, esMovil, onCambio, onAbrir }: Props) {
               <li key={c.id}>
                 <div className="nube-fila-textos">
                   <span className="nube-nombre">{c.nombre}</span>
-                  <span className="nube-datos">{enCurso ? "Comprimiendo y subiendo…" : "Solo en este ordenador"}</span>
+                  <span className="nube-datos">{enCurso ? "Comprimiendo y subiendo…" : esMovil ? "Solo en este móvil" : "Solo en este ordenador"}</span>
                   {fallo && <span className="nube-error">{fallo}</span>}
                 </div>
                 {enCurso ? (
@@ -222,9 +222,7 @@ export default function Nube({ canciones, esMovil, onCambio, onAbrir }: Props) {
       {remotas !== null && paraBajar.length === 0 && paraSubir.length === 0 && (
         <p className="nube-texto suave">
           {remotas.length === 0
-            ? esMovil
-              ? "Todavía no hay nada en la nube. Separa una canción en el ordenador y te aparecerá aquí."
-              : "Todavía no hay nada en la nube. Separa una canción y se subirá sola."
+            ? "Todavía no hay nada en la nube. Separa una canción y se subirá sola."
             : "Todo al día: lo que hay en la nube ya está en este aparato."}
         </p>
       )}

@@ -1,10 +1,14 @@
 // Separar una canción: se lee el archivo, se manda al separador (un worker
-// que usa la gráfica del aparato) y se guardan las 6 pistas en la biblioteca.
+// con el procesador del aparato) y se guardan las 6 pistas en la biblioteca.
 // El trabajo vive fuera de la pantalla: si te vas al afinador y vuelves, sigue.
+// Las pistas llegan por bloques y se van guardando en el aparato, así la
+// canción entera no está nunca en memoria (en el móvil no cabría).
 
-import { FRECUENCIA, type Cancion, type Pista } from "./tipos";
-import { crearWav } from "./wav";
-import { guardarCancion, pedirPersistencia } from "./almacen";
+import { FRECUENCIA, PISTAS, type Cancion, type Pista } from "./tipos";
+import { crearWavDePartes } from "./wav";
+import { guardarAudio, guardarCancion, pedirPersistencia } from "./almacen";
+import { guardarBloque, leerBloques, vaciarTemporal } from "./temporal";
+import { esMovil } from "./aparato";
 
 export type Fase = "leyendo" | "descargando" | "cargando" | "separando" | "guardando";
 
@@ -26,7 +30,41 @@ export interface EstadoSeparacion {
   terminada: Cancion | null;
 }
 
-const MAX_SEGUNDOS = 12 * 60;
+const MAX_MINUTOS_ORDENADOR = 12;
+const MAX_MINUTOS_MOVIL = 8;
+// Marca de «separando»: si la página se recarga a medias (el móvil se ha quedado
+// sin memoria o ha cerrado Safari), al volver se avisa.
+const MARCA = "clavija-separando";
+
+function ponerMarca(nombre: string) {
+  try {
+    localStorage.setItem(MARCA, JSON.stringify({ nombre, desde: Date.now() }));
+  } catch {
+    /* sin almacenamiento local */
+  }
+}
+
+function quitarMarca() {
+  try {
+    localStorage.removeItem(MARCA);
+  } catch {
+    /* sin almacenamiento local */
+  }
+}
+
+/** Si la última separación se cortó sin acabar, el nombre de la canción (y se olvida). */
+export function separacionCortada(): string | null {
+  if (estado.trabajo) return null;
+  try {
+    const marca = localStorage.getItem(MARCA);
+    if (!marca) return null;
+    quitarMarca();
+    void vaciarTemporal();
+    return (JSON.parse(marca) as { nombre?: string }).nombre || "la canción";
+  } catch {
+    return null;
+  }
+}
 
 let estado: EstadoSeparacion = { trabajo: null, error: null, terminada: null };
 const oyentes = new Set<(e: EstadoSeparacion) => void>();
@@ -73,7 +111,9 @@ async function decodificar(archivo: File) {
   } catch {
     throw new Error("No reconozco ese archivo como audio. Prueba con un mp3, m4a o wav.");
   }
-  if (audio.duration > MAX_SEGUNDOS) throw new Error("La canción dura más de 12 minutos. De momento el máximo son 12.");
+  const max = esMovil() ? MAX_MINUTOS_MOVIL : MAX_MINUTOS_ORDENADOR;
+  if (audio.duration > max * 60)
+    throw new Error(esMovil() ? `En el móvil el máximo son ${max} minutos por canción. Las más largas, en el ordenador.` : `La canción dura más de ${max} minutos. De momento el máximo son ${max}.`);
   const izquierda = audio.getChannelData(0).slice();
   const derecha = audio.numberOfChannels > 1 ? audio.getChannelData(1).slice() : izquierda.slice();
   return { izquierda, derecha, duracion: audio.duration };
@@ -84,13 +124,17 @@ export async function separarCancion(archivo: File): Promise<Cancion | null> {
   const nombre = nombreBonito(archivo.name);
   const inicio = performance.now();
   publicar({ trabajo: { nombre, fase: "leyendo" }, error: null, terminada: null });
+  ponerMarca(nombre);
 
   try {
+    await vaciarTemporal();
     const { izquierda, derecha, duracion } = await decodificar(archivo);
     if (!trabajador) trabajador = new Worker("/separador.worker.js", { type: "module" });
     const w = trabajador;
 
-    const r = await new Promise<{ pistas: Record<Pista, Int16Array>; frames: number; motor?: string }>((ok, mal) => {
+    // Los bloques se guardan en orden según llegan.
+    let escrituras: Promise<void> = Promise.resolve();
+    const r = await new Promise<{ bloques: number; frames: number; motor?: string }>((ok, mal) => {
       let motor: string | undefined;
       cancelar = mal;
       const actualizar = (c: Partial<Trabajo>) => publicar({ trabajo: { ...(estado.trabajo ?? { nombre, fase: "leyendo" }), ...c } });
@@ -102,7 +146,11 @@ export async function separarCancion(archivo: File): Promise<Cancion | null> {
           motor = m.motor;
           actualizar({ motor });
         } else if (m.tipo === "progreso") actualizar({ fase: "separando", hecho: m.hecho, trozos: m.total, msPorTrozo: m.msPorTrozo });
-        else if (m.tipo === "hecho") ok({ pistas: m.pistas, frames: m.frames, motor });
+        else if (m.tipo === "bloque") {
+          const { pistas, indice } = m as { pistas: Record<string, Int16Array>; indice: number };
+          escrituras = escrituras.then(() => guardarBloque(pistas, indice));
+          escrituras.catch(mal);
+        } else if (m.tipo === "hecho") ok({ bloques: m.bloques, frames: m.frames, motor });
         else if (m.tipo === "error") mal(new Error(m.mensaje));
       };
       w.onerror = (e) => {
@@ -112,17 +160,23 @@ export async function separarCancion(archivo: File): Promise<Cancion | null> {
       w.postMessage({ tipo: "separar", izquierda, derecha }, [izquierda.buffer, derecha.buffer]);
     });
     cancelar = null;
-
     publicar({ trabajo: { nombre, motor: r.motor, fase: "guardando" } });
-    const audios = {} as Record<Pista, Blob>;
+    await escrituras;
+    if (esMovil()) {
+      // En el móvil se suelta ya la memoria del separador (la próxima vez se vuelve a preparar).
+      trabajador?.terminate();
+      trabajador = null;
+    }
+
+    const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `c${Date.now().toString(36)}`;
     let bytes = 0;
-    for (const [pista, datos] of Object.entries(r.pistas) as [Pista, Int16Array][]) {
-      const blob = crearWav(datos, FRECUENCIA);
-      audios[pista] = blob;
-      bytes += blob.size;
+    for (const { id: pista } of PISTAS) {
+      const wav = crearWavDePartes(await leerBloques(pista, r.bloques), FRECUENCIA);
+      await guardarAudio(id, pista as Pista, wav);
+      bytes += wav.size;
     }
     const cancion: Cancion = {
-      id: typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `c${Date.now().toString(36)}`,
+      id,
       nombre,
       duracion,
       frames: r.frames,
@@ -131,12 +185,16 @@ export async function separarCancion(archivo: File): Promise<Cancion | null> {
       motor: r.motor,
       segundosSeparando: Math.round((performance.now() - inicio) / 1000),
     };
-    await guardarCancion(cancion, audios);
+    await guardarCancion(cancion, {} as Record<Pista, Blob>);
+    void vaciarTemporal();
+    quitarMarca();
     pedirPersistencia();
     publicar({ trabajo: null, terminada: cancion });
     return cancion;
   } catch (e) {
     cancelar = null;
+    quitarMarca();
+    void vaciarTemporal();
     const parada = (e as Error).message === "parada";
     if (!parada && trabajador) {
       // Tras un fallo el worker puede quedar a medias: se empieza limpio la próxima vez.
