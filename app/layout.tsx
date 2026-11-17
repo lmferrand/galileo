@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Bodoni_Moda, Manrope } from "next/font/google";
 import RegistroOffline from "@/components/RegistroOffline";
 import "./globals.css";
+import "./pistas.css";
 
 const bodoni = Bodoni_Moda({
   subsets: ["latin", "symbols"],

@@ -7,6 +7,7 @@ import Hoja from "./Hoja";
 import SelectorAfinacion, { ID_CROMATICO } from "./SelectorAfinacion";
 import EditorAfinacion from "./EditorAfinacion";
 import Ajustes from "./Ajustes";
+import Navegacion from "./Navegacion";
 import { AFINACIONES, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
@@ -260,14 +261,7 @@ export default function Afinador() {
   return (
     <main className={`app ${listo ? "es-lista" : ""}`}>
       <header className="cabecera">
-        <div className="marca" aria-label="Clavija">
-          <svg viewBox="0 0 32 32" className="marca-icono" aria-hidden="true">
-            <circle cx="16" cy="16" r="13" className="marca-aro" />
-            <circle cx="16" cy="16" r="7.5" className="marca-boca" />
-            <path d="M16 3.6 L18.2 7 L13.8 7 Z" className="marca-muesca" />
-          </svg>
-          <span>Clavija</span>
-        </div>
+        <Navegacion actual="afinar" />
         <div className="cabecera-acciones">
           {(estado === "escuchando" || estado === "pidiendo") && (
             <button type="button" className="boton-icono activo" onClick={parar} aria-label="Pausar el micrófono">
@@ -276,7 +270,7 @@ export default function Afinador() {
           )}
           <button type="button" className="boton-la" onClick={() => setHoja("ajustes")} aria-label={`Ajustes. La a ${prefs.la4} hercios`}>
             <IconoAjustes />
-            <span>La {prefs.la4}</span>
+            <span className="boton-la-texto">La {prefs.la4}</span>
           </button>
         </div>
       </header>
