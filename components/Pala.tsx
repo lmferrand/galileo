@@ -1,48 +1,49 @@
 "use client";
 
-// El clavijero: la foto de la pala (lacado negro, llaves doradas y nácar) con
-// todo lo interactivo encima. Las coordenadas están en píxeles de la imagen
-// recortada (820 × 1412) y se pasan a porcentajes, así encajan a cualquier tamaño.
-// Las cuerdas se dibujan encima de las de la foto (que a tamaño de móvil casi no
-// se ven) y siguen por un mástil dibujado hasta el borde de la pantalla.
+// El clavijero: la imagen de la pala (lacado negro, llaves doradas, nácar y
+// «Clavija» en el lacado) con todo lo interactivo encima. Las coordenadas están
+// en píxeles de la imagen recortada (815 × 1392) y se pasan a porcentajes, así
+// encajan a cualquier tamaño. Las cuerdas se dibujan encima de las de la imagen
+// para que se vean bien en el móvil y siguen por un mástil dibujado hasta el
+// borde de la pantalla. La nota solo aparece en la llave de la cuerda que suena.
 
 import { partesNota, type Notacion } from "@/lib/notas";
 
-const ANCHO = 820;
-const ALTO = 1412;
+const ANCHO = 815;
+const ALTO = 1392;
 const FONDO = 3200; // hasta dónde se dibuja el mástil (se recorta con la pantalla)
 
 // Cuerda 6.ª … 1.ª: las tres graves a la izquierda (de abajo arriba) y las tres agudas a la derecha.
 const LLAVE = [
-  { x: 75, y: 831, lado: "izq" },
-  { x: 75, y: 628, lado: "izq" },
-  { x: 75, y: 417, lado: "izq" },
-  { x: 735, y: 417, lado: "der" },
-  { x: 735, y: 628, lado: "der" },
-  { x: 735, y: 831, lado: "der" },
+  { x: 68, y: 856, lado: "izq" },
+  { x: 68, y: 636, lado: "izq" },
+  { x: 68, y: 421, lado: "izq" },
+  { x: 745, y: 416, lado: "der" },
+  { x: 745, y: 631, lado: "der" },
+  { x: 745, y: 851, lado: "der" },
 ] as const;
 const POSTE = [
-  { x: 263, y: 837 },
-  { x: 263, y: 632 },
-  { x: 260, y: 420 },
-  { x: 560, y: 420 },
-  { x: 550, y: 630 },
-  { x: 555, y: 837 },
+  { x: 255, y: 846 },
+  { x: 258, y: 631 },
+  { x: 250, y: 416 },
+  { x: 555, y: 411 },
+  { x: 550, y: 631 },
+  { x: 555, y: 846 },
 ];
-// Recorrido de cada cuerda en la foto, medido fila a fila: de su poste a la cejuela.
+// Recorrido de cada cuerda en la imagen, medido fila a fila: de su poste a la cejuela.
 const RECORRIDO: [number, number][][] = [
-  [[287, 865], [285, 900], [282, 1000], [280, 1100], [278, 1200], [277, 1300], [275, 1340]],
-  [[289, 655], [291, 700], [295, 760], [298, 800], [306, 900], [310, 960], [312, 1000], [317, 1100], [321, 1200], [327, 1300], [327, 1340]],
-  [[280, 445], [284, 470], [290, 520], [300, 600], [311, 700], [319, 760], [324, 800], [337, 900], [344, 960], [350, 1000], [357, 1100], [366, 1200], [373, 1280], [375, 1300], [377, 1340]],
-  [[538, 445], [533, 470], [527, 520], [517, 600], [506, 700], [498, 760], [494, 800], [483, 900], [476, 960], [471, 1000], [460, 1100], [450, 1200], [441, 1280], [439, 1300], [436, 1340]],
-  [[532, 655], [529, 700], [525, 760], [522, 800], [514, 900], [510, 960], [508, 1000], [503, 1100], [496, 1200], [490, 1280], [489, 1300], [486, 1340]],
-  [[537, 865], [537, 900], [537, 1340]],
+  [[281, 868], [280, 900], [279, 950], [278, 1100], [276, 1200], [275, 1290], [274, 1360]],
+  [[286, 655], [288, 700], [291, 760], [293, 800], [299, 870], [301, 900], [303, 950], [306, 1000], [312, 1100], [318, 1200], [323, 1290], [324, 1360]],
+  [[280, 445], [284, 470], [290, 520], [298, 600], [306, 660], [310, 700], [316, 760], [321, 800], [330, 870], [333, 900], [338, 950], [343, 1000], [355, 1100], [367, 1200], [372, 1250], [375, 1290], [377, 1360]],
+  [[535, 440], [527, 470], [520, 520], [512, 600], [505, 660], [500, 700], [493, 760], [489, 800], [481, 870], [478, 900], [473, 950], [468, 1000], [456, 1100], [445, 1200], [439, 1250], [434, 1290], [431, 1320], [431, 1360]],
+  [[527, 655], [525, 700], [521, 760], [520, 800], [515, 870], [513, 900], [510, 950], [507, 1000], [500, 1100], [492, 1200], [488, 1250], [485, 1290], [483, 1320], [483, 1360]],
+  [[533, 868], [533, 950], [534, 1100], [535, 1200], [535, 1360]],
 ];
 const GROSOR = [10, 9, 8, 6, 5, 4.5];
-// Trastes a partir de la cejuela (≈ 1375), cada uno un 5,6 % más cerca que el anterior.
+// Trastes a partir de la cejuela (≈ 1341), cada uno un 5,6 % más cerca que el anterior.
 const TRASTES = (() => {
   const t: number[] = [];
-  let y = 1375;
+  let y = 1341;
   let paso = 274;
   for (let i = 0; i < 7; i++) {
     y += paso;
@@ -92,11 +93,11 @@ export default function Pala({ notas, notacion, bemoles, seleccionada, sonando, 
             <stop offset="100%" stopColor="#8f897f" />
           </linearGradient>
         </defs>
-        <rect x="241" y={ALTO - 2} width="325" height={FONDO - ALTO} fill="url(#palisandro)" />
-        <rect x="241" y={ALTO - 2} width="11" height={FONDO - ALTO} fill="url(#filete-oro)" />
-        <rect x="555" y={ALTO - 2} width="11" height={FONDO - ALTO} fill="url(#filete-oro)" />
+        <rect x="237" y={ALTO - 2} width="331" height={FONDO - ALTO} fill="url(#palisandro)" />
+        <rect x="237" y={ALTO - 2} width="12" height={FONDO - ALTO} fill="url(#filete-oro)" />
+        <rect x="556" y={ALTO - 2} width="12" height={FONDO - ALTO} fill="url(#filete-oro)" />
         {TRASTES.map((y) => (
-          <rect key={y} x="252" y={y - 4} width="303" height="8" rx="2" fill="url(#traste)" />
+          <rect key={y} x="249" y={y - 4} width="307" height="8" rx="2" fill="url(#traste)" />
         ))}
       </svg>
 
@@ -104,8 +105,8 @@ export default function Pala({ notas, notacion, bemoles, seleccionada, sonando, 
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         className="pala-foto"
-        src="/pala/clavijero2-820.webp"
-        srcSet="/pala/clavijero2-500.webp 500w, /pala/clavijero2-820.webp 820w"
+        src="/pala/clavijero3-815.webp"
+        srcSet="/pala/clavijero3-500.webp 500w, /pala/clavijero3-815.webp 815w"
         sizes="(min-width: 900px) 420px, 300px"
         width={ANCHO}
         height={ALTO}
@@ -115,20 +116,10 @@ export default function Pala({ notas, notacion, bemoles, seleccionada, sonando, 
 
       <svg className="pala-capa" viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio="none" aria-hidden="true">
         <defs>
-          <linearGradient id="oro-marca" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#fff2c8" />
-            <stop offset="45%" stopColor="#e9c46e" />
-            <stop offset="100%" stopColor="#a8792c" />
-          </linearGradient>
           <filter id="brillo-pala" x="-50%" y="-10%" width="200%" height="120%">
             <feGaussianBlur stdDeviation="5" />
           </filter>
         </defs>
-
-        {/* Nuestra marca, en el sitio donde iba la del fabricante */}
-        <text x="404" y="206" textAnchor="middle" className="pala-marca-texto">
-          Clavija
-        </text>
 
         {/* Las seis cuerdas, bien visibles: bronce las graves, acero las agudas */}
         <g className="pala-cuerdas">
@@ -163,12 +154,19 @@ export default function Pala({ notas, notacion, bemoles, seleccionada, sonando, 
       {notas.map((midi, i) => {
         const { base, alteracion, octava } = partesNota(midi, notacion, bemoles);
         const { x, y, lado } = LLAVE[i];
-        const estado = afinadas.has(i) ? "afinada" : sonando === i ? "sonando" : "";
+        // La nota solo se enseña en la cuerda que suena o en la que has tocado en la pantalla.
+        const clases = [
+          "llave",
+          lado,
+          seleccionada === i ? "elegida" : "",
+          sonando === i ? "sonando" : "",
+          afinadas.has(i) ? "afinada" : "",
+        ].join(" ");
         return (
           <button
             key={i}
             type="button"
-            className={`llave ${lado} ${seleccionada === i ? "elegida" : ""} ${estado}`}
+            className={clases}
             style={{ left: pct(x, ANCHO), top: pct(y, ALTO) }}
             onClick={() => onElegir(i)}
             disabled={desactivada}

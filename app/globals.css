@@ -662,18 +662,6 @@ p {
   pointer-events: none;
 }
 
-.pala-marca-texto {
-  font-family: var(--f-display);
-  font-style: italic;
-  font-weight: 600;
-  font-size: 92px;
-  letter-spacing: 0.01em;
-  fill: url(#oro-marca);
-  paint-order: stroke;
-  stroke: rgba(0, 0, 0, 0.55);
-  stroke-width: 2px;
-}
-
 /* Cuerdas dibujadas encima de la foto */
 .pala-cuerda,
 .pala-cuerda-sombra {
@@ -781,6 +769,8 @@ p {
 }
 .llave-nota {
   position: relative;
+  opacity: 0;
+  transition: opacity 180ms ease;
   display: flex;
   align-items: flex-start;
   font-family: var(--f-display);
@@ -797,6 +787,11 @@ p {
 }
 .llave.der .llave-nota {
   transform: translateX(-0.2cqi);
+}
+/* La nota solo aparece en la cuerda que suena o en la que has tocado */
+.llave.sonando .llave-nota,
+.llave.elegida .llave-nota {
+  opacity: 1;
 }
 .llave-alt {
   font-size: 0.62em;
