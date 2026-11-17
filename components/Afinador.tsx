@@ -349,19 +349,21 @@ export default function Afinador() {
         </div>
 
         <div className="zona-pala">
-          <Pala
-            notas={afinacion.notas}
-            notacion={prefs.notacion}
-            bemoles={afinacion.bemoles}
-            seleccionada={!cromatico && !automatico ? cuerdaManual : null}
-            sonando={cromatico ? null : sonandoCuerda}
-            afinadas={afinadas}
-            desactivada={cromatico}
-            onElegir={(i) => {
-              setAutomatico(false);
-              setCuerdaManual(i);
-            }}
-          />
+          <div className="pala-marco">
+            <Pala
+              notas={afinacion.notas}
+              notacion={prefs.notacion}
+              bemoles={afinacion.bemoles}
+              seleccionada={!cromatico && !automatico ? cuerdaManual : null}
+              sonando={cromatico ? null : sonandoCuerda}
+              afinadas={afinadas}
+              desactivada={cromatico}
+              onElegir={(i) => {
+                setAutomatico(false);
+                setCuerdaManual(i);
+              }}
+            />
+          </div>
 
           {!cromatico && (
             <div className="pala-acciones">
