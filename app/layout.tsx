@@ -1,73 +1,50 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Bodoni_Moda, Manrope } from "next/font/google";
+import RegistroOffline from "@/components/RegistroOffline";
 import "./globals.css";
-import ThemeProvider from "./components/ThemeProvider";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
+const bodoni = Bodoni_Moda({
+  subsets: ["latin", "symbols"],
+  style: ["normal", "italic"],
+  axes: ["opsz"],
+  variable: "--font-bodoni",
+  display: "swap",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://app.extraccionesteros.es";
-
-export const viewport: Viewport = {
-  themeColor: "#0ea5e9",
-};
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: "Los Teros — Gestión",
-  description: "App de gestión integral de Extracciones Teros: financiero, clientes, órdenes de trabajo, inventario y más.",
-  openGraph: {
-    title: "Los Teros — Gestión",
-    description: "Gestión integral de la empresa: financiero, clientes, órdenes, inventario y más.",
-    url: siteUrl,
-    siteName: "Los Teros",
-    images: [{ url: "/logo.png", width: 500, height: 500, alt: "Los Teros" }],
-    locale: "es_ES",
-    type: "website",
+  title: "Clavija · Afinador de guitarra",
+  description: "Afina tu guitarra con el micrófono del móvil, en estándar, drop, abiertas o en tu propia afinación.",
+  applicationName: "Clavija",
+  appleWebApp: {
+    capable: true,
+    title: "Clavija",
+    statusBarStyle: "black-translucent",
   },
+  formatDetection: { telephone: false },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#1d100c" },
+    { media: "(prefers-color-scheme: light)", color: "#ecdcb9" },
+  ],
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" suppressHydrationWarning className={`${inter.variable} h-full antialiased`}>
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-          (function() {
-            try {
-              var root = document.documentElement;
-              root.classList.add('no-theme-transition');
-              var tema = localStorage.getItem('tema') === 'dark' ? 'dark' : 'light';
-              var bg = tema === 'dark' ? '#0b1220' : '#f5f7fa';
-              root.setAttribute('data-theme', tema);
-              if (tema === 'dark') root.classList.add('dark');
-              else root.classList.remove('dark');
-              root.style.backgroundColor = bg;
-              if (document.body) {
-                document.body.style.backgroundColor = bg;
-              } else {
-                document.addEventListener('DOMContentLoaded', function() {
-                  document.body.style.backgroundColor = bg;
-                }, { once: true });
-              }
-              requestAnimationFrame(function() {
-                root.classList.remove('no-theme-transition');
-              });
-            } catch(e) {}
-          })();
-        `,
-          }}
-        />
-      </head>
-      <body className="min-h-full">
-        <ThemeProvider>{children}</ThemeProvider>
+    <html lang="es" className={`${bodoni.variable} ${manrope.variable}`}>
+      <body>
+        {children}
+        <RegistroOffline />
       </body>
     </html>
   );

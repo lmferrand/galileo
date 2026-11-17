@@ -1,45 +1,22 @@
-# Los Teros — Control financiero
+# Clavija
 
-App interna de **control financiero** para Extracciones Teros (limpieza,
-instalaciones y mantenimiento). Gestiona presupuestos aceptados como ventas y
-controla **cobros, ejecución, facturación, IVA y márgenes**, para ver de un
-vistazo el desfase entre lo vendido, lo ejecutado y lo facturado.
+Afinador de guitarra que funciona en el navegador con el micrófono del móvil.
+Sustituye a la antigua app de Los Teros en el mismo proyecto de Vercel.
 
-- **Producción:** https://app.extraccionesteros.es
-- **Stack:** Next.js 16 (App Router) · TypeScript · Tailwind v4 · Supabase · Vercel
+## Qué hace
 
-## Puesta en marcha
+- Detecta la nota con el algoritmo YIN (`lib/yin.ts`), estabilizada con una mediana (`lib/motor.ts`).
+- 19 afinaciones (estándar, bajadas, drop, abiertas, DADGAD…) y afinaciones propias (`lib/afinaciones.ts`).
+- Modo automático (sabe qué cuerda suena) o manual (tocando una clavija), y modo cromático.
+- Nota de referencia sintetizada (`lib/tono.ts`) y La de referencia ajustable (415–466 Hz).
+- Se instala en la pantalla de inicio y abre sin internet (`public/sw.js`).
+- Las preferencias se guardan en el propio aparato; no usa base de datos.
+
+## Desarrollo
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000
-npm run build        # build + type-check (debe quedar verde antes de push)
+npm run dev
 ```
 
-Variables en `.env.local`: `NEXT_PUBLIC_SUPABASE_URL`,
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` (y en Vercel además `SUPABASE_SERVICE_ROLE_KEY`,
-`GROQ_API_KEY`).
-
-## Base de datos
-
-Ejecuta **`SQL_control_financiero.sql`** en el SQL Editor de Supabase: crea las
-tablas `ventas` y `gastos`, sus políticas RLS, el bucket `documentos-ia` y unos
-datos de ejemplo realistas para probar.
-
-## Estructura
-
-- `app/dashboard` — KPIs del mes y avisos.
-- `app/presupuestos` — lista con filtros, formulario y ficha (IVA, cronología,
-  márgenes, gastos).
-- `app/facturacion` — pivote por mes (venta/cobro/ejecución/facturación).
-- `app/margenes`, `app/alertas` — análisis de márgenes y avisos.
-- `app/documentos` — extracción de datos de documentos con IA (simulada en v1).
-- `lib/` — `tipos`, `dominio`, `calculos`, `agregados`, `db/`, `ia/`.
-
-## Despliegue
-
-Push a `main` despliega en Vercel sobre `app.extraccionesteros.es`. Flujo:
-`npm run build` verde → commit (`tipo(ámbito): resumen`) → push.
-
-> El código operativo anterior (clientes/órdenes/inventario) está archivado en la
-> rama `respaldo/operativa-v1` y el tag `v1-operativa`.
+El micrófono solo funciona en `localhost` o con HTTPS.

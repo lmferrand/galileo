@@ -1,19 +1,21 @@
-import type { MetadataRoute } from 'next'
+import type { MetadataRoute } from "next";
 
-// Manifest PWA: define cómo se ve la app al "añadir a pantalla de inicio".
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Los Teros — Gestión',
-    short_name: 'Los Teros',
-    description: 'Gestión integral de la empresa: financiero, clientes, órdenes, inventario y más.',
-    start_url: '/',
-    display: 'standalone',
-    background_color: '#f5f7fa',
-    theme_color: '#0ea5e9',
+    name: "Clavija · Afinador de guitarra",
+    short_name: "Clavija",
+    description: "Afinador de guitarra con el micrófono del móvil.",
+    lang: "es",
+    start_url: "/",
+    scope: "/",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#1d100c",
+    theme_color: "#1d100c",
     icons: [
-      { src: '/icono-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/icono-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/icono-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: "/icono-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/icono-512.png", sizes: "512x512", type: "image/png" },
+      { src: "/icono-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
-  }
+  };
 }
