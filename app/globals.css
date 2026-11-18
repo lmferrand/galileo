@@ -1701,9 +1701,10 @@ html.hueco:has(.con-escenario),
 html.hueco:has(.con-escenario) body {
   overflow: hidden;
 }
-/* Lo que va fijo abajo (botones y hojas) se pega al borde real */
+/* Lo que va fijo abajo (botones y hojas) se pega al borde real: --hueco-fijo es lo que le
+   falta para llegar (lo mide HuecoIphone; con la página ya estirada suele ser 0) */
 .hoja-fondo {
-  bottom: calc(-1 * var(--hueco-abajo, 0px));
+  bottom: calc(-1 * var(--hueco-fijo, 0px));
 }
 
 
@@ -1713,9 +1714,11 @@ html:has(.app.con-estudio),
 html:has(.con-escenario) {
   background: #120a06;
 }
-.fondo-estudio,
-.elegir {
+.fondo-estudio {
   bottom: calc(-1 * var(--hueco-abajo, 0px) - 2px);
+}
+.elegir {
+  bottom: calc(-1 * var(--hueco-fijo, 0px));
 }
 @media (prefers-reduced-motion: reduce) {
   .elegir.llegando {
@@ -1740,7 +1743,7 @@ html.hueco {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(-1 * var(--hueco-abajo, 0px));
+  bottom: calc(-1 * var(--hueco-fijo, 0px));
   z-index: 20;
   display: flex;
   justify-content: space-evenly;

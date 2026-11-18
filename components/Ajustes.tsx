@@ -27,11 +27,13 @@ export default function Ajustes({ la4, notacion, onLa4, onNotacion, onEntrada }:
     const arriba = Math.round(parseFloat(estilo.paddingTop) || 0);
     const abajo = Math.round(parseFloat(estilo.paddingBottom) || 0);
     prueba.remove();
-    const hueco = getComputedStyle(document.documentElement).getPropertyValue("--hueco-abajo").trim() || "0px";
+    const raiz = getComputedStyle(document.documentElement);
+    const hueco = raiz.getPropertyValue("--hueco-abajo").trim() || "0px";
+    const huecoFijo = raiz.getPropertyValue("--hueco-fijo").trim() || "0px";
     const comoApp = matchMedia("(display-mode: standalone)").matches;
     const visible = Math.round(window.visualViewport?.height ?? window.innerHeight);
     setMedidas(
-      `Pantalla ${screen.width}×${screen.height}, zona útil ${window.innerWidth}×${window.innerHeight} (visible ${visible}), ${comoApp ? "modo app" : "navegador"}, hueco ${hueco}, márgenes ${arriba} arriba y ${abajo} abajo.`,
+      `Pantalla ${screen.width}×${screen.height}, zona útil ${window.innerWidth}×${window.innerHeight} (visible ${visible}), ${comoApp ? "modo app" : "navegador"}, hueco ${hueco} (botones ${huecoFijo}), márgenes ${arriba} arriba y ${abajo} abajo.`,
     );
   }, []);
 

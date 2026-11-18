@@ -7,7 +7,7 @@
 // móvil y siguen por un mástil dibujado hasta el borde de la pantalla. La nota
 // solo aparece en la llave de la cuerda que suena.
 
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { partesNota, type Notacion } from "@/lib/notas";
 import type { GeometriaPala } from "@/lib/palas";
 
@@ -66,6 +66,9 @@ const pct = (v: number, total: number) => `${(v / total) * 100}%`;
 export default function Pala({ geometria: g, notas, notacion, bemoles, seleccionada, sonando, afinadas, desactivada, sube, baja, onElegir }: Props) {
   const { ancho: ANCHO, alto: ALTO } = g.imagen;
   const m = g.mastil;
+  // Se decide al aparecer y no cambia: si al acabar de subir se quitara la clase, el
+  // navegador arrancaría la animación de entrada y la pala parpadearía.
+  const [subio] = useState(Boolean(sube));
   const total = notas.length;
   const estilo = {
     aspectRatio: `${ANCHO} / ${ALTO}`,
@@ -75,7 +78,7 @@ export default function Pala({ geometria: g, notas, notacion, bemoles, seleccion
   } as CSSProperties;
 
   return (
-    <div className={`pala ${g.metal} ${desactivada ? "es-desactivada" : ""} ${sube ? "sube" : ""} ${baja ? "baja" : ""}`} style={estilo}>
+    <div className={`pala ${g.metal} ${desactivada ? "es-desactivada" : ""} ${subio ? "sube" : ""} ${baja ? "baja" : ""}`} style={estilo}>
       {/* El mástil sigue debajo de la foto hasta el borde de la pantalla */}
       <svg className="pala-capa pala-mastil" viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio="none" aria-hidden="true">
         <defs>
