@@ -5,6 +5,7 @@ import Navegacion from "./Navegacion";
 import Reproduccion from "./Reproduccion";
 import FondoEstudio from "./FondoEstudio";
 import Nube from "./Nube";
+import Hoja from "./Hoja";
 import { borrarCancion, espacio, listarCanciones, pedirPersistencia } from "@/lib/pistas/almacen";
 import { contenidoZip, esPaquete, importarSeparada, type CancionEnZip } from "@/lib/pistas/importar";
 import {
@@ -45,6 +46,9 @@ export default function Pistas() {
   const [abriendoZip, setAbriendoZip] = useState(false);
   const entradaZip = useRef<HTMLInputElement>(null);
   const entrada = useRef<HTMLInputElement>(null);
+  // Hoja abierta: la nube o la ayuda (antes eran una tarjeta y párrafos en la pantalla)
+  const [hoja, setHoja] = useState<"nube" | "ayuda" | null>(null);
+  const cerrarHoja = useCallback(() => setHoja(null), []);
 
   const recargar = useCallback(async () => {
     try {
@@ -199,7 +203,6 @@ export default function Pistas() {
 
       <section className="pistas-intro">
         <h1>Tus pistas</h1>
-        <p>Separa una canción en voz, guitarra, bajo, batería, piano y el resto, y quita lo que quieras para tocar encima.</p>
         <input
           ref={entrada}
           type="file"
@@ -211,9 +214,6 @@ export default function Pistas() {
             e.target.value = "";
           }}
         />
-        <button type="button" className="boton-principal" onClick={() => entrada.current?.click()} disabled={anadiendo !== null || abriendoZip}>
-          {trabajando ? "Añadir más canciones" : "Elegir canciones"}
-        </button>
         <input
           ref={entradaZip}
           type="file"
@@ -225,43 +225,79 @@ export default function Pistas() {
             e.target.value = "";
           }}
         />
-        <button type="button" className="boton-secundario ancho" onClick={() => entradaZip.current?.click()} disabled={anadiendo !== null || abriendoZip}>
-          {abriendoZip ? "Abriendo el .zip…" : "Elegir un .zip con canciones"}
-        </button>
-        <p className="pistas-letra-pequena">
-          Puedes elegir varias a la vez: se separan una detrás de otra. Se separa en este aparato y la canción no sale de aquí. La primera
-          vez descarga el separador ({PESO_MODELO}): mejor con wifi. En un .zip pueden venir varias: las que estén en mp3, m4a o wav se separan y las que ya vengan separadas entran al momento.
-        </p>
-        {esMovil && (
-          <p className="pistas-letra-pequena">
-            Elige un mp3, m4a o wav de la app Archivos (hasta 8 minutos). Las canciones de Apple Music o Spotify no se pueden abrir porque
-            vienen protegidas. Tarda unos minutos: deja la pantalla encendida y The Clavija abierta hasta que acabe.
-          </p>
-        )}
-        {sinGpu && (
-          <p className="pistas-aviso">
-            Este navegador solo deja usar un núcleo del procesador, así que separar irá unas cuatro veces más lento.
-          </p>
-        )}
+        {/* Cuatro bloques en vez de párrafos: lo que explica cada cosa está en «Ayuda» */}
+        <div className="pistas-bloques">
+          <button type="button" className="bloque principal" onClick={() => entrada.current?.click()} disabled={anadiendo !== null || abriendoZip}>
+            <IconoNota />
+            <span>{trabajando ? "Añadir" : "Canciones"}</span>
+          </button>
+          <button type="button" className="bloque" onClick={() => entradaZip.current?.click()} disabled={anadiendo !== null || abriendoZip}>
+            <IconoZip />
+            <span>{abriendoZip ? "Abriendo…" : ".zip"}</span>
+          </button>
+          <button type="button" className="bloque" onClick={() => setHoja("nube")}>
+            <IconoNube />
+            <span>Nube</span>
+          </button>
+          <button type="button" className="bloque" onClick={() => setHoja("ayuda")}>
+            <IconoAyuda />
+            <span>Ayuda</span>
+          </button>
+        </div>
+      </section>
 
+      <Hoja abierta={hoja === "nube"} titulo="Tu nube" onCerrar={cerrarHoja}>
+        {canciones !== null && (
+          <Nube
+            canciones={canciones}
+            esMovil={esMovil}
+            onCambio={recargar}
+            onAbrir={(c) => {
+              setHoja(null);
+              setAbierta(c);
+            }}
+          />
+        )}
+      </Hoja>
+
+      <Hoja abierta={hoja === "ayuda"} titulo="Cómo funciona" onCerrar={cerrarHoja}>
+        <ul className="pistas-ayuda">
+          <li>
+            <b>Canciones:</b> elige uno o varios mp3, m4a o wav{esMovil ? " de la app Archivos (hasta 8 minutos)" : ""}. Se separan en voz,
+            guitarra, bajo, batería, piano y el resto, aquí mismo y una detrás de otra.
+          </li>
+          <li>
+            <b>.zip:</b> varias canciones juntas. Las que ya vienen separadas entran al momento.
+          </li>
+          <li>La primera vez se descarga el separador ({PESO_MODELO}): mejor con wifi.</li>
+          <li>Las de Apple Music o Spotify no se pueden abrir: vienen protegidas.</li>
+          {esMovil && <li>Mientras separa, deja la pantalla encendida y The Clavija abierta.</li>}
+          {sinGpu && <li>Este navegador solo deja usar un núcleo: separar irá unas cuatro veces más lento.</li>}
+        </ul>
         {canciones !== null && !canciones.some((c) => c.id === ID_EJEMPLO) && (
           <div className="ejemplo">
             <button
               type="button"
               className="boton-secundario ancho"
-              onClick={abrirEjemplo}
+              onClick={() => {
+                setHoja(null);
+                void abrirEjemplo();
+              }}
               disabled={ejemplo !== null && "fraccion" in ejemplo}
             >
               {ejemplo && "fraccion" in ejemplo ? `Bajando la canción de ejemplo… ${Math.round(ejemplo.fraccion * 100)} %` : "Probar con una canción de ejemplo"}
             </button>
             <p className="pistas-letra-pequena">
-              {ejemplo && "error" in ejemplo
-                ? ejemplo.error
-                : `Viene ya separada: se descargan ${PESO_EJEMPLO} y no hace falta el separador. La puedes borrar cuando quieras.`}
+              {ejemplo && "error" in ejemplo ? ejemplo.error : `Viene ya separada (${PESO_EJEMPLO}).`}
             </p>
           </div>
         )}
-      </section>
+        {uso && (
+          <p className="biblioteca-espacio">
+            En este aparato: {formatoMB(uso.usado)} usados de {formatoMB(uso.disponible)} disponibles.
+          </p>
+        )}
+      </Hoja>
 
       {sep.trabajo && <TarjetaTrabajo trabajo={sep.trabajo} enCola={sep.enCola} tanda={sep.tanda} />}
 
@@ -326,8 +362,6 @@ export default function Pistas() {
         </div>
       )}
 
-      {canciones !== null && <Nube canciones={canciones} esMovil={esMovil} onCambio={recargar} onAbrir={setAbierta} />}
-
       <section className="biblioteca" aria-label="Canciones separadas">
         {canciones === null ? null : canciones.length === 0 ? (
           !trabajando && <p className="biblioteca-vacia">Aquí aparecerán las canciones que separes.</p>
@@ -338,8 +372,8 @@ export default function Pistas() {
                 <button type="button" className="biblioteca-fila" onClick={() => setAbierta(c)}>
                   <span className="biblioteca-nombre">{c.nombre}</span>
                   <span className="biblioteca-datos">
-                    {formatoTiempo(c.duracion)}, {formatoMB(c.bytes)}
-                    {c.nube ? ", también en la nube" : ""}
+                    {formatoTiempo(c.duracion)}
+                    {c.nube && <IconoNube pequeno />}
                   </span>
                 </button>
                 {borrando === c.id ? (
@@ -360,18 +394,13 @@ export default function Pistas() {
                     </button>
                   </span>
                 ) : (
-                  <button type="button" className="boton-texto suave" onClick={() => setBorrando(c.id)} aria-label={`Borrar ${c.nombre}`}>
-                    Borrar
+                  <button type="button" className="biblioteca-borrar" onClick={() => setBorrando(c.id)} aria-label={`Borrar ${c.nombre}`}>
+                    <IconoPapelera />
                   </button>
                 )}
               </li>
             ))}
           </ul>
-        )}
-        {uso && canciones && canciones.length > 0 && (
-          <p className="biblioteca-espacio">
-            En este aparato: {formatoMB(uso.usado)} usados de {formatoMB(uso.disponible)} disponibles.
-          </p>
         )}
       </section>
     </main>
@@ -446,5 +475,58 @@ function TarjetaTrabajo({ trabajo, enCola, tanda }: { trabajo: Trabajo; enCola: 
         {enCola.length > 0 ? "Deja The Clavija abierta hasta que acaben todas; «Parar» las para todas." : "Deja esta pantalla abierta hasta que acabe."}
       </p>
     </div>
+  );
+}
+
+function IconoNota() {
+  return (
+    <svg viewBox="0 0 24 24" className="icono" aria-hidden="true">
+      <path d="M9 18.5V5.5l10-2v12.5" />
+      <circle cx="6.5" cy="18.5" r="2.5" />
+      <circle cx="16.5" cy="16" r="2.5" />
+    </svg>
+  );
+}
+
+/** Un archivo con cremallera: el .zip */
+function IconoZip() {
+  return (
+    <svg viewBox="0 0 24 24" className="icono" aria-hidden="true">
+      <path d="M6 3h9l4 4v14H6z" />
+      <path d="M11 3v2h2v2h-2v2h2v2h-2v2.5" />
+      <rect x="10" y="13.5" width="3" height="3.5" rx="0.8" />
+    </svg>
+  );
+}
+
+function IconoNube({ pequeno }: { pequeno?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={`icono ${pequeno ? "icono-dato" : ""}`}
+      aria-hidden={pequeno ? undefined : true}
+      role={pequeno ? "img" : undefined}
+      aria-label={pequeno ? "También en la nube" : undefined}
+    >
+      <path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z" />
+    </svg>
+  );
+}
+
+function IconoAyuda() {
+  return (
+    <svg viewBox="0 0 24 24" className="icono" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.6 9.3a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2 1-1.2 1.9v.4" />
+      <path d="M12 17.2v.3" />
+    </svg>
+  );
+}
+
+function IconoPapelera() {
+  return (
+    <svg viewBox="0 0 24 24" className="icono" aria-hidden="true">
+      <path d="M4.5 6.5h15M9.5 6.5V4.5h5v2M6.5 6.5l1 13h9l1-13M10.2 10v6.5M13.8 10v6.5" />
+    </svg>
   );
 }

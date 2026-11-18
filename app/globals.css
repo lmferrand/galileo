@@ -739,13 +739,13 @@ p {
 .app.con-estudio .pala-marco {
   transform: translate3d(calc(var(--gx, 0px) * -0.22), calc(var(--gy, 0px) * -0.22), 0);
 }
-/* La lista de Pistas tiene mucho texto: velo más fuerte. */
+/* Lista de Pistas: velo suave para que se vea el estudio (los bloques y la lista llevan su cristal). */
 .fondo-estudio.vertical .fondo-velo {
-  background: linear-gradient(to bottom, rgba(20, 10, 5, 0.8), rgba(20, 10, 5, 0.66) 45%, rgba(20, 10, 5, 0.86));
+  background: linear-gradient(to bottom, rgba(20, 10, 5, 0.55), rgba(20, 10, 5, 0.22) 38%, rgba(20, 10, 5, 0.5));
 }
 @media (prefers-color-scheme: light) {
   .fondo-estudio.vertical .fondo-velo {
-    background: linear-gradient(to bottom, rgba(248, 239, 217, 0.9), rgba(244, 231, 204, 0.8) 45%, rgba(236, 220, 185, 0.92));
+    background: linear-gradient(to bottom, rgba(248, 239, 217, 0.62), rgba(244, 231, 204, 0.3) 38%, rgba(236, 220, 185, 0.58));
   }
 }
 .fondo-velo {

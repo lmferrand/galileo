@@ -868,3 +868,176 @@ a.marca {
     border-left: 1px solid var(--linea);
   }
 }
+
+/* ============================================================
+   Pistas: poco texto, bloques de cristal y el estudio a la vista
+   ============================================================ */
+.pistas-intro h1 {
+  font-size: 36px;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+}
+.pistas-bloques {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.bloque {
+  aspect-ratio: 1 / 0.95;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in oklab, var(--texto) 16%, transparent);
+  background: color-mix(in oklab, var(--superficie) 42%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  backdrop-filter: blur(10px) saturate(1.2);
+  color: var(--texto);
+  font: inherit;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: transform 120ms ease, background 160ms ease;
+}
+.bloque .icono {
+  width: 28px;
+  height: 28px;
+}
+.bloque.principal {
+  border-color: transparent;
+  background: linear-gradient(160deg, var(--laton-claro), var(--laton));
+  color: #2a1709;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+}
+.bloque:active {
+  transform: scale(0.96);
+}
+.bloque:disabled {
+  opacity: 0.5;
+}
+@media (hover: hover) {
+  .bloque:not(.principal):hover {
+    background: color-mix(in oklab, var(--superficie) 60%, transparent);
+  }
+}
+
+/* La lista, en un panel de cristal: el estudio se ve detrás */
+.biblioteca {
+  margin-top: 20px;
+}
+.biblioteca ul {
+  border: 1px solid color-mix(in oklab, var(--texto) 12%, transparent);
+  border-radius: 18px;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--superficie) 38%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.15);
+  backdrop-filter: blur(10px) saturate(1.15);
+}
+.biblioteca li {
+  padding: 0 6px 0 16px;
+  border-bottom: 1px solid color-mix(in oklab, var(--texto) 9%, transparent);
+}
+.biblioteca li:last-child {
+  border-bottom: 0;
+}
+.biblioteca-fila {
+  padding: 12px 2px;
+}
+.biblioteca-nombre {
+  font-size: 19px;
+}
+.biblioteca-datos {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.icono.icono-dato {
+  width: 15px;
+  height: 15px;
+}
+.biblioteca-borrar {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--texto-3);
+  cursor: pointer;
+}
+.biblioteca-borrar .icono {
+  width: 20px;
+  height: 20px;
+}
+.biblioteca-borrar:active {
+  background: color-mix(in oklab, var(--texto) 10%, transparent);
+}
+.biblioteca-vacia {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: color-mix(in oklab, var(--superficie) 38%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+/* Los avisos y el progreso, también de cristal */
+.app-pistas .tarjeta {
+  background: color-mix(in oklab, var(--superficie) 55%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(1.15);
+  backdrop-filter: blur(12px) saturate(1.15);
+}
+
+/* Dentro de las hojas */
+.hoja .nube.tarjeta {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.pistas-ayuda {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 10px;
+  font-size: 15.5px;
+  line-height: 1.45;
+  color: var(--texto-2);
+}
+.pistas-ayuda b {
+  color: var(--texto);
+}
+.hoja .ejemplo {
+  margin-top: 18px;
+}
+.hoja .biblioteca-espacio {
+  margin-top: 16px;
+}
+/* Al entrar se ve el estudio entre los bloques y la lista; la lista, casi transparente */
+.app-pistas .biblioteca {
+  margin-top: min(26svh, 240px);
+}
+.biblioteca ul {
+  background: color-mix(in oklab, var(--superficie) 30%, transparent);
+  -webkit-backdrop-filter: blur(4px) saturate(1.1);
+  backdrop-filter: blur(4px) saturate(1.1);
+}
+.biblioteca-nombre,
+.pistas-intro h1 {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+}
+@media (prefers-color-scheme: light) {
+  .biblioteca-nombre,
+  .pistas-intro h1 {
+    text-shadow: 0 1px 8px rgba(255, 248, 235, 0.7);
+  }
+}
+/* En la hoja ya pone «Tu nube» arriba */
+.hoja .nube-titulo {
+  display: none;
+}
