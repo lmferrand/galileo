@@ -196,7 +196,8 @@ export default function Pistas() {
 
   return (
     <main className="app app-pistas">
-      <FondoEstudio foto="/estudio/pistas-fondo-1.webp" fotoHorizontal="/estudio/completo-h-fondo-1.webp" vertical />
+      {/* La foto nítida del estudio (la «-fondo» era una copia desenfocada y se veía opaca) */}
+      <FondoEstudio foto="/estudio/pistas-1.webp" fotoHorizontal="/estudio/completo-h1.webp" vertical />
       <header className="cabecera">
         <Navegacion actual="pistas" />
       </header>
@@ -370,10 +371,17 @@ export default function Pistas() {
             {canciones.map((c) => (
               <li key={c.id}>
                 <button type="button" className="biblioteca-fila" onClick={() => setAbierta(c)}>
-                  <span className="biblioteca-nombre">{c.nombre}</span>
-                  <span className="biblioteca-datos">
-                    {formatoTiempo(c.duracion)}
-                    {c.nube && <IconoNube pequeno />}
+                  <span className="biblioteca-play" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M9.5 7.2v9.6l7.6-4.8z" />
+                    </svg>
+                  </span>
+                  <span className="biblioteca-textos">
+                    <span className="biblioteca-nombre">{c.nombre}</span>
+                    <span className="biblioteca-datos">
+                      {formatoTiempo(c.duracion)}
+                      {c.nube && <IconoNube pequeno />}
+                    </span>
                   </span>
                 </button>
                 {borrando === c.id ? (

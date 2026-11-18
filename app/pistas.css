@@ -1041,3 +1041,123 @@ a.marca {
 .hoja .nube-titulo {
   display: none;
 }
+
+/* ============================================================
+   Pistas, rediseño 2: el estudio nítido a la vista y las canciones en
+   tarjetas sueltas (antes un panel de cristal sobre una foto desenfocada).
+   ============================================================ */
+/* Colores oscuros siempre, como en el afinador: va sobre la foto del estudio */
+.app-pistas {
+  --bg: #1d100c;
+  --bg-alto: #3d2117;
+  --superficie: #2a1711;
+  --superficie-2: #3a2219;
+  --linea: rgba(240, 226, 204, 0.16);
+  --texto: #f3e8d6;
+  --texto-2: #dcc6aa;
+  --texto-3: #b39a80;
+  --laton: #d9b26a;
+  --laton-claro: #f1d59d;
+  --laton-osc: #8a6833;
+  --peligro: #f08a72;
+  color-scheme: dark;
+  color: var(--texto);
+}
+html:has(.app-pistas),
+html:has(.app-pistas) body {
+  background: #120a06;
+}
+/* Solo una sombra arriba (para leer el título) y otra abajo; el centro, limpio */
+.fondo-estudio.vertical .fondo-velo,
+.fondo-estudio.vertical .fondo-velo {
+  background: linear-gradient(to bottom, rgba(14, 7, 3, 0.62) 0%, rgba(14, 7, 3, 0.12) 24%, rgba(14, 7, 3, 0) 42%, rgba(14, 7, 3, 0.18) 70%, rgba(14, 7, 3, 0.55) 100%);
+}
+@media (prefers-color-scheme: light) {
+  .fondo-estudio.vertical .fondo-velo {
+    background: linear-gradient(to bottom, rgba(14, 7, 3, 0.62) 0%, rgba(14, 7, 3, 0.12) 24%, rgba(14, 7, 3, 0) 42%, rgba(14, 7, 3, 0.18) 70%, rgba(14, 7, 3, 0.55) 100%);
+  }
+}
+.pistas-intro h1 {
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+}
+
+/* Bloques: cristal ligero */
+.bloque {
+  background: rgba(20, 10, 5, 0.34);
+  border-color: rgba(243, 226, 192, 0.2);
+  -webkit-backdrop-filter: blur(6px) saturate(1.3);
+  backdrop-filter: blur(6px) saturate(1.3);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+.bloque.principal {
+  text-shadow: none;
+}
+
+/* Canciones: tarjetas sueltas; entre ellas se ve el estudio */
+.app-pistas .biblioteca {
+  margin-top: min(32svh, 290px);
+}
+.biblioteca ul {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.biblioteca li,
+.biblioteca li:last-child {
+  padding: 0 4px 0 8px;
+  border: 1px solid rgba(243, 226, 192, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(100deg, rgba(20, 10, 5, 0.62), rgba(20, 10, 5, 0.42));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+.biblioteca-fila {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+}
+.biblioteca-play {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, var(--laton-claro), var(--laton));
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+}
+.biblioteca-play svg {
+  width: 20px;
+  height: 20px;
+  fill: #2a1709;
+}
+.biblioteca-textos {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.biblioteca-nombre {
+  font-size: 18.5px;
+  text-shadow: none;
+}
+.biblioteca-datos {
+  color: var(--texto-2);
+}
+.biblioteca-borrar {
+  color: var(--texto-3);
+}
+.biblioteca-vacia {
+  background: rgba(20, 10, 5, 0.5);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+@media (hover: hover) {
+  .biblioteca li:hover {
+    background: linear-gradient(100deg, rgba(36, 18, 9, 0.7), rgba(36, 18, 9, 0.5));
+  }
+}
