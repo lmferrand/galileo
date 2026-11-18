@@ -789,7 +789,8 @@ p {
 .pala {
   position: relative;
   flex: none;
-  width: min(100cqw, 380px, 57cqh);
+  /* Algo más pequeña que el hueco, para que debajo se vean los primeros trastes del mástil */
+  width: min(100cqw, 380px, 46cqh);
   /* La proporción la pone cada pala, la de su imagen */
   aspect-ratio: 815 / 1392;
   container-type: inline-size;
@@ -835,7 +836,7 @@ p {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: #120a06;
+  background: #120a06 var(--fondo-elegir, none) center / cover no-repeat;
   color: #f3e8d6;
 }
 .elegir-svg {
@@ -870,12 +871,10 @@ p {
     opacity: 0;
   }
 }
-.elegir-texto,
-.elegir-etiqueta {
+.elegir-texto {
   transition: opacity 220ms ease;
 }
-.elegir.saliendo .elegir-texto,
-.elegir.saliendo .elegir-etiqueta {
+.elegir.saliendo .elegir-texto {
   opacity: 0;
 }
 .elegir-texto {
@@ -927,29 +926,7 @@ p {
     opacity: 1;
   }
 }
-.elegir-etiqueta {
-  pointer-events: none;
-}
-.elegir-etiqueta rect {
-  fill: rgba(18, 9, 5, 0.74);
-  stroke: rgba(241, 213, 157, 0.6);
-  stroke-width: 1.5;
-}
-.elegir-etiqueta text {
-  fill: #f6ead6;
-  font-family: var(--f-ui);
-  font-weight: 700;
-  font-size: 27px;
-  text-anchor: middle;
-}
-.elegir-etiqueta .elegir-pronto {
-  font-size: 16px;
-  font-weight: 600;
-  fill: #c9b196;
-}
-.elegir-opcion.pronto .elegir-etiqueta > * {
-  opacity: 0.8;
-}
+
 @media (prefers-reduced-motion: reduce) {
   .elegir-foto {
     transition: none;
@@ -1673,10 +1650,19 @@ li.actual .nota-chip {
   /* de borde a borde de la pantalla, aunque la columna del afinador sea estrecha (PC) */
   left: calc(50% - 50vw);
   right: calc(50% - 50vw);
-  bottom: calc(-1 * max(14px, env(safe-area-inset-bottom)) - env(safe-area-inset-top, 0px) - 2px);
-  height: calc(150px + env(safe-area-inset-bottom) + env(safe-area-inset-top, 0px));
+  bottom: calc(-1 * max(14px, env(safe-area-inset-bottom)) - var(--hueco-abajo, 0px) - 2px);
+  height: calc(120px + env(safe-area-inset-bottom) + var(--hueco-abajo, 0px));
   pointer-events: none;
-  background: linear-gradient(to bottom, rgba(14, 7, 3, 0), rgba(14, 7, 3, 0.72) 42%, rgba(14, 7, 3, 0.9));
+  /* suave: el mástil y sus trastes se siguen viendo debajo */
+  background: linear-gradient(to bottom, rgba(14, 7, 3, 0), rgba(14, 7, 3, 0.42) 45%, rgba(14, 7, 3, 0.55));
+}
+/* El mástil llega hasta el borde de abajo también en el hueco del iPhone */
+.pala-marco {
+  bottom: calc(-1 * var(--hueco-abajo, 0px));
+}
+html.hueco:has(.app.con-estudio),
+html.hueco:has(.app.con-estudio) body {
+  overflow: hidden;
 }
 
 /* Botón «Estudio»: abajo en el centro, para volver a elegir instrumento */
@@ -1696,7 +1682,7 @@ html:has(.con-escenario) {
 }
 .fondo-estudio,
 .elegir {
-  bottom: calc(-1 * env(safe-area-inset-top, 0px) - 2px);
+  bottom: calc(-1 * var(--hueco-abajo, 0px) - 2px);
 }
 @media (prefers-reduced-motion: reduce) {
   .elegir.llegando {

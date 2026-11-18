@@ -3,10 +3,11 @@
 // Al abrir la app: el estudio entero y «¿Qué vas a afinar?». Tocas un
 // instrumento, la vista se acerca a él y se funde con el afinador, donde su
 // clavijero sube a primer plano (lo hace Afinador). Las medidas van en píxeles
-// de cada foto (vertical para el móvil, horizontal para PC e iPad tumbado) y el
-// SVG la recorta como `cover`.
+// de cada foto (vertical para el móvil, horizontal para PC e iPad tumbado). La foto
+// se ve entera (con margen a los lados) y lo que sobra arriba y abajo es la misma
+// sala desenfocada. Sin etiquetas: se toca el instrumento.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import type { InstrumentoId } from "@/lib/instrumentos";
 import { useHorizontal } from "@/lib/horizontal";
 
@@ -19,14 +20,12 @@ interface Opcion {
   ry: number;
   /** Todavía sin pala. */
   pronto?: boolean;
-  /** El bajo y la eléctrica están juntos: la etiqueta del bajo va encima para que no se pisen. */
-  etiquetaArriba?: boolean;
-  /** Centro de la etiqueta si no cabe bajo el instrumento (en los móviles se recortan los lados de la foto). */
-  etiquetaX?: number;
 }
 
 interface Foto {
   src: string;
+  /** La misma, desenfocada, para rellenar lo que no ocupa la foto. */
+  fondo: string;
   ancho: number;
   alto: number;
   zoom: number;
@@ -35,24 +34,26 @@ interface Foto {
 
 const VERTICAL: Foto = {
   src: "/estudio/pistas-1.webp",
+  fondo: "/estudio/pistas-fondo-1.webp",
   ancho: 941,
   alto: 1671,
   zoom: 2.4,
   opciones: [
-    { id: "acustica", nombre: "Acústica", cx: 158, cy: 918, rx: 74, ry: 182, etiquetaX: 176 },
-    { id: "bajo", nombre: "Bajo", cx: 728, cy: 903, rx: 50, ry: 164, etiquetaArriba: true },
-    { id: "electrica", nombre: "Eléctrica", cx: 808, cy: 935, rx: 58, ry: 150, etiquetaX: 764 },
+    { id: "acustica", nombre: "Acústica", cx: 158, cy: 918, rx: 74, ry: 182 },
+    { id: "bajo", nombre: "Bajo", cx: 728, cy: 903, rx: 50, ry: 164 },
+    { id: "electrica", nombre: "Eléctrica", cx: 808, cy: 935, rx: 58, ry: 150 },
   ],
 };
 
 const HORIZONTAL: Foto = {
   src: "/estudio/completo-h1.webp",
+  fondo: "/estudio/completo-h-fondo-1.webp",
   ancho: 1536,
   alto: 1024,
   zoom: 2.1,
   opciones: [
     { id: "acustica", nombre: "Acústica", cx: 215, cy: 650, rx: 98, ry: 272 },
-    { id: "bajo", nombre: "Bajo", cx: 1243, cy: 615, rx: 64, ry: 240, etiquetaArriba: true },
+    { id: "bajo", nombre: "Bajo", cx: 1243, cy: 615, rx: 64, ry: 240 },
     { id: "electrica", nombre: "Eléctrica", cx: 1378, cy: 660, rx: 86, ry: 235 },
   ],
 };
@@ -87,11 +88,32 @@ export default function ElegirInstrumento({ saliendo, volviendoDe = null, onEleg
   const elegida = foto.opciones.find((o) => o.id === destino);
 
   return (
-    <div className={`elegir ${saliendo ? "saliendo" : ""} ${volviendoDe ? "llegando" : ""}`} role="dialog" aria-modal="true" aria-labelledby="elegir-titulo">
+    <div
+      className={`elegir ${saliendo ? "saliendo" : ""} ${volviendoDe ? "llegando" : ""}`}
+      style={horizontal !== null ? ({ "--fondo-elegir": `url("${foto.fondo}")` } as CSSProperties) : undefined} role="dialog" aria-modal="true" aria-labelledby="elegir-titulo">
       {horizontal !== null && (
-        <svg viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio="xMidYMid slice" className="elegir-svg">
+        <svg viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio="xMidYMid meet" className="elegir-svg">
           <defs>
-            <radialGradient id="elegir-halo">
+            {/* Los bordes de la foto se funden con la sala desenfocada de detrás */}
+          <linearGradient id="elegir-borde-v" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#000" />
+            <stop offset="0.06" stopColor="#fff" />
+            <stop offset="0.94" stopColor="#fff" />
+            <stop offset="1" stopColor="#000" />
+          </linearGradient>
+          <linearGradient id="elegir-borde-h" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#000" />
+            <stop offset="0.04" stopColor="#fff" />
+            <stop offset="0.96" stopColor="#fff" />
+            <stop offset="1" stopColor="#000" />
+          </linearGradient>
+          <mask id="elegir-mascara-v" maskUnits="userSpaceOnUse" x="0" y="0" width={ANCHO} height={ALTO}>
+            <rect width={ANCHO} height={ALTO} fill="url(#elegir-borde-v)" />
+          </mask>
+          <mask id="elegir-mascara-h" maskUnits="userSpaceOnUse" x="0" y="0" width={ANCHO} height={ALTO}>
+            <rect width={ANCHO} height={ALTO} fill="url(#elegir-borde-h)" />
+          </mask>
+          <radialGradient id="elegir-halo">
               <stop offset="0%" stopColor="#ffe2ad" stopOpacity="0.32" />
               <stop offset="100%" stopColor="#ffe2ad" stopOpacity="0" />
             </radialGradient>
@@ -105,7 +127,9 @@ export default function ElegirInstrumento({ saliendo, volviendoDe = null, onEleg
                 : undefined
             }
           >
-            <image href={foto.src} width={ANCHO} height={ALTO} />
+            <g mask="url(#elegir-mascara-h)">
+            <image href={foto.src} width={ANCHO} height={ALTO} mask="url(#elegir-mascara-v)" />
+          </g>
             {foto.opciones.map((o) => (
               <g key={o.id} className={`elegir-opcion ${o.pronto ? "pronto" : ""}`}>
                 {!o.pronto && <ellipse cx={o.cx} cy={o.cy} rx={o.rx * 1.5} ry={o.ry * 1.15} fill="url(#elegir-halo)" className="elegir-halo" />}
@@ -127,16 +151,7 @@ export default function ElegirInstrumento({ saliendo, volviendoDe = null, onEleg
                     }
                   }}
                 />
-                <g className="elegir-etiqueta" transform={`translate(${o.etiquetaX ?? o.cx} ${o.etiquetaArriba ? o.cy - o.ry - 40 : o.cy + o.ry + 34})`} aria-hidden="true">
-                  <rect x={-72} y={-24} width={144} height={48} rx={24} />
-                  <text y={o.pronto ? -1 : 9}>{o.nombre}</text>
-                  {o.pronto && (
-                    <text y={17} className="elegir-pronto">
-                      muy pronto
-                    </text>
-                )}
               </g>
-            </g>
           ))}
         </g>
       </svg>

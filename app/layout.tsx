@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bodoni_Moda, Manrope } from "next/font/google";
 import RegistroOffline from "@/components/RegistroOffline";
+import HuecoIphone from "@/components/HuecoIphone";
 import "./globals.css";
 import "./pistas.css";
 
@@ -46,6 +47,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         {children}
         <RegistroOffline />
+        <HuecoIphone />
       </body>
     </html>
   );
