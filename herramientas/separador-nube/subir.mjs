@@ -36,7 +36,8 @@ const repo = `${usuario}/${nombre}`;
 const creado = await pedir(`${HUB}/api/repos/create`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ type: "space", name: nombre, private: false, sdk: "gradio" }),
+  // Con cuenta gratis: ZeroGPU solo con la cuenta de más de 30 días; «cpu-basic» con Gradio pide PRO
+  body: JSON.stringify({ type: "space", name: nombre, private: false, sdk: "gradio", hardware: process.env.HARDWARE || "zero-a10g" }),
 });
 if (creado.ok) console.log(`Space creado: ${repo}`);
 else if (creado.estado === 409) console.log(`El Space ${repo} ya existía: se actualiza.`);
