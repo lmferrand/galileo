@@ -2143,7 +2143,7 @@ html:has(.app.con-estudio) body {
   color: var(--texto-3);
 }
 
-/* ---------------- Portada al abrir la app (3 s) ----------------
+/* ---------------- Portada al abrir la app (4 s) ----------------
    El logo aparece, la aguja del dial oscila y se queda en el centro en verde
    (como en el icono) y todo se funde dejando ver el estudio. */
 .portada {
@@ -2158,7 +2158,7 @@ html:has(.app.con-estudio) body {
   gap: min(5svh, 40px);
   background: radial-gradient(120% 80% at 50% 42%, #3b1e10 0%, #1d0f08 55%, #0d0704 100%);
   cursor: pointer;
-  animation: portada-se-va 420ms ease-in 2580ms forwards;
+  animation: portada-se-va 420ms ease-in 3580ms forwards;
 }
 .portada.saltada {
   animation: portada-se-va-ya 260ms ease-in forwards;
@@ -2240,8 +2240,8 @@ html:has(.app.con-estudio) body {
   transform-origin: 120px 112px;
   color: #f2b35c;
   animation:
-    portada-aguja 1500ms cubic-bezier(0.3, 0.7, 0.3, 1) 700ms both,
-    portada-verde 360ms ease-out 2050ms forwards;
+    portada-aguja 1800ms cubic-bezier(0.3, 0.7, 0.3, 1) 700ms both,
+    portada-verde 360ms ease-out 2450ms forwards;
 }
 .portada-aguja line {
   stroke: currentColor;
@@ -2277,7 +2277,7 @@ html:has(.app.con-estudio) body {
 }
 .portada-muesca {
   fill: #f3e2c0;
-  animation: portada-muesca 360ms ease-out 2050ms forwards;
+  animation: portada-muesca 360ms ease-out 2450ms forwards;
 }
 @keyframes portada-muesca {
   to {

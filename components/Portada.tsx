@@ -1,6 +1,6 @@
 "use client";
 
-// Portada al abrir la app (unos 3 s): el logo aparece sobre la madera oscura y,
+// Portada al abrir la app (unos 4 s): el logo aparece sobre la madera oscura y,
 // debajo, el dial del icono: la aguja oscila y se queda en el centro, en verde,
 // afinada. Luego se funde y deja ver el estudio para elegir instrumento.
 // Tocar la pantalla la salta. Todo el movimiento va en CSS (globals.css, «Portada»).

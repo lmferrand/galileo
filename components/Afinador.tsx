@@ -56,7 +56,7 @@ export default function Afinador() {
     fase: yaSeEligio() ? "no" : "si",
     id: null,
   }));
-  // Portada con el logo al abrir la app (3 s), encima de la pantalla de elegir.
+  // Portada con el logo al abrir la app (4 s), encima de la pantalla de elegir.
   const [portada, setPortada] = useState(() => !yaSeVioPortada() && !yaSeEligio());
   const [subeLaPala, setSubeLaPala] = useState(false);
   // Metrónomo: vive aquí para que siga sonando con su hoja cerrada.
