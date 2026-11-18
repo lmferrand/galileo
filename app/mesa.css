@@ -1,0 +1,207 @@
+/* ============================================================
+   Mesa: dos canales de la interfaz de audio con sus efectos
+   ============================================================ */
+.mesa {
+  display: grid;
+  gap: 14px;
+}
+.mesa-arriba {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 14px;
+}
+.mesa-encender {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--linea);
+  background: var(--superficie-2);
+  color: var(--texto);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.mesa-encender.on {
+  border-color: transparent;
+  background: linear-gradient(160deg, var(--laton-claro), var(--laton));
+  color: #2a1709;
+}
+.mesa-encender:disabled {
+  opacity: 0.6;
+}
+.mesa-led {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #5a3a2a;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.mesa-encender.on .mesa-led {
+  background: #46e08a;
+  box-shadow: 0 0 10px #46e08a;
+}
+.mesa-general {
+  display: grid;
+  gap: 6px;
+}
+.mesa-info {
+  margin: 0;
+  font-size: 13px;
+  color: var(--texto-3);
+}
+
+/* Un mando: nombre, deslizador y valor */
+.mesa-mando {
+  display: grid;
+  grid-template-columns: 6.6em minmax(0, 1fr) 4.6em;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+.mesa-mando-nombre {
+  color: var(--texto-2);
+}
+.mesa-mando .metro-barra {
+  width: 100%;
+  margin: 0;
+}
+.mesa-mando-valor {
+  text-align: right;
+  font-size: 13px;
+  color: var(--texto-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Medidor: el degradado ocupa toda la barra y se tapa lo que no suena */
+.medidor {
+  position: relative;
+  display: block;
+  height: 6px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: linear-gradient(90deg, #2fae6a 0%, #46e08a 58%, #ffd43b 80%, #ff4a3d 100%);
+}
+.medidor::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  left: var(--nivel, 0%);
+  background: #2b1a12;
+}
+.medidor.satura {
+  box-shadow: 0 0 0 1.5px #ff4a3d;
+}
+
+/* Las dos entradas */
+.mesa-canales {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.mesa-canales button {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--linea);
+  background: transparent;
+  color: var(--texto-2);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.mesa-canales button.activo {
+  border-color: color-mix(in oklab, var(--laton) 55%, transparent);
+  background: var(--superficie-2);
+  color: var(--texto);
+}
+.mesa-canal {
+  display: grid;
+  gap: 12px;
+}
+/* Interruptor y nombre en fila (en el afinador van el uno encima del otro) */
+.mesa .interruptor {
+  justify-self: start;
+  flex-direction: row;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Sonidos de partida */
+.mesa-sonidos {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.mesa-sonidos::-webkit-scrollbar {
+  display: none;
+}
+.mesa-sonidos button {
+  flex: none;
+  padding: 7px 13px;
+  border-radius: 99px;
+  border: 1px solid color-mix(in oklab, var(--texto) 18%, transparent);
+  background: transparent;
+  color: var(--texto-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mesa-sonidos button:active {
+  background: var(--superficie-2);
+}
+
+/* Los efectos, en el orden en que pasa el sonido */
+.mesa-efectos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.mesa-efectos li {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--linea);
+}
+.mesa-efectos li.activo {
+  border-color: color-mix(in oklab, var(--laton) 45%, transparent);
+  background: color-mix(in oklab, var(--laton) 7%, transparent);
+}
+
+@media (max-width: 380px) {
+  .mesa-arriba {
+    grid-template-columns: 1fr;
+  }
+  .mesa-mando {
+    grid-template-columns: 5.6em minmax(0, 1fr) 4.2em;
+    gap: 8px;
+    font-size: 13px;
+  }
+}
+
+/* La barra de abajo tiene ahora cinco botones */
+@media (max-width: 400px) {
+  .barra-abajo button {
+    min-width: 56px;
+    font-size: 11px;
+  }
+}

@@ -3,8 +3,11 @@
 // Barra de abajo del afinador: volver al estudio, el metrónomo y grabarte. Ocupa
 // el borde de abajo de la pantalla (también el hueco que deja el iPhone en modo app).
 
+import { useEstadoMesa } from "@/lib/mesa/usarMesa";
+
 interface Props {
   onEstudio: () => void;
+  onMesa: () => void;
   onMetronomo: () => void;
   onLooper: () => void;
   onGrabar: () => void;
@@ -15,12 +18,17 @@ interface Props {
   golpe: number;
 }
 
-export default function BarraAbajo({ onEstudio, onMetronomo, onLooper, onGrabar, looperActivo, metronomoSonando, golpe }: Props) {
+export default function BarraAbajo({ onEstudio, onMesa, onMetronomo, onLooper, onGrabar, looperActivo, metronomoSonando, golpe }: Props) {
+  const mesaEncendida = useEstadoMesa() === "encendida";
   return (
     <nav className="barra-abajo" aria-label="Herramientas">
       <button type="button" onClick={onEstudio} aria-label="Volver al estudio para elegir otro instrumento">
         <IconoEstudio />
         <span>Estudio</span>
+      </button>
+      <button type="button" onClick={onMesa} className={mesaEncendida ? "activo" : ""} aria-label={mesaEncendida ? "Mesa, encendida" : "Mesa"}>
+        <IconoMesa />
+        <span>Mesa</span>
       </button>
       <button type="button" onClick={onMetronomo} className={metronomoSonando ? "activo" : ""} aria-label={metronomoSonando ? "Metrónomo, sonando" : "Metrónomo"}>
         <span key={metronomoSonando ? golpe : -1} className={`barra-icono ${metronomoSonando ? "late" : ""}`}>
@@ -39,6 +47,18 @@ export default function BarraAbajo({ onEstudio, onMetronomo, onLooper, onGrabar,
         <span>Grabar</span>
       </button>
     </nav>
+  );
+}
+
+/** Tres faders de mesa de mezclas, cada uno a una altura. */
+function IconoMesa() {
+  return (
+    <svg className="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 4v16M12 4v16M18 4v16" opacity="0.55" />
+      <rect x="3.6" y="12.5" width="4.8" height="3.4" rx="1" fill="currentColor" stroke="none" />
+      <rect x="9.6" y="6.5" width="4.8" height="3.4" rx="1" fill="currentColor" stroke="none" />
+      <rect x="15.6" y="10" width="4.8" height="3.4" rx="1" fill="currentColor" stroke="none" />
+    </svg>
   );
 }
 

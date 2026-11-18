@@ -72,7 +72,8 @@ export default function Leccion({ leccion, notacion, la4, onSalir, onCambiar, on
       // Acierto: a la siguiente nota, o se acaba
       setAviso(null);
       destellar("acierto");
-      navigator.vibrate?.(25);
+      // Vibrar solo si ya se ha tocado la pantalla (si no, el navegador se queja)
+      if ((navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive) navigator.vibrate?.(25);
       indice.current++;
       if (indice.current >= pasos.current.length) {
         terminada.current = true;

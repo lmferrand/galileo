@@ -15,6 +15,7 @@ import BarraAbajo from "./BarraAbajo";
 import MetronomoPanel from "./MetronomoPanel";
 import Grabadora from "./Grabadora";
 import LooperPanel from "./LooperPanel";
+import MesaPanel from "./MesaPanel";
 import { leerAjusteRetraso, Looper, type EstadoLooper, type ModoLooper } from "@/lib/looper";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo, type Compas } from "@/lib/metronomo";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
@@ -29,7 +30,7 @@ const TOLERANCIA = 4; // cents
 const TIEMPO_AFINADA = 350; // ms seguidos dentro de la tolerancia
 const HISTERESIS = 60; // cents que tiene que ganar otra cuerda para cambiar en automático
 
-type HojaAbierta = null | "afinacion" | "ajustes" | "editor" | "metronomo" | "grabar" | "looper";
+type HojaAbierta = null | "afinacion" | "ajustes" | "editor" | "metronomo" | "grabar" | "looper" | "mesa";
 
 const MS_TRANSICION = 900;
 
@@ -547,6 +548,7 @@ export default function Afinador() {
       {eleccion.fase === "no" && (
         <BarraAbajo
           onEstudio={volverAlEstudio}
+          onMesa={() => setHoja("mesa")}
           onMetronomo={() => setHoja("metronomo")}
           onLooper={abrirLooper}
           onGrabar={() => setHoja("grabar")}
@@ -555,6 +557,10 @@ export default function Afinador() {
           golpe={metroGolpe.n}
         />
       )}
+
+      <Hoja abierta={hoja === "mesa"} titulo="Mesa" onCerrar={() => setHoja(null)}>
+        <MesaPanel />
+      </Hoja>
 
       <Hoja abierta={hoja === "metronomo"} titulo="Metrónomo" onCerrar={() => setHoja(null)}>
         <MetronomoPanel

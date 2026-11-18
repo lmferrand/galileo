@@ -5,6 +5,7 @@ import HuecoIphone from "@/components/HuecoIphone";
 import "./globals.css";
 import "./pistas.css";
 import "./aprender.css";
+import "./mesa.css";
 
 const bodoni = Bodoni_Moda({
   subsets: ["latin", "symbols"],
