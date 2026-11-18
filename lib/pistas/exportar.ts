@@ -5,6 +5,7 @@ import { leerAudios } from "./almacen";
 import { FRECUENCIA, PISTAS, type Cancion } from "./tipos";
 import { crearWav, leerWav } from "./wav";
 import { limpiarBajo } from "./limpiarBajo";
+import { separadaConRoformer } from "./importar";
 
 const IDS = PISTAS.map((p) => p.id);
 
@@ -16,7 +17,7 @@ export async function mezclarCancion(cancion: Cancion, ganancias: number[]): Pro
     return d;
   };
   // Igual que al escucharla: los graves colados en otras pistas, al bajo
-  let pistas = await limpiarBajo(await leer());
+  let pistas = separadaConRoformer(cancion) ? await leer() : await limpiarBajo(await leer());
   if (pistas.some((p) => p.length === 0)) pistas = await leer();
   const suma = new Float32Array(cancion.frames * 2);
   for (let s = 0; s < IDS.length; s++) {

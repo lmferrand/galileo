@@ -95,7 +95,7 @@ export async function importarSeparada(cancion: CancionEnZip, datos: Omit<Datos,
   const entradas = await cancion.entradas();
   const buscar = (nombre: string) => entradas.find((e) => sinExtension(base(e.nombre)).toLowerCase() === nombre);
 
-  let info: { nombre?: string; frames?: number; duracion?: number } = {};
+  let info: { nombre?: string; frames?: number; duracion?: number; separador?: string; credito?: string } = {};
   const json = buscar("cancion");
   if (json) {
     try {
@@ -119,8 +119,14 @@ export async function importarSeparada(cancion: CancionEnZip, datos: Omit<Datos,
     nombre: (typeof info.nombre === "string" && info.nombre.trim()) || datos.nombre,
     frames: Number.isFinite(info.frames) && (info.frames as number) > 0 ? Math.round(info.frames as number) : undefined,
     duracion: Number.isFinite(info.duracion) && (info.duracion as number) > 0 ? info.duracion : undefined,
+    // Con qué se separó en el PC (p. ej. «roformer») y su crédito (licencia del separador)
+    ...(typeof info.separador === "string" ? { motor: info.separador } : {}),
+    ...(typeof info.credito === "string" ? { credito: info.credito } : {}),
   });
 }
+
+/** Separada en el PC con BS-RoFormer: ya reparte bien los graves (no hace falta limpiar el bajo). */
+export const separadaConRoformer = (c: { motor?: string }) => c.motor === "roformer";
 
 // ---- ZIP: se lee el índice del final y cada archivo se corta del original sin cargarlo entero ----
 

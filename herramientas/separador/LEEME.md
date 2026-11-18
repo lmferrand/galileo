@@ -34,3 +34,15 @@ de una carpeta y deja un `.zip` sin comprimir por canción: `cancion.json`
 «Elegir canciones» → elegir los `.zip`: entran al momento, sin separar, y se
 guardan en MP3 (unas diez veces menos que las que separa el aparato). Si un
 `.zip` ya existe, esa canción se salta. Las canciones nunca van dentro de la web.
+
+## Separación de más calidad en el PC (`paquetes-roformer.mjs`)
+
+`node paquetes-roformer.mjs <carpeta-canciones> <bs_roformer_sw_fp32.onnx> <carpeta-salida> [kbps]`
+con BS-RoFormer SW (jarredou; licencia CC BY-NC-SA 4.0, sin ánimo de lucro: se acredita
+en cada canción), en ONNX de huggingface.co/Ryan5453/unblend (700 MB). La STFT y la
+iSTFT (Hann periódica de 2048, salto 512, centrada) van en el script; trozos de 588 800
+muestras con solape del 50 %. Unos 13 min por canción en el PC (Demucs: 2), pero la
+guitarra y el bajo salen mucho más limpios. Mismo `.zip` que `paquetes.mjs`, con
+`separador: "roformer"` y `credito` en `cancion.json`: al añadirlo, sustituye a la
+canción con el mismo nombre y no se le aplica la limpieza del bajo. Va con dos procesos
+a la vez (REVES=1, HILOS=4).

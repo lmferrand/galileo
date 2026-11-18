@@ -33,6 +33,8 @@ export default function Pistas() {
   const [sep, setSep] = useState<EstadoSeparacion>({ trabajo: null, error: null, terminada: null, enCola: [], tanda: { total: 0, hechas: 0 } });
   // Canciones elegidas que ya tenías separadas (no se repiten).
   const [repetidas, setRepetidas] = useState<string[]>([]);
+  // Cuántas se acaban de cambiar por su versión nueva (al añadir .zip con el mismo nombre)
+  const [sustituidas, setSustituidas] = useState(0);
   const [sinGpu, setSinGpu] = useState(false);
   const [esMovil, setEsMovil] = useState(false);
   // Nombre de la canción si la última separación se cortó (la página se recargó a medias).
@@ -147,7 +149,10 @@ export default function Pistas() {
       return true;
     };
     const aSeparar = archivos.filter((a) => nuevo(nombreBonito(a.name)));
-    const aAnadir = yaSeparadas.filter((c) => nuevo(c.nombre));
+    // Las que ya vienen separadas sí entran aunque ya la tengas: sustituyen a la vieja
+    // (así se cambian por una separación mejor). Solo no se repiten dentro de lo elegido.
+    const enEsta = new Set<string>();
+    const aAnadir = yaSeparadas.filter((c) => (enEsta.has(c.nombre) ? false : (enEsta.add(c.nombre), true)));
     setRepetidas(ya);
     separarCanciones(aSeparar);
     if (aAnadir.length) void anadirYaSeparadas(aAnadir, fallos);
@@ -160,11 +165,20 @@ export default function Pistas() {
     const base = Date.now();
     const fallos = [...fallosPrevios];
     let ultima: Cancion | null = null;
+    // Las que ya tenías con el mismo nombre: se borran cuando la nueva ya está guardada
+    const tenias = new Map((canciones ?? []).map((c) => [c.nombre, c.id]));
+    let cambiadas = 0;
     for (const [i, c] of orden.entries()) {
       setAnadiendo({ nombre: c.nombre, hechas: i, total: orden.length });
       try {
         const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `c${Date.now().toString(36)}${i}`;
         ultima = await importarSeparada(c, { id, nombre: c.nombre, creada: base - i });
+        const vieja = tenias.get(ultima.nombre);
+        if (vieja && vieja !== ultima.id) {
+          await borrarCancion(vieja, IDS);
+          tenias.delete(ultima.nombre);
+          cambiadas++;
+        }
       } catch (e) {
         const m = (e as Error).message || "";
         const lleno = /quota|QuotaExceeded|lleno/i.test(m);
@@ -175,6 +189,7 @@ export default function Pistas() {
     }
     setAnadiendo(null);
     setFallosAnadir(fallos.length ? fallos.join("\n") : null);
+    setSustituidas(cambiadas);
     pedirPersistencia();
     await recargar();
     if (orden.length === 1 && ultima) setAbierta(ultima);
@@ -322,6 +337,15 @@ export default function Pistas() {
         <div className="tarjeta tarjeta-error" role="alert">
           <p className="con-saltos">{fallosAnadir}</p>
           <button type="button" className="boton-texto" onClick={() => setFallosAnadir(null)}>
+            Vale
+          </button>
+        </div>
+      )}
+
+      {sustituidas > 0 && (
+        <div className="tarjeta" role="status">
+          <p>{sustituidas === 1 ? "Se ha cambiado 1 canción por su versión nueva." : `Se han cambiado ${sustituidas} canciones por su versión nueva.`}</p>
+          <button type="button" className="boton-texto" onClick={() => setSustituidas(0)}>
             Vale
           </button>
         </div>

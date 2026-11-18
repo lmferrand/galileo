@@ -11,6 +11,7 @@ import { leerAudios, renombrarCancion } from "@/lib/pistas/almacen";
 import { Reproductor } from "@/lib/pistas/reproductor";
 import { leerWav } from "@/lib/pistas/wav";
 import { limpiarBajo } from "@/lib/pistas/limpiarBajo";
+import { separadaConRoformer } from "@/lib/pistas/importar";
 import { describirMezcla, guardarArchivo, mezclarCancion, nombreArchivo } from "@/lib/pistas/exportar";
 import { formatoTiempo, PISTAS, type Cancion, type Pista } from "@/lib/pistas/tipos";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
@@ -47,6 +48,8 @@ interface Props {
 export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props) {
   const rep = useRef<Reproductor | null>(null);
   const [cargando, setCargando] = useState(true);
+  // Separada en el PC con BS-RoFormer: ya reparte bien los graves, no se limpia el bajo
+  const sinLimpiar = separadaConRoformer(cancion);
   const [error, setError] = useState<string | null>(null);
   const [tocando, setTocando] = useState(false);
   const [segundo, setSegundo] = useState(0);
@@ -115,7 +118,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
         let datos = await leer();
         if (!datos || !vivo) return;
         // Los graves que el separador dejó en otras pistas, al bajo (si falla, se leen otra vez tal cual)
-        const limpias = await limpiarBajo(datos);
+        const limpias = sinLimpiar ? datos : await limpiarBajo(datos);
         datos = limpias.some((p) => p.length === 0) ? await leer() : limpias;
         if (!datos || !vivo) return;
         await r.cargar(datos, cancion.frames, gananciasIniciales.current);
@@ -129,7 +132,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
       r.cerrar();
       rep.current = null;
     };
-  }, [cancion.id, cancion.frames]);
+  }, [cancion.id, cancion.frames, sinLimpiar]);
 
   useEffect(() => {
     rep.current?.ganancias(claveGanancias.split(",").map(Number));
