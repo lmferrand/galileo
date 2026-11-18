@@ -67,6 +67,8 @@ export async function POST(req: Request) {
     if (!encargo) return respuesta({ error: "Ese encargo ya no está." }, 404);
 
     if (cuerpo.accion === "estado") {
+      // Mientras separa también está encendido (si no, la app diría «Apagado» a media canción)
+      await latido();
       const progreso = typeof cuerpo.progreso === "number" ? Math.max(0, Math.min(1, cuerpo.progreso)) : encargo.progreso;
       const error = typeof cuerpo.error === "string" ? cuerpo.error.slice(0, 300) : undefined;
       await guardarEncargo(ap, { ...encargo, estado: error ? "error" : "separando", progreso, error });
