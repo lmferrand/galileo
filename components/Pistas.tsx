@@ -235,7 +235,7 @@ export default function Pistas() {
         {esMovil && (
           <p className="pistas-letra-pequena">
             Elige un mp3, m4a o wav de la app Archivos (hasta 8 minutos). Las canciones de Apple Music o Spotify no se pueden abrir porque
-            vienen protegidas. Tarda unos minutos: deja la pantalla encendida y Clavija abierta hasta que acabe.
+            vienen protegidas. Tarda unos minutos: deja la pantalla encendida y The Clavija abierta hasta que acabe.
           </p>
         )}
         {sinGpu && (
@@ -277,7 +277,7 @@ export default function Pistas() {
           <div className="progreso" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((anadiendo.hechas / anadiendo.total) * 100)}>
             <span style={{ width: `${Math.max(2, (anadiendo.hechas / anadiendo.total) * 100)}%` }} />
           </div>
-          <p className="pistas-letra-pequena">Deja Clavija abierta hasta que acabe.</p>
+          <p className="pistas-letra-pequena">Deja The Clavija abierta hasta que acabe.</p>
         </div>
       )}
 
@@ -443,7 +443,7 @@ function TarjetaTrabajo({ trabajo, enCola, tanda }: { trabajo: Trabajo; enCola: 
         </p>
       )}
       <p className="pistas-letra-pequena">
-        {enCola.length > 0 ? "Deja Clavija abierta hasta que acaben todas; «Parar» las para todas." : "Deja esta pantalla abierta hasta que acabe."}
+        {enCola.length > 0 ? "Deja The Clavija abierta hasta que acaben todas; «Parar» las para todas." : "Deja esta pantalla abierta hasta que acabe."}
       </p>
     </div>
   );

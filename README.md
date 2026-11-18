@@ -1,4 +1,4 @@
-# Clavija
+# The Clavija
 
 Afinador de guitarra que funciona en el navegador con el micrófono del móvil.
 Sustituye a la antigua app de Los Teros en el mismo proyecto de Vercel.
