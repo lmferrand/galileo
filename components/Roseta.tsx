@@ -5,12 +5,52 @@
 // de −50 a +50 cents. Una manecilla de latón gira con la nota: nace por debajo de
 // la boca (como la de un manómetro bajo su tapa) y se ve del borde hacia fuera,
 // así no tapa la nota. Cuando la cuerda está afinada, la roseta brilla como el nácar.
+// El aro de fuera se colorea según lo cerca que estés: verde afinada, amarillo
+// cerca, azul si está grave y rojo si está aguda. La manecilla, el aro y el
+// mosaico siguen a la nota con suavidad (no a saltos).
 
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 const C = 200;
 const TESELAS = 72; // 5° cada una
 const GRADOS_POR_CENT = 1.8; // ±50 cents = ±90°
+// Lo que tarda la manecilla en alcanzar la nota (constante de tiempo, ms).
+const SUAVIDAD_MS = 110;
+
+// Colores del aro, mezclados en OKLab para que los pasos sean limpios.
+type Lab = [number, number, number];
+function aLab(hex: string): Lab {
+  const lin = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  const [r, g, b] = [1, 3, 5].map((i) => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s2 = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s2, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s2, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s2];
+}
+function aRgb([L, A, B]: Lab): string {
+  const l = (L + 0.3963377774 * A + 0.2158037573 * B) ** 3;
+  const m = (L - 0.1055613458 * A - 0.0638541728 * B) ** 3;
+  const s2 = (L - 0.0894841775 * A - 1.291485548 * B) ** 3;
+  const gam = (v: number) => {
+    const c = v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
+    return Math.round(Math.max(0, Math.min(1, c)) * 255);
+  };
+  return `rgb(${gam(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s2)} ${gam(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s2)} ${gam(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s2)})`;
+}
+const mezcla = (a: Lab, b: Lab, t: number): Lab => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const VERDE = aLab("#46e08a");
+const AMARILLO = aLab("#ffd43b");
+const ROJO = aLab("#ff4a3d");
+const AZUL = aLab("#3f8cff");
+
+/** Afinada (±4) verde; cerca, amarillo; lejos, azul si está grave y rojo si está aguda. */
+export function colorDeCents(cents: number): string {
+  const a = Math.abs(cents);
+  if (a <= 4) return aRgb(VERDE);
+  if (a <= 12) return aRgb(mezcla(VERDE, AMARILLO, (a - 4) / 8));
+  const lejos = cents < 0 ? AZUL : ROJO;
+  return aRgb(mezcla(AMARILLO, lejos, Math.min(1, (a - 12) / 12)));
+}
 
 function punto(r: number, grados: number) {
   const a = (grados * Math.PI) / 180;
@@ -65,10 +105,57 @@ export default function Roseta({ cents, afinada, brillo, apagada, children }: Pr
   );
 
   const c = cents === null ? null : Math.max(-50, Math.min(50, cents));
-  const angulo = c === null ? 0 : c * GRADOS_POR_CENT;
+
+  // La nota que se pinta va detrás de la que suena, con suavidad. La manecilla y el aro
+  // se mueven en cada fotograma sin pasar por React; el mosaico solo cambia cuando
+  // se enciende o se apaga una tesela.
+  const objetivo = useRef<number | null>(c);
+  useEffect(() => {
+    objetivo.current = c;
+  }, [c]);
+  const mostrada = useRef(0);
+  const aguja = useRef<SVGGElement>(null);
+  const aro = useRef<SVGGElement>(null);
+  const [angulo, setAngulo] = useState(0);
+  const sonando = c !== null;
+
+  useEffect(() => {
+    let raf = 0;
+    let antes = performance.now();
+    let ultimoAngulo = Number.NaN;
+    let pintada = Number.NaN;
+    const paso = (ahora: number) => {
+      const dt = Math.min(100, ahora - antes);
+      antes = ahora;
+      const meta = objetivo.current;
+      if (meta !== null) {
+        const k = 1 - Math.exp(-dt / SUAVIDAD_MS);
+        mostrada.current += (meta - mostrada.current) * k;
+        if (Math.abs(meta - mostrada.current) < 0.05) mostrada.current = meta;
+      }
+      const v = mostrada.current;
+      if (v === pintada) {
+        raf = requestAnimationFrame(paso);
+        return;
+      }
+      pintada = v;
+      const g = v * GRADOS_POR_CENT;
+      aguja.current?.style.setProperty("transform", `rotate(${g.toFixed(2)}deg)`);
+      aro.current?.style.setProperty("color", colorDeCents(v));
+      // El mosaico se enciende de 5 en 5 grados: solo se repinta al cambiar de tesela.
+      const redondeado = Math.round(g / 2.5) * 2.5;
+      if (redondeado !== ultimoAngulo) {
+        ultimoAngulo = redondeado;
+        setAngulo(g);
+      }
+      raf = requestAnimationFrame(paso);
+    };
+    raf = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   const encendida = (centro: number) => {
-    if (c === null || Math.abs(centro) > 92) return false;
+    if (!sonando || Math.abs(centro) > 92) return false;
     if (Math.abs(centro) < 2.6) return true;
     return angulo > 0 ? centro > 0 && centro - 2.5 <= angulo : centro < 0 && centro + 2.5 >= angulo;
   };
@@ -81,10 +168,19 @@ export default function Roseta({ cents, afinada, brillo, apagada, children }: Pr
             <stop offset="0%" stopColor="var(--boca-centro)" />
             <stop offset="100%" stopColor="var(--boca-borde)" />
           </radialGradient>
+          <filter id="halo-aro" x="-10%" y="-10%" width="120%" height="120%">
+            <feGaussianBlur stdDeviation="5" />
+          </filter>
         </defs>
 
         <circle cx={C} cy={C} r={193} className="roseta-filete" />
         <circle cx={C} cy={C} r={186} className="roseta-filete fino" />
+
+        {/* Aro de color entre los dos filetes de fuera: dice lo afinada que está */}
+        <g ref={aro} className={`roseta-aro ${sonando ? "on" : ""}`}>
+          <circle cx={C} cy={C} r={189.5} className="roseta-aro-halo" filter="url(#halo-aro)" />
+          <circle cx={C} cy={C} r={189.5} className="roseta-aro-linea" />
+        </g>
         <circle cx={C} cy={C} r={148} className="roseta-filete fino" />
 
         {teselas.map((t) => (
@@ -104,7 +200,7 @@ export default function Roseta({ cents, afinada, brillo, apagada, children }: Pr
         <path d="M200 4 L209 18 L191 18 Z" className="muesca" />
 
         {/* Manecilla: varilla que se afina hacia la punta, anillo de reloj antiguo y la perla. Su base queda bajo la boca. */}
-        <g className="aguja" style={{ transform: `rotate(${angulo}deg)`, opacity: c === null ? 0 : 1 }}>
+        <g ref={aguja} className="aguja" style={{ opacity: sonando ? 1 : 0 }}>
           <path d="M194.4 104 L205.6 104 L202.3 48 L197.7 48 Z" className="aguja-varilla" />
           <circle cx={C} cy={40} r={7.2} className="aguja-anillo" />
           <path d="M200 5 L208 19 L200 33 L192 19 Z" className="aguja-perla" />

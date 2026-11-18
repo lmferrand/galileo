@@ -376,9 +376,38 @@ p {
 .aguja {
   transform-box: view-box;
   transform-origin: 50% 50%;
-  transition:
-    transform 170ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 220ms ease;
+  /* El giro lo suaviza Roseta fotograma a fotograma */
+  transition: opacity 220ms ease;
+}
+
+/* Aro de color de fuera: verde afinada, amarillo cerca, azul grave, rojo aguda */
+.roseta-aro {
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+.roseta-aro.on {
+  opacity: 1;
+}
+.roseta-aro circle {
+  fill: none;
+  stroke: currentColor;
+}
+.roseta-aro-linea {
+  stroke-width: 5;
+}
+.roseta-aro-halo {
+  stroke-width: 11;
+  opacity: 0.75;
+}
+/* La mitad de abajo, la que tapa el clavijero, se funde un poco */
+.roseta-svg {
+  -webkit-mask-image: linear-gradient(to bottom, #000 50%, rgba(0, 0, 0, 0.4) 100%);
+  mask-image: linear-gradient(to bottom, #000 50%, rgba(0, 0, 0, 0.4) 100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .roseta-aro {
+    transition: none;
+  }
 }
 .aguja-perla {
   fill: #fff6e6;
