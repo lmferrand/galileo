@@ -446,6 +446,13 @@ p {
   place-items: center;
   text-align: center;
   color: var(--texto-boca);
+  /* El centro deja ver el estudio de detrás, algo desenfocado para que se lea bien */
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+}
+/* El círculo oscuro del centro, translúcido (antes era negro del todo) */
+.boca {
+  fill-opacity: 0.55;
 }
 
 .boca-boton {
