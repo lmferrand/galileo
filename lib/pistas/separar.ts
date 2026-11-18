@@ -3,12 +3,16 @@
 // El trabajo vive fuera de la pantalla: si te vas al afinador y vuelves, sigue.
 // Las pistas llegan por bloques y se van guardando en el aparato, así la
 // canción entera no está nunca en memoria (en el móvil no cabría).
+// Se pueden elegir varias: esperan en una cola y se separan una detrás de otra.
+// Cada una se sube sola a la nube al acabar si has entrado con tu cuenta.
 
 import { FRECUENCIA, PISTAS, type Cancion, type Pista } from "./tipos";
 import { crearWavDePartes } from "./wav";
 import { guardarAudio, guardarCancion, pedirPersistencia } from "./almacen";
 import { guardarBloque, leerBloques, vaciarTemporal } from "./temporal";
 import { esMovil } from "./aparato";
+import { sesionActual } from "@/lib/nube/cliente";
+import { encolarSubida } from "@/lib/nube/cola";
 
 export type Fase = "leyendo" | "descargando" | "cargando" | "separando" | "guardando";
 
@@ -28,6 +32,10 @@ export interface EstadoSeparacion {
   error: string | null;
   /** Última canción terminada (para abrirla al acabar). */
   terminada: Cancion | null;
+  /** Canciones que esperan su turno (nombres). */
+  enCola: string[];
+  /** Cuántas van en esta tanda (la que se separa incluida) y cuántas se han acabado. */
+  tanda: { total: number; hechas: number };
 }
 
 const MAX_MINUTOS_ORDENADOR = 12;
@@ -66,7 +74,10 @@ export function separacionCortada(): string | null {
   }
 }
 
-let estado: EstadoSeparacion = { trabajo: null, error: null, terminada: null };
+let estado: EstadoSeparacion = { trabajo: null, error: null, terminada: null, enCola: [], tanda: { total: 0, hechas: 0 } };
+let cola: File[] = [];
+let procesando = false;
+const errores: string[] = [];
 const oyentes = new Set<(e: EstadoSeparacion) => void>();
 let trabajador: Worker | null = null;
 let cancelar: ((e: Error) => void) | null = null;
@@ -88,13 +99,56 @@ export function olvidarAviso() {
   publicar({ error: null, terminada: null });
 }
 
+/** Ya se ha recogido la canción terminada (sin borrar los avisos de error de la tanda). */
+export function olvidarTerminada() {
+  publicar({ terminada: null });
+}
+
+/** Para la que se está separando y quita las que esperaban. */
 export function pararSeparacion() {
+  cola = [];
+  publicar({ enCola: [] });
   trabajador?.terminate();
   trabajador = null;
   cancelar?.(new Error("parada"));
 }
 
-function nombreBonito(archivo: string): string {
+/** Añade canciones a la cola y empieza si no había nada en marcha. */
+export function separarCanciones(archivos: File[]) {
+  if (!archivos.length) return;
+  if (!procesando) {
+    errores.length = 0;
+    publicar({ error: null, tanda: { total: 0, hechas: 0 } });
+  }
+  cola.push(...archivos);
+  publicar({
+    enCola: cola.map((a) => nombreBonito(a.name)),
+    tanda: { ...estado.tanda, total: estado.tanda.total + archivos.length },
+  });
+  if (!procesando) void procesarCola();
+}
+
+async function procesarCola() {
+  procesando = true;
+  try {
+    while (cola.length) {
+      const archivo = cola.shift() as File;
+      publicar({ enCola: cola.map((a) => nombreBonito(a.name)) });
+      const r = await separarCancion(archivo);
+      publicar({ tanda: { ...estado.tanda, hechas: estado.tanda.hechas + 1 } });
+      if (r.error) {
+        // Si una falla, se apunta y se sigue con las demás.
+        errores.push(estado.tanda.total > 1 ? `«${nombreBonito(archivo.name)}»: ${r.error}` : r.error);
+        publicar({ error: errores.join("\n") });
+      }
+    }
+  } finally {
+    procesando = false;
+  }
+}
+
+/** El nombre con el que se guardará (para no repetir canciones que ya tienes). */
+export function nombreBonito(archivo: string): string {
   const sin = archivo.replace(/\.[a-z0-9]{2,5}$/i, "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
   return sin || "Canción sin nombre";
 }
@@ -119,12 +173,13 @@ async function decodificar(archivo: File) {
   return { izquierda, derecha, duracion: audio.duration };
 }
 
-export async function separarCancion(archivo: File): Promise<Cancion | null> {
-  if (estado.trabajo) throw new Error("Ya hay una canción separándose.");
+async function separarCancion(archivo: File): Promise<{ cancion?: Cancion; error?: string }> {
   const nombre = nombreBonito(archivo.name);
   const inicio = performance.now();
-  publicar({ trabajo: { nombre, fase: "leyendo" }, error: null, terminada: null });
+  publicar({ trabajo: { nombre, fase: "leyendo" }, terminada: null });
   ponerMarca(nombre);
+  // Si falla antes de llegar al separador (archivo roto, demasiado largo), el separador sigue listo para la siguiente.
+  let enElSeparador = false;
 
   try {
     await vaciarTemporal();
@@ -157,13 +212,15 @@ export async function separarCancion(archivo: File): Promise<Cancion | null> {
         e.preventDefault?.();
         mal(new Error(e.message || "El separador se ha parado de golpe. Puede que el aparato se haya quedado sin memoria."));
       };
+      enElSeparador = true;
       w.postMessage({ tipo: "separar", izquierda, derecha }, [izquierda.buffer, derecha.buffer]);
     });
     cancelar = null;
     publicar({ trabajo: { nombre, motor: r.motor, fase: "guardando" } });
     await escrituras;
-    if (esMovil()) {
-      // En el móvil se suelta ya la memoria del separador (la próxima vez se vuelve a preparar).
+    if (esMovil() && cola.length === 0) {
+      // En el móvil, al acabar la última de la cola se suelta la memoria del separador
+      // para poder escucharla (la próxima vez se vuelve a preparar).
       trabajador?.terminate();
       trabajador = null;
     }
@@ -189,20 +246,26 @@ export async function separarCancion(archivo: File): Promise<Cancion | null> {
     void vaciarTemporal();
     quitarMarca();
     pedirPersistencia();
+    // A la nube si has entrado con tu cuenta (aunque no estés en la pantalla de Pistas).
+    sesionActual()
+      .then((sesion) => {
+        if (sesion) encolarSubida(cancion);
+      })
+      .catch(() => undefined);
     publicar({ trabajo: null, terminada: cancion });
-    return cancion;
+    return { cancion };
   } catch (e) {
     cancelar = null;
     quitarMarca();
     void vaciarTemporal();
     const parada = (e as Error).message === "parada";
-    if (!parada && trabajador) {
+    if (!parada && enElSeparador && trabajador) {
       // Tras un fallo el worker puede quedar a medias: se empieza limpio la próxima vez.
       trabajador.terminate();
       trabajador = null;
     }
-    publicar({ trabajo: null, error: parada ? null : traducirError((e as Error).message) });
-    return null;
+    publicar({ trabajo: null });
+    return parada ? {} : { error: traducirError((e as Error).message) };
   }
 }
 

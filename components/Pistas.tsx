@@ -5,10 +5,18 @@ import Navegacion from "./Navegacion";
 import Reproduccion from "./Reproduccion";
 import FondoEstudio from "./FondoEstudio";
 import Nube from "./Nube";
-import { sesionActual } from "@/lib/nube/cliente";
-import { encolarSubida } from "@/lib/nube/cola";
 import { borrarCancion, espacio, listarCanciones } from "@/lib/pistas/almacen";
-import { olvidarAviso, pararSeparacion, separacionCortada, separarCancion, suscribirSeparacion, type EstadoSeparacion, type Trabajo } from "@/lib/pistas/separar";
+import {
+  nombreBonito,
+  olvidarAviso,
+  olvidarTerminada,
+  pararSeparacion,
+  separacionCortada,
+  separarCanciones,
+  suscribirSeparacion,
+  type EstadoSeparacion,
+  type Trabajo,
+} from "@/lib/pistas/separar";
 import { esMovil as esAparatoMovil } from "@/lib/pistas/aparato";
 import { formatoMB, formatoTiempo, PISTAS, type Cancion } from "@/lib/pistas/tipos";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
@@ -20,7 +28,9 @@ const PESO_MODELO = "285 MB";
 export default function Pistas() {
   const [canciones, setCanciones] = useState<Cancion[] | null>(null);
   const [abierta, setAbierta] = useState<Cancion | null>(null);
-  const [sep, setSep] = useState<EstadoSeparacion>({ trabajo: null, error: null, terminada: null });
+  const [sep, setSep] = useState<EstadoSeparacion>({ trabajo: null, error: null, terminada: null, enCola: [], tanda: { total: 0, hechas: 0 } });
+  // Canciones elegidas que ya tenías separadas (no se repiten).
+  const [repetidas, setRepetidas] = useState<string[]>([]);
   const [sinGpu, setSinGpu] = useState(false);
   const [esMovil, setEsMovil] = useState(false);
   // Nombre de la canción si la última separación se cortó (la página se recargó a medias).
@@ -62,16 +72,16 @@ export default function Pistas() {
   // Progreso de la separación (sigue aunque cambies de pestaña).
   useEffect(() => suscribirSeparacion(setSep), []);
 
-  // Al terminar una canción: a la lista y abrirla.
+  // Al terminar una canción: a la lista, y se abre si era una sola (con varias, se sigue con la siguiente).
+  const tandaDeUna = sep.tanda.total <= 1;
   useEffect(() => {
     if (!sep.terminada) return;
     const nueva = sep.terminada;
-    olvidarAviso();
-    recargar().then(() => setAbierta(nueva));
-    sesionActual().then((s) => {
-      if (s) encolarSubida(nueva);
+    olvidarTerminada();
+    recargar().then(() => {
+      if (tandaDeUna) setAbierta(nueva);
     });
-  }, [sep.terminada, recargar]);
+  }, [sep.terminada, recargar, tandaDeUna]);
 
   // Pantalla encendida mientras separa (si se apaga, el iPhone lo para).
   const trabajando = sep.trabajo !== null;
@@ -89,10 +99,24 @@ export default function Pistas() {
     };
   }, [trabajando]);
 
-  const elegir = (archivo: File | undefined) => {
-    if (!archivo) return;
+  const elegir = (lista: FileList | null) => {
+    const archivos = Array.from(lista ?? []);
+    if (!archivos.length) return;
     setCortada(null);
-    separarCancion(archivo);
+    // Las que ya tienes separadas (o ya esperan en la cola) no se repiten.
+    const tienes = new Set([...(canciones ?? []).map((c) => c.nombre), ...sep.enCola, ...(sep.trabajo ? [sep.trabajo.nombre] : [])]);
+    const nuevas: File[] = [];
+    const ya: string[] = [];
+    for (const a of archivos) {
+      const nombre = nombreBonito(a.name);
+      if (tienes.has(nombre)) ya.push(nombre);
+      else {
+        tienes.add(nombre);
+        nuevas.push(a);
+      }
+    }
+    setRepetidas(ya);
+    separarCanciones(nuevas);
   };
 
   if (abierta) {
@@ -123,17 +147,19 @@ export default function Pistas() {
           ref={entrada}
           type="file"
           accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg"
+          multiple
           className="oculto"
           onChange={(e) => {
-            elegir(e.target.files?.[0]);
+            elegir(e.target.files);
             e.target.value = "";
           }}
         />
-        <button type="button" className="boton-principal" onClick={() => entrada.current?.click()} disabled={trabajando}>
-          Elegir una canción
+        <button type="button" className="boton-principal" onClick={() => entrada.current?.click()}>
+          {trabajando ? "Añadir más canciones" : "Elegir canciones"}
         </button>
         <p className="pistas-letra-pequena">
-          Se separa en este aparato y la canción no sale de aquí. La primera vez descarga el separador ({PESO_MODELO}): mejor con wifi.
+          Puedes elegir varias a la vez: se separan una detrás de otra. Se separa en este aparato y la canción no sale de aquí. La primera
+          vez descarga el separador ({PESO_MODELO}): mejor con wifi.
         </p>
         {esMovil && (
           <p className="pistas-letra-pequena">
@@ -166,7 +192,20 @@ export default function Pistas() {
         )}
       </section>
 
-      {sep.trabajo && <TarjetaTrabajo trabajo={sep.trabajo} />}
+      {sep.trabajo && <TarjetaTrabajo trabajo={sep.trabajo} enCola={sep.enCola} tanda={sep.tanda} />}
+
+      {repetidas.length > 0 && (
+        <div className="tarjeta" role="status">
+          <p>
+            {repetidas.length === 1
+              ? `«${repetidas[0]}» ya la tenías separada. No se repite.`
+              : `Ya tenías separadas ${repetidas.length}: ${repetidas.join(", ")}. No se repiten.`}
+          </p>
+          <button type="button" className="boton-texto" onClick={() => setRepetidas([])}>
+            Vale
+          </button>
+        </div>
+      )}
 
       {cortada && !sep.trabajo && (
         <div className="tarjeta tarjeta-error" role="alert">
@@ -184,7 +223,7 @@ export default function Pistas() {
 
       {sep.error && (
         <div className="tarjeta tarjeta-error" role="alert">
-          <p>{sep.error}</p>
+          <p className="con-saltos">{sep.error}</p>
           <button type="button" className="boton-texto" onClick={olvidarAviso}>
             Vale
           </button>
@@ -243,7 +282,7 @@ export default function Pistas() {
   );
 }
 
-function TarjetaTrabajo({ trabajo }: { trabajo: Trabajo }) {
+function TarjetaTrabajo({ trabajo, enCola, tanda }: { trabajo: Trabajo; enCola: string[]; tanda: EstadoSeparacion["tanda"] }) {
   let titulo = "";
   let detalle = "";
   let fraccion: number | null = null;
@@ -285,6 +324,11 @@ function TarjetaTrabajo({ trabajo }: { trabajo: Trabajo }) {
 
   return (
     <div className="tarjeta tarjeta-trabajo" aria-live="polite">
+      {tanda.total > 1 && (
+        <p className="trabajo-tanda">
+          Canción {Math.min(tanda.hechas + 1, tanda.total)} de {tanda.total}
+        </p>
+      )}
       <p className="trabajo-cancion">{trabajo.nombre}</p>
       <p className="trabajo-titulo">{titulo}</p>
       <div className={`progreso ${fraccion === null ? "indefinido" : ""}`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={fraccion === null ? undefined : Math.round(fraccion * 100)}>
@@ -296,7 +340,15 @@ function TarjetaTrabajo({ trabajo }: { trabajo: Trabajo }) {
           Parar
         </button>
       </div>
-      <p className="pistas-letra-pequena">Deja esta pantalla abierta hasta que acabe.</p>
+      {enCola.length > 0 && (
+        <p className="pistas-letra-pequena">
+          Después: {enCola.slice(0, 2).join(", ")}
+          {enCola.length > 2 ? ` y ${enCola.length - 2} más` : ""}.
+        </p>
+      )}
+      <p className="pistas-letra-pequena">
+        {enCola.length > 0 ? "Deja Clavija abierta hasta que acaben todas; «Parar» las para todas." : "Deja esta pantalla abierta hasta que acabe."}
+      </p>
     </div>
   );
 }
