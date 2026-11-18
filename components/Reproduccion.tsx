@@ -20,6 +20,7 @@ const MEZCLAS: { nombre: string; sin: Pista | null }[] = [
   { nombre: "Sin voz", sin: "voz" },
   { nombre: "Sin batería", sin: "bateria" },
   { nombre: "Sin bajo", sin: "bajo" },
+  { nombre: "Sin piano", sin: "piano" },
 ];
 
 const VEL_MIN = 0.5;
