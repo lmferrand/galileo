@@ -13,6 +13,8 @@ export interface Instrumento {
   familia: Familia;
   cuerdas: number;
   pala: GeometriaPala;
+  /** Foto del estudio sin este instrumento (lo tienes tú delante), desenfocada, de fondo al afinar. */
+  fondo?: string;
   /** «tu guitarra», «tu bajo»… */
   tuyo: string;
   /** «Guitarra afinada», «Bajo afinado». */
@@ -30,6 +32,7 @@ export const INSTRUMENTOS: Instrumento[] = [
     familia: "guitarra",
     cuerdas: 6,
     pala: PALA_ACUSTICA,
+    fondo: "/fondo/estudio-acustica-1.webp",
     tuyo: "tu guitarra",
     afinado: "Guitarra afinada",
     frecuenciaMin: 55,

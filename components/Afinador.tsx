@@ -283,6 +283,9 @@ export default function Afinador() {
 
   return (
     <main className={`app ${listo ? "es-lista" : ""}`}>
+      {listo && instrumento.fondo && (
+        <div key={instrumento.id} className="fondo-estudio" style={{ backgroundImage: `url(${instrumento.fondo})` }} aria-hidden="true" />
+      )}
       <header className="cabecera">
         <Navegacion actual="afinar" />
         <div className="cabecera-acciones">

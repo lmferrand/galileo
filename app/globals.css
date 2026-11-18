@@ -612,6 +612,48 @@ p {
   color: var(--texto-2);
 }
 
+/* ---------------- Foto del estudio de fondo ----------------
+   El estudio sin el instrumento que afinas (ese lo tienes tú delante, en
+   primer plano), desenfocado y oscurecido para que se lean los textos. */
+
+.fondo-estudio {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--bg);
+  background-size: cover;
+  background-position: 50% 42%;
+  animation: pala-entra 420ms ease-out;
+}
+.fondo-estudio::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(20, 10, 5, 0.78) 0%,
+    rgba(20, 10, 5, 0.46) 28%,
+    rgba(20, 10, 5, 0.5) 60%,
+    rgba(20, 10, 5, 0.86) 100%
+  );
+}
+@media (prefers-color-scheme: light) {
+  .fondo-estudio::after {
+    background: linear-gradient(
+      to bottom,
+      rgba(248, 239, 217, 0.9) 0%,
+      rgba(244, 231, 204, 0.62) 30%,
+      rgba(240, 226, 196, 0.56) 60%,
+      rgba(236, 220, 185, 0.84) 100%
+    );
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fondo-estudio {
+    animation: none;
+  }
+}
+
 /* ---------------- Pala (clavijero con foto) ---------------- */
 
 .zona-pala {
