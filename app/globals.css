@@ -1681,19 +1681,29 @@ li.actual .nota-chip {
   /* de borde a borde de la pantalla, aunque la columna del afinador sea estrecha (PC) */
   left: calc(50% - 50vw);
   right: calc(50% - 50vw);
-  bottom: calc(-1 * max(14px, env(safe-area-inset-bottom)) - var(--hueco-abajo, 0px) - 2px);
-  height: calc(120px + env(safe-area-inset-bottom) + var(--hueco-abajo, 0px));
+  bottom: calc(-1 * max(14px, env(safe-area-inset-bottom)) - 2px);
+  height: calc(120px + env(safe-area-inset-bottom));
   pointer-events: none;
   /* suave: el mástil y sus trastes se siguen viendo debajo */
   background: linear-gradient(to bottom, rgba(14, 7, 3, 0), rgba(14, 7, 3, 0.22) 50%, rgba(14, 7, 3, 0.32));
 }
-/* El mástil llega hasta el borde de abajo también en el hueco del iPhone */
-.pala-marco {
-  bottom: calc(-1 * var(--hueco-abajo, 0px));
+/* iPhone con la app abierta desde el icono (fallo de WebKit): la página cree que la pantalla
+   acaba antes del borde de abajo (--hueco-abajo, lo mide HuecoIphone). Las pantallas de altura
+   fija ocupan la altura real del aparato y la página no se desplaza; así el clavijero, el mástil
+   y los botones llegan al borde de verdad. */
+.app.con-estudio,
+html .app-pistas.con-escenario {
+  height: calc(100svh + var(--hueco-abajo, 0px));
 }
 html.hueco:has(.app.con-estudio),
-html.hueco:has(.app.con-estudio) body {
+html.hueco:has(.app.con-estudio) body,
+html.hueco:has(.con-escenario),
+html.hueco:has(.con-escenario) body {
   overflow: hidden;
+}
+/* Lo que va fijo abajo (botones y hojas) se pega al borde real */
+.hoja-fondo {
+  bottom: calc(-1 * var(--hueco-abajo, 0px));
 }
 
 
@@ -1716,9 +1726,8 @@ html:has(.con-escenario) {
 /* ---------------- Barra de abajo: Estudio, Metrónomo, Grabar ----------------
    Ocupa el borde de abajo (y el hueco que deja el iPhone en modo app). */
 :root {
-  /* Margen para la raya de inicio del iPhone. En modo app, si el iPhone ya deja su hueco abajo
-     (y la barra lo cubre), la raya cae dentro del hueco: solo falta lo que no cubra. */
-  --abajo-seguro: max(6px, calc(env(safe-area-inset-bottom) - var(--hueco-abajo, 0px)));
+  /* Margen para la raya de inicio del iPhone (los botones van contra el borde real de la pantalla) */
+  --abajo-seguro: max(8px, env(safe-area-inset-bottom));
   --barra: calc(76px + var(--abajo-seguro));
 }
 /* Botones sueltos, de cristal, sin barra: entre ellos se ve el mástil */
@@ -1726,7 +1735,7 @@ html:has(.con-escenario) {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: calc(-1 * var(--hueco-abajo, 0px));
   z-index: 20;
   display: flex;
   justify-content: space-evenly;
