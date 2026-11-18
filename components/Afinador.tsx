@@ -15,7 +15,7 @@ import BarraAbajo from "./BarraAbajo";
 import MetronomoPanel from "./MetronomoPanel";
 import Grabadora from "./Grabadora";
 import LooperPanel from "./LooperPanel";
-import MesaPanel from "./MesaPanel";
+import EstudioMesa from "./EstudioMesa";
 import { leerAjusteRetraso, Looper, type EstadoLooper, type ModoLooper } from "@/lib/looper";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo, type Compas } from "@/lib/metronomo";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
@@ -49,6 +49,7 @@ export default function Afinador() {
   const [cuerdaManual, setCuerdaManual] = useState(0);
   const [afinadas, setAfinadas] = useState<Set<number>>(() => new Set());
   const [hoja, setHoja] = useState<HojaAbierta>(null);
+  const cerrarHoja = useCallback(() => setHoja(null), []);
   const [celebrando, setCelebrando] = useState(false);
   const [tonoEn, setTonoEn] = useState<number | null>(null);
   // Pantalla de elegir instrumento: visible, yéndose (con la transición) o quitada.
@@ -558,9 +559,7 @@ export default function Afinador() {
         />
       )}
 
-      <Hoja abierta={hoja === "mesa"} titulo="Mesa" onCerrar={() => setHoja(null)}>
-        <MesaPanel />
-      </Hoja>
+      {hoja === "mesa" && <EstudioMesa onCerrar={cerrarHoja} />}
 
       <Hoja abierta={hoja === "metronomo"} titulo="Metrónomo" onCerrar={() => setHoja(null)}>
         <MetronomoPanel
