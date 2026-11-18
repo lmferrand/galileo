@@ -29,7 +29,8 @@ export function pedirPermisoMovimiento() {
   }
 }
 
-export default function FondoEstudio({ foto }: { foto: string }) {
+/** `vertical`: la foto ya es vertical (la de Pistas) y no hace falta enseñarla entera a lo ancho. */
+export default function FondoEstudio({ foto, vertical }: { foto: string; vertical?: boolean }) {
   const caja = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function FondoEstudio({ foto }: { foto: string }) {
   }, []);
 
   return (
-    <div ref={caja} className="fondo-estudio" style={{ "--foto": `url("${foto}")` } as CSSProperties} aria-hidden="true">
+    <div ref={caja} className={`fondo-estudio ${vertical ? "vertical" : ""}`} style={{ "--foto": `url("${foto}")` } as CSSProperties} aria-hidden="true">
       <div className="fondo-ambiente" />
       <div className="fondo-panorama" />
       <div className="fondo-velo" />

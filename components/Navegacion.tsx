@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 
-/** Logo y pestañas «Afinar» / «Pistas» de la cabecera. */
-export default function Navegacion({ actual }: { actual: "afinar" | "pistas" }) {
+/** Logo y pestañas «Afinar» / «Pistas» de la cabecera. `sobreOscuro`: logo crema siempre (el estudio de Pistas). */
+export default function Navegacion({ actual, sobreOscuro }: { actual: "afinar" | "pistas"; sobreOscuro?: boolean }) {
   return (
     <div className="navegacion">
       <Link href="/" className="marca" aria-label="Clavija, inicio">
         {/* Crema sobre la madera oscura, marrón sobre la clara */}
         <picture>
-          <source srcSet="/logo-clavija-oscuro.webp" media="(prefers-color-scheme: light)" />
+          {!sobreOscuro && <source srcSet="/logo-clavija-oscuro.webp" media="(prefers-color-scheme: light)" />}
           <img src="/logo-clavija.webp" alt="Clavija" width={390} height={130} className="marca-logo" draggable={false} />
         </picture>
       </Link>

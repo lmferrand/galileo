@@ -721,3 +721,122 @@ a.marca {
   align-items: center;
   gap: 2px;
 }
+
+/* ---------- El estudio con focos detrás del reproductor ----------
+   Arriba, el título y los mandos; en medio, los instrumentos (sin nada
+   encima, se pueden tocar); abajo, el panel de mandos sobre el suelo, que se
+   desliza. Siempre con los colores oscuros: es una sala con focos. */
+
+.app-pistas.con-escenario {
+  --bg: #1d100c;
+  --bg-alto: #3d2117;
+  --superficie: #2a1711;
+  --superficie-2: #3a2219;
+  --linea: rgba(240, 226, 204, 0.13);
+  --texto: #f3e8d6;
+  --texto-2: #c9b196;
+  --texto-3: #937a64;
+  --laton: #d9b26a;
+  --laton-claro: #f1d59d;
+  --laton-osc: #8a6833;
+  --afinado: #a4ecd0;
+  --fuera: #f2a55c;
+  --peligro: #f08a72;
+  color-scheme: dark;
+  color: var(--texto);
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 0;
+  isolation: isolate;
+}
+
+.escenario-estudio {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #120a06;
+}
+.escenario-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.escenario-sala {
+  fill: #0b0503;
+  transition: opacity 600ms ease;
+}
+.escenario-foco {
+  transition: opacity 450ms ease;
+}
+.escenario-luz {
+  mix-blend-mode: screen;
+}
+.escenario-toque {
+  fill: transparent;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.escenario-toque:focus-visible {
+  stroke: var(--laton-claro);
+  stroke-width: 4;
+  stroke-dasharray: 10 8;
+}
+
+.reproductor-arriba {
+  position: relative;
+  text-shadow: 0 1px 10px rgba(8, 4, 2, 0.8);
+}
+.reproductor-arriba .transporte {
+  margin-top: 8px;
+}
+/* Arriba hay poco sitio: título más pequeño (como mucho dos líneas) y crédito en letra menuda. */
+.con-escenario .reproductor-titulo {
+  font-size: 27px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.con-escenario .volver {
+  margin-top: 0;
+}
+.con-escenario .credito {
+  font-size: 11.5px;
+  line-height: 1.35;
+  margin-top: 4px;
+  color: var(--texto-2);
+}
+
+.reproductor-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 26px 16px max(28px, env(safe-area-inset-bottom));
+  background: linear-gradient(
+    to bottom,
+    rgba(18, 9, 5, 0) 0,
+    rgba(18, 9, 5, 0.74) 34px,
+    rgba(18, 9, 5, 0.9) 120px,
+    rgba(18, 9, 5, 0.94) 100%
+  );
+}
+.reproductor-panel .mezclas {
+  margin-top: 0;
+}
+.escenario-ayuda {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--texto-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .escenario-sala,
+  .escenario-foco {
+    transition: none;
+  }
+}

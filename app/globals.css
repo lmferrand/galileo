@@ -682,6 +682,23 @@ p {
     filter: brightness(0.7);
   }
 }
+/* La foto de Pistas ya es vertical: solo la de detrás, con los instrumentos a la vista. */
+.fondo-estudio.vertical .fondo-panorama {
+  display: none;
+}
+.fondo-estudio.vertical .fondo-ambiente {
+  filter: none;
+  background-position: 50% 58%;
+}
+/* La lista de Pistas tiene mucho texto: velo más fuerte. */
+.fondo-estudio.vertical .fondo-velo {
+  background: linear-gradient(to bottom, rgba(20, 10, 5, 0.8), rgba(20, 10, 5, 0.66) 45%, rgba(20, 10, 5, 0.86));
+}
+@media (prefers-color-scheme: light) {
+  .fondo-estudio.vertical .fondo-velo {
+    background: linear-gradient(to bottom, rgba(248, 239, 217, 0.9), rgba(244, 231, 204, 0.8) 45%, rgba(236, 220, 185, 0.92));
+  }
+}
 .fondo-velo {
   inset: 0;
   background: linear-gradient(

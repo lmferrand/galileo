@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Navegacion from "./Navegacion";
 import Reproduccion from "./Reproduccion";
+import FondoEstudio from "./FondoEstudio";
 import Nube from "./Nube";
 import { sesionActual } from "@/lib/nube/cliente";
 import { encolarSubida } from "@/lib/nube/cola";
@@ -110,6 +111,7 @@ export default function Pistas() {
 
   return (
     <main className="app app-pistas">
+      <FondoEstudio foto="/estudio/pistas-fondo-1.webp" vertical />
       <header className="cabecera">
         <Navegacion actual="pistas" />
       </header>

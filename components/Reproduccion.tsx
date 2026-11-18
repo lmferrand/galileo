@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Navegacion from "./Navegacion";
+import Escenario from "./Escenario";
 import { leerAudios, renombrarCancion } from "@/lib/pistas/almacen";
 import { Reproductor } from "@/lib/pistas/reproductor";
 import { leerWav } from "@/lib/pistas/wav";
@@ -59,6 +60,10 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const [borrador, setBorrador] = useState(cancion.nombre);
   const [guardado, setGuardado] = useState<Guardado | null>(null);
   const ultimo = useRef({ segundo: -1, tocando: false });
+  // Dónde acaban los instrumentos del escenario y lo de arriba: el panel de mandos empieza debajo.
+  const [pie, setPie] = useState(0);
+  const [finArriba, setFinArriba] = useState(0);
+  const arriba = useRef<HTMLDivElement>(null);
   const bloqueo = useRef<BloqueoPantalla | null>(null);
 
   const algunSolo = solo.some(Boolean);
@@ -66,6 +71,18 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const claveGanancias = efectivas.join(",");
   const gananciasIniciales = useRef(efectivas);
   const trozoValido = desde !== null && hasta !== null && hasta - desde >= TROZO_MINIMO;
+  // Luz de cada foco del escenario: apagado si la pista no suena, y más tenue con menos volumen.
+  const luces = PISTAS.map((_, i) => (efectivas[i] === 0 ? 0 : 0.35 + 0.65 * volumen[i]));
+
+  useEffect(() => {
+    const el = arriba.current;
+    if (!el) return;
+    const medir = () => setFinArriba(el.offsetTop + el.offsetHeight);
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Cargar las pistas del aparato y montar el reproductor.
   useEffect(() => {
@@ -151,6 +168,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const mezclaActiva = (sin: Pista | null) =>
     !algunSolo && volumen.every((v) => v === 1) && PISTAS.every((p, i) => silencio[i] === (p.id === sin));
   const cambiar = (lista: boolean[], i: number) => lista.map((v, j) => (j === i ? !v : v));
+  // Tocar un instrumento del escenario: lo quita o lo vuelve a poner (con algún «Solo», lo añade o lo saca del solo).
+  const tocarInstrumento = (pista: Pista) => {
+    const i = PISTAS.findIndex((p) => p.id === pista);
+    if (algunSolo) setSolo((s) => cambiar(s, i));
+    else setSilencio((s) => cambiar(s, i));
+  };
 
   // ---- Repetir un trozo ----
   const marcarInicio = () => {
@@ -216,62 +239,60 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const queda = describirMezcla(efectivas);
 
   return (
-    <main className="app app-pistas">
-      <header className="cabecera">
-        <Navegacion actual="pistas" />
-      </header>
+    <main className="app app-pistas con-escenario">
+      <Escenario luces={luces} onTocar={tocarInstrumento} onMedir={setPie} />
 
-      <button type="button" className="volver" onClick={onVolver}>
-        <svg viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M10 3 L5 8 L10 13" />
-        </svg>
-        Tus pistas
-      </button>
+      <div className="reproductor-arriba" ref={arriba}>
+        <header className="cabecera">
+          <Navegacion actual="pistas" sobreOscuro />
+        </header>
 
-      {editando ? (
-        <form
-          className="renombrar"
-          onSubmit={(e) => {
-            e.preventDefault();
-            guardarNombre();
-          }}
-        >
-          <input
-            autoFocus
-            value={borrador}
-            onChange={(e) => setBorrador(e.target.value)}
-            maxLength={80}
-            aria-label="Nombre de la canción"
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setBorrador(nombre);
-                setEditando(false);
-              }
+        <button type="button" className="volver" onClick={onVolver}>
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M10 3 L5 8 L10 13" />
+          </svg>
+          Tus pistas
+        </button>
+
+        {editando ? (
+          <form
+            className="renombrar"
+            onSubmit={(e) => {
+              e.preventDefault();
+              guardarNombre();
             }}
-          />
-          <button type="submit" className="boton-texto">
-            Guardar
-          </button>
-        </form>
-      ) : (
-        <div className="titulo-fila">
-          <h1 className="reproductor-titulo">{nombre}</h1>
-          <button type="button" className="boton-lapiz" onClick={() => setEditando(true)} aria-label="Cambiar el nombre">
-            <svg viewBox="0 0 24 24" className="icono" aria-hidden="true">
-              <path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" />
-            </svg>
-          </button>
-        </div>
-      )}
+          >
+            <input
+              autoFocus
+              value={borrador}
+              onChange={(e) => setBorrador(e.target.value)}
+              maxLength={80}
+              aria-label="Nombre de la canción"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setBorrador(nombre);
+                  setEditando(false);
+                }
+              }}
+            />
+            <button type="submit" className="boton-texto">
+              Guardar
+            </button>
+          </form>
+        ) : (
+          <div className="titulo-fila">
+            <h1 className="reproductor-titulo">{nombre}</h1>
+            <button type="button" className="boton-lapiz" onClick={() => setEditando(true)} aria-label="Cambiar el nombre">
+              <svg viewBox="0 0 24 24" className="icono" aria-hidden="true">
+                <path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" />
+              </svg>
+            </button>
+          </div>
+        )}
 
-      {cancion.credito && <p className="credito">{cancion.credito}</p>}
+        {cancion.credito && <p className="credito">{cancion.credito}</p>}
 
-      {error ? (
-        <div className="tarjeta tarjeta-error" role="alert">
-          <p>{error}</p>
-        </div>
-      ) : (
-        <>
+        {!error && (
           <section className="transporte" aria-label="Reproducción">
             <div className="barra-envoltura">
               {desde !== null && (
@@ -311,143 +332,155 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
               </button>
             </div>
           </section>
+        )}
+      </div>
 
-          <section className="practica" aria-label="Para practicar">
-            <div className="practica-fila">
-              <span className="practica-titulo">Velocidad</span>
-              <div className="paso-a-paso">
-                <button type="button" className="boton-redondo" onClick={() => cambiarVelocidad(-0.05)} disabled={velocidad <= VEL_MIN} aria-label="Más lento">
-                  −
-                </button>
-                <output className="paso-valor" aria-live="polite">
-                  {Math.round(velocidad * 100)} %
-                </output>
-                <button type="button" className="boton-redondo" onClick={() => cambiarVelocidad(0.05)} disabled={velocidad >= VEL_MAX} aria-label="Más rápido">
-                  +
-                </button>
+      <div className="reproductor-panel" style={{ top: Math.max(pie, finArriba + 8) }}>
+        {error ? (
+          <div className="tarjeta tarjeta-error" role="alert">
+            <p>{error}</p>
+          </div>
+        ) : (
+          <>
+            <section aria-label="Mezclas rápidas">
+              <div className="mezclas">
+                {MEZCLAS.map((m) => (
+                  <button key={m.nombre} type="button" className="chip" aria-pressed={mezclaActiva(m.sin)} onClick={() => aplicarMezcla(m.sin)}>
+                    {m.nombre}
+                  </button>
+                ))}
               </div>
-              {velocidad !== 1 && (
-                <button type="button" className="boton-texto" onClick={() => setVelocidad(1)}>
-                  Normal
+            </section>
+
+            <p className="escenario-ayuda">Toca un instrumento del estudio para quitarlo o volver a ponerlo.</p>
+
+            <section className="mesa" aria-label="Pistas">
+              {PISTAS.map((p, i) => {
+                const apagada = efectivas[i] === 0;
+                return (
+                  <div key={p.id} className={`canal ${apagada ? "apagado" : ""}`}>
+                    <div className="canal-cabeza">
+                      <span className="canal-nombre">{p.nombre}</span>
+                      <button
+                        type="button"
+                        className="canal-boton"
+                        aria-pressed={solo[i]}
+                        onClick={() => setSolo((s) => cambiar(s, i))}
+                        aria-label={`Solo ${p.nombre}`}
+                      >
+                        Solo
+                      </button>
+                      <button
+                        type="button"
+                        className="canal-boton silencio"
+                        aria-pressed={silencio[i]}
+                        onClick={() => setSilencio((s) => cambiar(s, i))}
+                        aria-label={silencio[i] ? `Volver a oír ${p.nombre}` : `Quitar ${p.nombre}`}
+                      >
+                        {silencio[i] ? <IconoMudo /> : <IconoSuena />}
+                      </button>
+                    </div>
+                    <input
+                      type="range"
+                      className="cuerda-volumen"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={volumen[i]}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setVolumen((vs) => vs.map((x, j) => (j === i ? v : x)));
+                      }}
+                      aria-label={`Volumen de ${p.nombre}`}
+                      style={{ "--hecho": `${volumen[i] * 100}%` } as CSSProperties}
+                    />
+                  </div>
+                );
+              })}
+            </section>
+
+            <section className="practica" aria-label="Para practicar">
+              <div className="practica-fila">
+                <span className="practica-titulo">Velocidad</span>
+                <div className="paso-a-paso">
+                  <button type="button" className="boton-redondo" onClick={() => cambiarVelocidad(-0.05)} disabled={velocidad <= VEL_MIN} aria-label="Más lento">
+                    −
+                  </button>
+                  <output className="paso-valor" aria-live="polite">
+                    {Math.round(velocidad * 100)} %
+                  </output>
+                  <button type="button" className="boton-redondo" onClick={() => cambiarVelocidad(0.05)} disabled={velocidad >= VEL_MAX} aria-label="Más rápido">
+                    +
+                  </button>
+                </div>
+                {velocidad !== 1 && (
+                  <button type="button" className="boton-texto" onClick={() => setVelocidad(1)}>
+                    Normal
+                  </button>
+                )}
+              </div>
+              {velocidad !== 1 && <p className="practica-ayuda">Más lenta pero en el mismo tono, para sacarla con calma.</p>}
+
+              <div className="practica-fila trozo">
+                <span className="practica-titulo">Repetir un trozo</span>
+                <div className="trozo-botones">
+                  <button type="button" className="chip" onClick={marcarInicio} disabled={cargando}>
+                    {desde !== null ? `Desde ${formatoTiempo(desde)}` : "Empieza aquí"}
+                  </button>
+                  <button type="button" className="chip" onClick={marcarFin} disabled={cargando}>
+                    {hasta !== null ? `Hasta ${formatoTiempo(hasta)}` : "Acaba aquí"}
+                  </button>
+                  {trozoValido && (
+                    <button
+                      type="button"
+                      className={`interruptor-mini ${repetir ? "on" : ""}`}
+                      role="switch"
+                      aria-checked={repetir}
+                      onClick={() => setRepetir((r) => !r)}
+                    >
+                      <span className="interruptor-pista" aria-hidden="true">
+                        <span className="interruptor-bola" />
+                      </span>
+                      <span>Repetir</span>
+                    </button>
+                  )}
+                  {desde !== null && (
+                    <button type="button" className="boton-texto suave" onClick={quitarTrozo}>
+                      Quitar
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="practica-ayuda">
+                {desde === null
+                  ? "Pon la canción donde empieza el trozo y toca «Empieza aquí»; luego, donde acaba, «Acaba aquí»."
+                  : hasta === null
+                    ? "Ahora llévala a donde acaba el trozo y toca «Acaba aquí»."
+                    : repetir
+                      ? `Se repite de ${formatoTiempo(desde)} a ${formatoTiempo(hasta)}.`
+                      : "Activa «Repetir» para que suene en bucle."}
+              </p>
+            </section>
+
+            <section className="guardar" aria-label="Guardar la mezcla">
+              {guardado?.estado === "listo" ? (
+                <button type="button" className="boton-principal ancho" onClick={entregar}>
+                  Guardar o compartir el archivo
+                </button>
+              ) : (
+                <button type="button" className="boton-principal ancho" onClick={prepararMezcla} disabled={cargando || guardado?.estado === "preparando"}>
+                  {guardado?.estado === "preparando" ? "Preparando la mezcla…" : "Guardar mi mezcla"}
                 </button>
               )}
-            </div>
-            {velocidad !== 1 && <p className="practica-ayuda">Más lenta pero en el mismo tono, para sacarla con calma.</p>}
-
-            <div className="practica-fila trozo">
-              <span className="practica-titulo">Repetir un trozo</span>
-              <div className="trozo-botones">
-                <button type="button" className="chip" onClick={marcarInicio} disabled={cargando}>
-                  {desde !== null ? `Desde ${formatoTiempo(desde)}` : "Empieza aquí"}
-                </button>
-                <button type="button" className="chip" onClick={marcarFin} disabled={cargando}>
-                  {hasta !== null ? `Hasta ${formatoTiempo(hasta)}` : "Acaba aquí"}
-                </button>
-                {trozoValido && (
-                  <button
-                    type="button"
-                    className={`interruptor-mini ${repetir ? "on" : ""}`}
-                    role="switch"
-                    aria-checked={repetir}
-                    onClick={() => setRepetir((r) => !r)}
-                  >
-                    <span className="interruptor-pista" aria-hidden="true">
-                      <span className="interruptor-bola" />
-                    </span>
-                    <span>Repetir</span>
-                  </button>
-                )}
-                {desde !== null && (
-                  <button type="button" className="boton-texto suave" onClick={quitarTrozo}>
-                    Quitar
-                  </button>
-                )}
-              </div>
-            </div>
-            <p className="practica-ayuda">
-              {desde === null
-                ? "Pon la canción donde empieza el trozo y toca «Empieza aquí»; luego, donde acaba, «Acaba aquí»."
-                : hasta === null
-                  ? "Ahora llévala a donde acaba el trozo y toca «Acaba aquí»."
-                  : repetir
-                    ? `Se repite de ${formatoTiempo(desde)} a ${formatoTiempo(hasta)}.`
-                    : "Activa «Repetir» para que suene en bucle."}
-            </p>
-          </section>
-
-          <section aria-label="Mezclas rápidas">
-            <div className="mezclas">
-              {MEZCLAS.map((m) => (
-                <button key={m.nombre} type="button" className="chip" aria-pressed={mezclaActiva(m.sin)} onClick={() => aplicarMezcla(m.sin)}>
-                  {m.nombre}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="mesa" aria-label="Pistas">
-            {PISTAS.map((p, i) => {
-              const apagada = efectivas[i] === 0;
-              return (
-                <div key={p.id} className={`canal ${apagada ? "apagado" : ""}`}>
-                  <div className="canal-cabeza">
-                    <span className="canal-nombre">{p.nombre}</span>
-                    <button
-                      type="button"
-                      className="canal-boton"
-                      aria-pressed={solo[i]}
-                      onClick={() => setSolo((s) => cambiar(s, i))}
-                      aria-label={`Solo ${p.nombre}`}
-                    >
-                      Solo
-                    </button>
-                    <button
-                      type="button"
-                      className="canal-boton silencio"
-                      aria-pressed={silencio[i]}
-                      onClick={() => setSilencio((s) => cambiar(s, i))}
-                      aria-label={silencio[i] ? `Volver a oír ${p.nombre}` : `Quitar ${p.nombre}`}
-                    >
-                      {silencio[i] ? <IconoMudo /> : <IconoSuena />}
-                    </button>
-                  </div>
-                  <input
-                    type="range"
-                    className="cuerda-volumen"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={volumen[i]}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      setVolumen((vs) => vs.map((x, j) => (j === i ? v : x)));
-                    }}
-                    aria-label={`Volumen de ${p.nombre}`}
-                    style={{ "--hecho": `${volumen[i] * 100}%` } as CSSProperties}
-                  />
-                </div>
-              );
-            })}
-          </section>
-
-          <section className="guardar" aria-label="Guardar la mezcla">
-            {guardado?.estado === "listo" ? (
-              <button type="button" className="boton-principal ancho" onClick={entregar}>
-                Guardar o compartir el archivo
-              </button>
-            ) : (
-              <button type="button" className="boton-principal ancho" onClick={prepararMezcla} disabled={cargando || guardado?.estado === "preparando"}>
-                {guardado?.estado === "preparando" ? "Preparando la mezcla…" : "Guardar mi mezcla"}
-              </button>
-            )}
-            <p className="practica-ayuda">
-              {guardado?.estado === "hecho" || guardado?.estado === "error"
-                ? guardado.texto
-                : `Se guarda como está ahora (${queda}), a velocidad normal, en un archivo WAV.`}
-            </p>
-          </section>
-        </>
-      )}
+              <p className="practica-ayuda">
+                {guardado?.estado === "hecho" || guardado?.estado === "error"
+                  ? guardado.texto
+                  : `Se guarda como está ahora (${queda}), a velocidad normal, en un archivo WAV.`}
+              </p>
+            </section>
+          </>
+        )}
+      </div>
     </main>
   );
 }
