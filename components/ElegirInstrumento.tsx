@@ -28,12 +28,23 @@ interface Opcion {
   pronto?: boolean;
 }
 
+/** Lo que se puede tocar pero aún no tiene afinador: sale «Próximamente». */
+interface Proximo {
+  id: string;
+  nombre: string;
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+}
+
 interface Foto {
   src: string;
   ancho: number;
   alto: number;
   zoom: number;
   opciones: Opcion[];
+  proximos: Proximo[];
 }
 
 const VERTICAL: Foto = {
@@ -46,6 +57,10 @@ const VERTICAL: Foto = {
     { id: "bajo", nombre: "Bajo", cx: 728, cy: 903, rx: 50, ry: 164 },
     { id: "electrica", nombre: "Eléctrica", cx: 808, cy: 935, rx: 58, ry: 150 },
   ],
+  proximos: [
+    { id: "piano", nombre: "Piano", cx: 252, cy: 842, rx: 74, ry: 66 },
+    { id: "microfono", nombre: "Micrófono", cx: 303, cy: 905, rx: 20, ry: 195 },
+  ],
 };
 
 const HORIZONTAL: Foto = {
@@ -57,6 +72,10 @@ const HORIZONTAL: Foto = {
     { id: "acustica", nombre: "Acústica", cx: 215, cy: 650, rx: 98, ry: 272 },
     { id: "bajo", nombre: "Bajo", cx: 1243, cy: 615, rx: 64, ry: 240 },
     { id: "electrica", nombre: "Eléctrica", cx: 1378, cy: 660, rx: 86, ry: 235 },
+  ],
+  proximos: [
+    { id: "piano", nombre: "Piano", cx: 430, cy: 520, rx: 115, ry: 80 },
+    { id: "microfono", nombre: "Micrófono", cx: 474, cy: 600, rx: 26, ry: 320 },
   ],
 };
 
@@ -100,6 +119,14 @@ export default function ElegirInstrumento({ saliendo, volviendoDe = null, onEleg
       cancelAnimationFrame(segundo);
     };
   }, [acercada]);
+  // «Próximamente» encima del piano o del micrófono al tocarlos (se va solo).
+  const [aviso, setAviso] = useState<{ id: string; vez: number } | null>(null);
+  useEffect(() => {
+    if (!aviso) return;
+    const t = setTimeout(() => setAviso(null), 1700);
+    return () => clearTimeout(t);
+  }, [aviso]);
+  const avisar = (id: string) => setAviso((a) => ({ id, vez: (a?.vez ?? 0) + 1 }));
   const destino = saliendo ?? (acercada ? volviendoDe : null);
   const elegida = foto.opciones.find((o) => o.id === destino);
 
@@ -148,6 +175,27 @@ export default function ElegirInstrumento({ saliendo, volviendoDe = null, onEleg
                   <stop offset="100%" stopColor="#ffe2ad" stopOpacity="0" />
                 </radialGradient>
               </defs>
+              {/* Primero lo que aún no se puede afinar: los instrumentos quedan encima si se tocan los bordes */}
+              {foto.proximos.map((p) => (
+                <ellipse
+                  key={p.id}
+                  cx={p.cx}
+                  cy={p.cy}
+                  rx={p.rx}
+                  ry={p.ry}
+                  className="elegir-toque elegir-proximo"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${p.nombre}: próximamente`}
+                  onClick={() => !saliendo && avisar(p.id)}
+                  onKeyDown={(ev) => {
+                    if (ev.key === "Enter" || ev.key === " ") {
+                      ev.preventDefault();
+                      avisar(p.id);
+                    }
+                  }}
+                />
+              ))}
               {foto.opciones.map((o) => (
                 <g key={o.id} className={`elegir-opcion ${o.pronto ? "pronto" : ""}`}>
                   {!o.pronto && <ellipse cx={o.cx} cy={o.cy} rx={o.rx * 1.5} ry={o.ry * 1.15} fill="url(#elegir-halo)" className="elegir-halo" />}
@@ -179,6 +227,22 @@ export default function ElegirInstrumento({ saliendo, volviendoDe = null, onEleg
           </div>
         </div>
       )}
+
+      {listo && aviso && !saliendo && (() => {
+        const p = foto.proximos.find((x) => x.id === aviso.id);
+        if (!p) return null;
+        const e = marco.width / foto.ancho;
+        return (
+          <div
+            key={aviso.vez}
+            className="elegir-proximamente"
+            role="status"
+            style={{ left: marco.left + p.cx * e, top: marco.top + (p.cy - p.ry) * e }}
+          >
+            Próximamente
+          </div>
+        );
+      })()}
 
       <div className="elegir-texto">
         <h1 id="elegir-titulo">¿Qué vas a afinar?</h1>
