@@ -6,6 +6,8 @@ import Reproduccion from "./Reproduccion";
 import FondoEstudio from "./FondoEstudio";
 import Nube from "./Nube";
 import Hoja from "./Hoja";
+import EstudioEncargos from "./EstudioEncargos";
+import { estudioEncendido, mandarAlEstudio, type EstadoEstudio } from "@/lib/estudio/cliente";
 import { borrarCancion, espacio, listarCanciones, pedirPersistencia } from "@/lib/pistas/almacen";
 import { contenidoZip, esPaquete, importarSeparada, type CancionEnZip } from "@/lib/pistas/importar";
 import {
@@ -51,6 +53,12 @@ export default function Pistas() {
   // Hoja abierta: la nube o la ayuda (antes eran una tarjeta y párrafos en la pantalla)
   const [hoja, setHoja] = useState<"nube" | "ayuda" | null>(null);
   const cerrarHoja = useCallback(() => setHoja(null), []);
+  // Canciones elegidas que esperan a que digas dónde separarlas (aquí o en el estudio)
+  const [porSeparar, setPorSeparar] = useState<File[] | null>(null);
+  const cerrarDonde = useCallback(() => setPorSeparar(null), []);
+  const [estudio, setEstudio] = useState<EstadoEstudio | null>(null);
+  const [versionEstudio, setVersionEstudio] = useState(0);
+  const [mandando, setMandando] = useState<{ nombre: string; hechas: number; total: number } | null>(null);
 
   const recargar = useCallback(async () => {
     try {
@@ -154,7 +162,8 @@ export default function Pistas() {
     const enEsta = new Set<string>();
     const aAnadir = yaSeparadas.filter((c) => (enEsta.has(c.nombre) ? false : (enEsta.add(c.nombre), true)));
     setRepetidas(ya);
-    separarCanciones(aSeparar);
+    // Antes de separar, dónde: aquí o en el estudio (más calidad)
+    if (aSeparar.length) setPorSeparar(aSeparar);
     if (aAnadir.length) void anadirYaSeparadas(aAnadir, fallos);
     else if (fallos.length) setFallosAnadir(fallos.join("\n"));
   };
@@ -193,6 +202,29 @@ export default function Pistas() {
     pedirPersistencia();
     await recargar();
     if (orden.length === 1 && ultima) setAbierta(ultima);
+  };
+
+  const separarAqui = () => {
+    if (porSeparar) separarCanciones(porSeparar);
+    setPorSeparar(null);
+  };
+
+  const separarEnEstudio = async () => {
+    const lista = porSeparar ?? [];
+    setPorSeparar(null);
+    const fallos: string[] = [];
+    for (const [i, a] of lista.entries()) {
+      const nombre = nombreBonito(a.name);
+      setMandando({ nombre, hechas: i, total: lista.length });
+      try {
+        await mandarAlEstudio(a, nombre);
+      } catch (e) {
+        fallos.push(lista.length > 1 ? `«${nombre}»: ${(e as Error).message}` : (e as Error).message);
+      }
+      setVersionEstudio((v) => v + 1);
+    }
+    setMandando(null);
+    if (fallos.length) setFallosAnadir(fallos.join("\n"));
   };
 
   if (abierta) {
@@ -262,6 +294,22 @@ export default function Pistas() {
         </div>
       </section>
 
+      <Hoja abierta={porSeparar !== null} titulo="¿Dónde las separo?" onCerrar={cerrarDonde}>
+        <div className="donde">
+          <button type="button" className="donde-opcion" onClick={separarAqui}>
+            <span className="donde-titulo">Aquí</span>
+            <span className="donde-texto">En este aparato. Calidad normal; tarda unos minutos y hay que dejar la app abierta.</span>
+          </button>
+          <button type="button" className="donde-opcion mejor" onClick={() => void separarEnEstudio()}>
+            <span className="donde-titulo">En el estudio · más calidad</span>
+            <span className="donde-texto">
+              Se separa en el estudio de The Clavija y vuelve sola a tu lista, aunque cierres la app. Unos 15 minutos por canción.{" "}
+              {estudioEncendido(estudio) ? "Ahora está encendido." : "Ahora está apagado: empezará cuando se encienda."}
+            </span>
+          </button>
+        </div>
+      </Hoja>
+
       <Hoja abierta={hoja === "nube"} titulo="Tu nube" onCerrar={cerrarHoja}>
         {canciones !== null && (
           <Nube
@@ -285,7 +333,11 @@ export default function Pistas() {
           <li>
             <b>.zip:</b> varias canciones juntas. Las que ya vienen separadas entran al momento.
           </li>
-          <li>La primera vez se descarga el separador ({PESO_MODELO}): mejor con wifi.</li>
+          <li>
+            <b>En el estudio:</b> al elegir canciones puedes mandarlas al estudio de The Clavija, que separa con más calidad y te las devuelve
+            solas a esta lista (unos 15 minutos por canción; hasta 3 a la vez y de 10 minutos como mucho).
+          </li>
+          <li>La primera vez que separas aquí se descarga el separador ({PESO_MODELO}): mejor con wifi.</li>
           <li>Las de Apple Music o Spotify no se pueden abrir: vienen protegidas.</li>
           {esMovil && <li>Mientras separa, deja la pantalla encendida y The Clavija abierta.</li>}
           {sinGpu && <li>Este navegador solo deja usar un núcleo: separar irá unas cuatro veces más lento.</li>}
@@ -314,6 +366,19 @@ export default function Pistas() {
           </p>
         )}
       </Hoja>
+
+      {mandando && (
+        <div className="tarjeta tarjeta-trabajo" aria-live="polite">
+          {mandando.total > 1 && (
+            <p className="trabajo-tanda">
+              Canción {mandando.hechas + 1} de {mandando.total}
+            </p>
+          )}
+          <p className="trabajo-cancion">{mandando.nombre}</p>
+          <p className="trabajo-titulo">Mandándola al estudio…</p>
+        </div>
+      )}
+      <EstudioEncargos version={versionEstudio} onEstado={setEstudio} onRecibida={() => void recargar()} />
 
       {sep.trabajo && <TarjetaTrabajo trabajo={sep.trabajo} enCola={sep.enCola} tanda={sep.tanda} />}
 
