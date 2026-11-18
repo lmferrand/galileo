@@ -63,20 +63,40 @@ export function detectarTono(
   }
   if (tau === -1) return null;
 
-  // 3b) Con poca señal (el final de una nota, una sala con ruido) YIN se va a veces a
-  // la octava de abajo: el periodo bueno queda justo por encima del umbral y el doble
-  // por debajo. Si la mitad (o un tercio, o un cuarto) del periodo encaja casi igual
-  // de bien, la nota es esa. Con una nota limpia el periodo bueno es mucho mejor que
-  // su mitad, así que esto no sube de octava una cuerda grave sin fundamental.
-  for (const k of [4, 3, 2]) {
-    const centro = Math.round(tau / k);
-    if (centro - 2 < tauMin) continue;
+  // Mínimo de d cerca de una posición (±3 muestras), o -1 si no hay un valle ahí.
+  const valleCerca = (centro: number) => {
+    if (centro - 3 < tauMin || centro + 3 > tauMax) return -1;
     let mejor = centro;
-    for (let t = centro - 2; t <= centro + 2; t++) if (d[t] < d[mejor]) mejor = t;
-    const esMinimo = d[mejor] <= d[mejor - 1] && d[mejor] <= d[mejor + 1];
-    if (esMinimo && d[mejor] < d[tau] * 1.5 + 0.03) {
-      tau = mejor;
-      break;
+    for (let t = centro - 3; t <= centro + 3; t++) if (d[t] < d[mejor]) mejor = t;
+    return d[mejor] <= d[mejor - 1] && d[mejor] <= d[mejor + 1] ? mejor : -1;
+  };
+
+  // 3b) Octava de arriba: en una cuerda grave el 2.º armónico suena muy fuerte (y el
+  // micro del móvil apenas coge el fundamental), así que el primer valle puede ser la
+  // mitad del periodo. Si el doble (o el triple) encaja mucho mejor, la nota es esa.
+  // Con una nota de verdad aguda el doble encaja igual, no mucho mejor: no la baja.
+  let corregida = false;
+  if (d[tau] > 0.03) {
+    for (const k of [2, 3]) {
+      const t = valleCerca(tau * k);
+      if (t > 0 && d[t] < d[tau] * 0.55) {
+        tau = t;
+        corregida = true;
+        break;
+      }
+    }
+  }
+
+  // 3c) Octava de abajo: con poca señal (final de una nota, sala con ruido) el periodo
+  // bueno queda justo por encima del umbral y el doble por debajo. Si el valle elegido
+  // es flojo y la mitad (o un tercio, o un cuarto) encaja casi igual de bien, es esa.
+  if (!corregida && d[tau] > 0.05) {
+    for (const k of [4, 3, 2]) {
+      const t = valleCerca(Math.round(tau / k));
+      if (t > 0 && d[t] < d[tau] * 1.5 + 0.03) {
+        tau = t;
+        break;
+      }
     }
   }
 
