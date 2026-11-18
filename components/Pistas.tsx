@@ -5,7 +5,8 @@ import Navegacion from "./Navegacion";
 import Reproduccion from "./Reproduccion";
 import FondoEstudio from "./FondoEstudio";
 import Nube from "./Nube";
-import { borrarCancion, espacio, listarCanciones } from "@/lib/pistas/almacen";
+import { borrarCancion, espacio, listarCanciones, pedirPersistencia } from "@/lib/pistas/almacen";
+import { esPaquete, importarPaquete } from "@/lib/pistas/importar";
 import {
   nombreBonito,
   olvidarAviso,
@@ -38,6 +39,9 @@ export default function Pistas() {
   const [uso, setUso] = useState<{ usado: number; disponible: number } | null>(null);
   const [borrando, setBorrando] = useState<string | null>(null);
   const [ejemplo, setEjemplo] = useState<{ fraccion: number } | { error: string } | null>(null);
+  // Canciones que llegan ya separadas (.zip): se añaden al momento, sin separador.
+  const [anadiendo, setAnadiendo] = useState<{ nombre: string; hechas: number; total: number } | null>(null);
+  const [fallosAnadir, setFallosAnadir] = useState<string | null>(null);
   const entrada = useRef<HTMLInputElement>(null);
 
   const recargar = useCallback(async () => {
@@ -106,17 +110,47 @@ export default function Pistas() {
     // Las que ya tienes separadas (o ya esperan en la cola) no se repiten.
     const tienes = new Set([...(canciones ?? []).map((c) => c.nombre), ...sep.enCola, ...(sep.trabajo ? [sep.trabajo.nombre] : [])]);
     const nuevas: File[] = [];
+    const separadas: File[] = [];
     const ya: string[] = [];
     for (const a of archivos) {
       const nombre = nombreBonito(a.name);
       if (tienes.has(nombre)) ya.push(nombre);
       else {
         tienes.add(nombre);
-        nuevas.push(a);
+        (esPaquete(a) ? separadas : nuevas).push(a);
       }
     }
     setRepetidas(ya);
     separarCanciones(nuevas);
+    if (separadas.length) void anadirYaSeparadas(separadas);
+  };
+
+  const anadirYaSeparadas = async (archivos: File[]) => {
+    const orden = [...archivos].sort((a, b) => a.name.localeCompare(b.name, "es"));
+    // Así salen en la lista por orden alfabético (la lista va de la más nueva a la más vieja).
+    const base = Date.now();
+    const fallos: string[] = [];
+    let ultima: Cancion | null = null;
+    setFallosAnadir(null);
+    for (const [i, a] of orden.entries()) {
+      const nombre = nombreBonito(a.name);
+      setAnadiendo({ nombre, hechas: i, total: orden.length });
+      try {
+        const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `c${Date.now().toString(36)}${i}`;
+        ultima = await importarPaquete(a, { id, nombre, creada: base - i });
+      } catch (e) {
+        const m = (e as Error).message || "";
+        const lleno = /quota|QuotaExceeded|lleno/i.test(m);
+        const texto = lleno ? "No cabe en el aparato. Borra alguna canción y vuelve a probar." : m || "No se ha podido añadir.";
+        fallos.push(orden.length > 1 ? `«${nombre}»: ${texto}` : texto);
+        if (lleno) break;
+      }
+    }
+    setAnadiendo(null);
+    setFallosAnadir(fallos.length ? fallos.join("\n") : null);
+    pedirPersistencia();
+    await recargar();
+    if (orden.length === 1 && ultima) setAbierta(ultima);
   };
 
   if (abierta) {
@@ -146,7 +180,7 @@ export default function Pistas() {
         <input
           ref={entrada}
           type="file"
-          accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg"
+          accept="audio/*,.mp3,.m4a,.wav,.aac,.flac,.ogg,.zip,application/zip"
           multiple
           className="oculto"
           onChange={(e) => {
@@ -154,12 +188,12 @@ export default function Pistas() {
             e.target.value = "";
           }}
         />
-        <button type="button" className="boton-principal" onClick={() => entrada.current?.click()}>
+        <button type="button" className="boton-principal" onClick={() => entrada.current?.click()} disabled={anadiendo !== null}>
           {trabajando ? "Añadir más canciones" : "Elegir canciones"}
         </button>
         <p className="pistas-letra-pequena">
           Puedes elegir varias a la vez: se separan una detrás de otra. Se separa en este aparato y la canción no sale de aquí. La primera
-          vez descarga el separador ({PESO_MODELO}): mejor con wifi.
+          vez descarga el separador ({PESO_MODELO}): mejor con wifi. Las que ya vienen separadas (un .zip por canción) entran al momento.
         </p>
         {esMovil && (
           <p className="pistas-letra-pequena">
@@ -193,6 +227,31 @@ export default function Pistas() {
       </section>
 
       {sep.trabajo && <TarjetaTrabajo trabajo={sep.trabajo} enCola={sep.enCola} tanda={sep.tanda} />}
+
+      {anadiendo && (
+        <div className="tarjeta tarjeta-trabajo" aria-live="polite">
+          {anadiendo.total > 1 && (
+            <p className="trabajo-tanda">
+              Canción {anadiendo.hechas + 1} de {anadiendo.total}
+            </p>
+          )}
+          <p className="trabajo-cancion">{anadiendo.nombre}</p>
+          <p className="trabajo-titulo">Añadiendo, ya viene separada</p>
+          <div className="progreso" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((anadiendo.hechas / anadiendo.total) * 100)}>
+            <span style={{ width: `${Math.max(2, (anadiendo.hechas / anadiendo.total) * 100)}%` }} />
+          </div>
+          <p className="pistas-letra-pequena">Deja Clavija abierta hasta que acabe.</p>
+        </div>
+      )}
+
+      {fallosAnadir && (
+        <div className="tarjeta tarjeta-error" role="alert">
+          <p className="con-saltos">{fallosAnadir}</p>
+          <button type="button" className="boton-texto" onClick={() => setFallosAnadir(null)}>
+            Vale
+          </button>
+        </div>
+      )}
 
       {repetidas.length > 0 && (
         <div className="tarjeta" role="status">

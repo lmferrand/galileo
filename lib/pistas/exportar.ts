@@ -13,7 +13,7 @@ export async function mezclarCancion(cancion: Cancion, ganancias: number[]): Pro
   for (let s = 0; s < IDS.length; s++) {
     const g = ganancias[s];
     if (g < 0.0001) continue;
-    const datos = await leerWav(audios[IDS[s]]);
+    const datos = await leerWav(audios[IDS[s]], cancion.frames);
     const n = Math.min(datos.length, suma.length);
     for (let i = 0; i < n; i++) suma[i] += datos[i] * g;
   }

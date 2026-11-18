@@ -24,3 +24,13 @@ que la salida es la misma, con la misma «huella».
 Para ejecutarlas hacen falta `onnxruntime-node`, `onnxruntime-web` y una copia de
 `node_modules/onnxruntime-web/lib/onnxjs/ort-schema/protobuf/onnx.js` guardada
 junto a ellas como `onnx-proto.cjs`.
+
+## Canciones ya separadas para añadir a Clavija (`paquetes.mjs`)
+
+`node paquetes.mjs <carpeta-canciones> <htdemucs_6s.onnx> <carpeta-salida> [kbps]`
+separa en el PC (onnxruntime-node, el modelo original entero) todas las canciones
+de una carpeta y deja un `.zip` sin comprimir por canción: `cancion.json`
+(nombre, frames, duración) y las 6 pistas en MP3. En Clavija, Pistas →
+«Elegir canciones» → elegir los `.zip`: entran al momento, sin separar, y se
+guardan en MP3 (unas diez veces menos que las que separa el aparato). Si un
+`.zip` ya existe, esa canción se salta. Las canciones nunca van dentro de la web.

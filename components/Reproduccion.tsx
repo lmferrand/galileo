@@ -102,7 +102,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
     (async () => {
       try {
         const audios = await leerAudios(cancion.id, IDS);
-        const datos = await Promise.all(IDS.map((id) => leerWav(audios[id])));
+        // De una en una: las que llegan en MP3 se descodifican y así no se juntan seis a la vez en memoria.
+        const datos: Int16Array[] = [];
+        for (const id of IDS) {
+          if (!vivo) return;
+          datos.push(await leerWav(audios[id], cancion.frames));
+        }
         if (!vivo) return;
         await r.cargar(datos, cancion.frames, gananciasIniciales.current);
         if (vivo) setCargando(false);
