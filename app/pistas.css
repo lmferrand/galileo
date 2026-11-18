@@ -868,3 +868,87 @@ a.marca {
     border-left: 1px solid var(--linea);
   }
 }
+
+/* ============================================================
+   /sonidos: escuchar los sonidos de cada instrumento y elegir
+   ============================================================ */
+.sonidos {
+  max-width: 540px;
+  margin: 0 auto;
+  padding: max(20px, env(safe-area-inset-top)) 16px max(40px, env(safe-area-inset-bottom));
+  color: var(--texto);
+}
+.sonidos h1 {
+  font-family: var(--f-display);
+  font-size: 30px;
+  font-weight: 500;
+  margin: 8px 0 6px;
+}
+.sonidos-ayuda {
+  color: var(--texto-2);
+  font-size: 15px;
+  line-height: 1.45;
+  margin: 0 0 18px;
+}
+.sonidos-grupo h2 {
+  font-size: 17px;
+  margin: 22px 0 8px;
+}
+.sonidos-grupo ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.sonidos-boton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--linea);
+  background: color-mix(in oklab, var(--superficie) 70%, transparent);
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.sonidos-boton.sonando {
+  border-color: var(--laton);
+  background: color-mix(in oklab, var(--laton) 18%, var(--superficie));
+}
+.sonidos-numero {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: var(--superficie-2);
+}
+.sonidos-texto {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+.sonidos-nombre {
+  font-weight: 700;
+}
+.sonidos-ahora {
+  font-weight: 400;
+  color: var(--texto-2);
+}
+.sonidos-detalle {
+  font-size: 14px;
+  color: var(--texto-2);
+}
+.sonidos-play {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+  opacity: 0.8;
+}

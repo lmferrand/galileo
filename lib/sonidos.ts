@@ -1,10 +1,10 @@
 // Sonido de cada instrumento al elegirlo en el estudio. Nada de grabaciones: las
 // cuerdas se simulan con el método de Karplus-Strong (un ruido corto que da vueltas
-// por un retardo y se va suavizando, como una cuerda pulsada) y luego cada una pasa
-// por su «caja»:
-//  - acústica: rasgueo de un Mi mayor abierto, con cuerpo de madera y algo de sala;
-//  - eléctrica: quinta de La con el amplificador saturado;
-//  - bajo: un Mi grave con el pulgar y su octava pellizcada, redondo.
+// por un retardo y se va suavizando, como una cuerda pulsada) y luego pasan por su
+// «caja»: cuerpo de madera, amplificador limpio o saturado, o el del bajo.
+//
+// Hay varias recetas por instrumento (VARIANTES); en la app suena la de ELEGIDOS.
+// En /sonidos se pueden escuchar todas para elegir.
 
 import type { InstrumentoId } from "./instrumentos";
 
@@ -27,15 +27,17 @@ interface Pulso {
   midi: number;
   /** segundos desde el principio */
   cuando: number;
-  /** 0 grave … 1 aguda: dónde suena en estéreo (−1 izquierda, 1 derecha) */
+  /** −1 izquierda … 1 derecha */
   pan: number;
   /** 0,5 = cuerda apagada pronto, 0,1 = muy brillante */
   suavizado: number;
-  /** pérdida por vuelta (0,99–0,9995): cuánto dura */
+  /** pérdida por vuelta (0,95–0,9995): cuánto dura */
   sostener: number;
   /** 0–1: ruido del ataque más o menos brillante */
   ataque: number;
   volumen: number;
+  /** segundo en que se apaga la cuerda (otra nota en la misma cuerda, la mano que la para) */
+  hasta?: number;
 }
 
 /** Las cuerdas de un sonido, mezcladas en un búfer estéreo. */
@@ -45,6 +47,7 @@ function cuerdas(c: BaseAudioContext, pulsos: Pulso[], duracion: number): AudioB
   const buf = c.createBuffer(2, largo, sr);
   const L = buf.getChannelData(0);
   const R = buf.getChannelData(1);
+  const apagado = Math.round(0.04 * sr);
   for (const p of pulsos) {
     // El suavizado retrasa medio ciclo: se descuenta para que la nota quede afinada.
     const periodo = Math.max(2, Math.round(sr / nota(p.midi) - p.suavizado));
@@ -58,17 +61,19 @@ function cuerdas(c: BaseAudioContext, pulsos: Pulso[], duracion: number): AudioB
     const izq = Math.cos(((p.pan + 1) * Math.PI) / 4) * p.volumen;
     const der = Math.sin(((p.pan + 1) * Math.PI) / 4) * p.volumen;
     const inicio = Math.round(p.cuando * sr);
+    const fin = p.hasta === undefined ? largo : Math.min(largo, Math.round(p.hasta * sr) + apagado);
+    const empiezaApagado = p.hasta === undefined ? largo : Math.round(p.hasta * sr);
     let k = 0;
-    for (let n = inicio; n < largo; n++) {
+    for (let n = inicio; n < fin; n++) {
       const a = linea[k];
       const b = linea[(k + 1) % periodo];
-      const v = p.sostener * ((1 - p.suavizado) * a + p.suavizado * b);
-      linea[k] = v;
+      linea[k] = p.sostener * ((1 - p.suavizado) * a + p.suavizado * b);
       k = (k + 1) % periodo;
-      // Fundido al final para que no se corte de golpe
-      const cola = Math.min(1, (largo - n) / (0.25 * sr));
-      L[n] += a * izq * cola;
-      R[n] += a * der * cola;
+      // Fundidos: al final del sonido y cuando la cuerda se apaga
+      let g = Math.min(1, (largo - n) / (0.25 * sr));
+      if (n >= empiezaApagado) g *= 1 - (n - empiezaApagado) / apagado;
+      L[n] += a * izq * g;
+      R[n] += a * der * g;
     }
   }
   return buf;
@@ -110,100 +115,353 @@ function filtro(c: BaseAudioContext, tipo: BiquadFilterType, frecuencia: number,
   return f;
 }
 
-/** Suena el instrumento elegido. Hay que llamarlo dentro del toque (el iPhone lo exige). */
-export function sonarInstrumento(id: InstrumentoId) {
+function ganancia(c: BaseAudioContext, valor: number): GainNode {
+  const g = c.createGain();
+  g.gain.value = valor;
+  return g;
+}
+
+function compresor(c: BaseAudioContext): DynamicsCompressorNode {
+  const k = c.createDynamicsCompressor();
+  k.threshold.value = -18;
+  k.ratio.value = 4;
+  return k;
+}
+
+/** Encadena nodos y devuelve el último. */
+function cadena(desde: AudioNode, ...nodos: AudioNode[]): AudioNode {
+  let ultimo = desde;
+  for (const n of nodos) ultimo = ultimo.connect(n);
+  return ultimo;
+}
+
+// ---- Las «cajas» ----
+type Caja = (c: BaseAudioContext, entrada: AudioNode) => AudioNode;
+
+/** Guitarra acústica: graves de la caja de madera y brillo de las cuerdas de acero. */
+const madera: Caja = (c, e) => cadena(e, filtro(c, "peaking", 110, 1.1, 5), filtro(c, "highshelf", 3200, 0.7, 3), filtro(c, "lowpass", 9000));
+/** Amplificador saturado con su altavoz de guitarra. */
+const saturado =
+  (fuerza: number): Caja =>
+  (c, e) =>
+    cadena(e, filtro(c, "highpass", 90), ganancia(c, 3.2), saturacion(c, fuerza), filtro(c, "peaking", 900, 0.9, 4), filtro(c, "lowpass", 3800, 0.9));
+/** Amplificador limpio y brillante. */
+const limpio: Caja = (c, e) => cadena(e, filtro(c, "highpass", 80), filtro(c, "peaking", 2500, 0.8, 3), filtro(c, "lowpass", 7000));
+/**
+ * Bajo con los dedos. El altavoz del móvil casi no da graves: un poco de saturación le
+ * pone armónicos (el oído «oye» el grave por ellos) y un punto de medios, el chasquido.
+ */
+const bajoDedos: Caja = (c, e) =>
+  cadena(e, ganancia(c, 1.6), saturacion(c, 1.8), filtro(c, "lowpass", 2200, 0.8), filtro(c, "peaking", 80, 1, 3), filtro(c, "peaking", 800, 1.2, 5), compresor(c));
+/** Bajo en slap: mucho chasquido arriba y golpe abajo. */
+const bajoSlap: Caja = (c, e) =>
+  cadena(e, ganancia(c, 1.4), saturacion(c, 1.6), filtro(c, "peaking", 90, 1, 4), filtro(c, "peaking", 2500, 0.9, 7), filtro(c, "lowpass", 6500), compresor(c));
+/** Bajo con púa: ataque marcado y algo sucio. */
+const bajoPua: Caja = (c, e) =>
+  cadena(e, ganancia(c, 2), saturacion(c, 2.4), filtro(c, "peaking", 1500, 1, 5), filtro(c, "lowpass", 3000), compresor(c));
+
+interface Receta {
+  pulsos: Pulso[];
+  duracion: number;
+  caja: Caja;
+  /** cuánta sala */
+  sala: number;
+  volumen: number;
+  /** dos copias un pelín desafinadas: el «chorus» de las guitarras limpias */
+  coro?: boolean;
+  /** estirón de cuerda (bend) y vibrato */
+  estiron?: { desde: number; hasta: number; semitonos: number; vibrato: number };
+}
+
+/** Un rasgueo: las cuerdas una detrás de otra (hacia arriba, al revés). */
+function rasgueo(midis: number[], cuando: number, o: Omit<Pulso, "midi" | "cuando" | "pan"> & { separacion: number; arriba?: boolean }): Pulso[] {
+  const orden = o.arriba ? [...midis].reverse() : midis;
+  return orden.map((midi, i) => ({
+    midi,
+    cuando: cuando + i * o.separacion,
+    pan: -0.5 + (midis.indexOf(midi) / Math.max(1, midis.length - 1)),
+    suavizado: o.suavizado,
+    sostener: o.sostener,
+    ataque: o.ataque,
+    volumen: o.volumen,
+    hasta: o.hasta,
+  }));
+}
+
+/** Varias notas seguidas: cada una se apaga cuando entra la siguiente. */
+function linea(midis: number[], cada: number, o: Omit<Pulso, "midi" | "cuando" | "pan" | "hasta">): Pulso[] {
+  return midis.map((midi, i) => ({ midi, cuando: i * cada, pan: 0, ...o, hasta: i < midis.length - 1 ? (i + 1) * cada : undefined }));
+}
+
+export interface Variante {
+  id: string;
+  nombre: string;
+  detalle: string;
+  receta: () => Receta;
+}
+
+export const VARIANTES: Record<InstrumentoId, Variante[]> = {
+  acustica: [
+    {
+      id: "acustica-1",
+      nombre: "Rasgueo de Mi mayor",
+      detalle: "Un golpe hacia abajo con las seis cuerdas al aire.",
+      receta: () => ({
+        pulsos: rasgueo([40, 47, 52, 56, 59, 64], 0, { separacion: 0.016, suavizado: 0.32, sostener: 0.9965, ataque: 0.85, volumen: 0.26 }),
+        duracion: 2.6,
+        caja: madera,
+        sala: 0.28,
+        volumen: 1.4,
+      }),
+    },
+    {
+      id: "acustica-2",
+      nombre: "Arpegio de Sol con los dedos",
+      detalle: "Las cuerdas de una en una, como al puntear.",
+      receta: () => ({
+        pulsos: [43, 50, 55, 59, 67, 59].map((midi, i) => ({ midi, cuando: i * 0.15, pan: -0.5 + i * 0.2, suavizado: 0.38, sostener: 0.9975, ataque: 0.6, volumen: 0.34 })),
+        duracion: 2.8,
+        caja: madera,
+        sala: 0.3,
+        volumen: 1.12,
+      }),
+    },
+    {
+      id: "acustica-3",
+      nombre: "Rasgueo folk de Re",
+      detalle: "Abajo, arriba y abajo, con ritmo de canción.",
+      receta: () => {
+        const re = [50, 57, 62, 66];
+        const comun = { suavizado: 0.3, sostener: 0.9965, ataque: 0.85 };
+        return {
+          pulsos: [
+            ...rasgueo(re, 0, { ...comun, separacion: 0.014, volumen: 0.3, hasta: 0.3 }),
+            ...rasgueo(re, 0.3, { ...comun, separacion: 0.009, volumen: 0.2, arriba: true, hasta: 0.6 }),
+            ...rasgueo(re, 0.6, { ...comun, separacion: 0.014, volumen: 0.3 }),
+          ],
+          duracion: 2.8,
+          caja: madera,
+          sala: 0.28,
+          volumen: 1.26,
+        };
+      },
+    },
+    {
+      id: "acustica-4",
+      nombre: "Armónicos del traste 12",
+      detalle: "Notas de campanita, suaves y largas.",
+      receta: () => ({
+        pulsos: [52, 57, 62, 67, 71, 76].map((midi, i) => ({ midi, cuando: i * 0.11, pan: -0.5 + i * 0.2, suavizado: 0.5, sostener: 0.9993, ataque: 0.15, volumen: 0.36 })),
+        duracion: 3,
+        caja: madera,
+        sala: 0.45,
+        volumen: 1.6,
+      }),
+    },
+  ],
+  electrica: [
+    {
+      id: "electrica-1",
+      nombre: "Quinta de La saturada",
+      detalle: "Un acorde de rock con el amplificador apretado.",
+      receta: () => ({
+        pulsos: rasgueo([45, 52, 57], 0, { separacion: 0.012, suavizado: 0.22, sostener: 0.9985, ataque: 0.95, volumen: 0.5 }),
+        duracion: 2.6,
+        caja: saturado(3.5),
+        sala: 0.22,
+        volumen: 0.18,
+      }),
+    },
+    {
+      id: "electrica-2",
+      nombre: "Acorde limpio con brillo",
+      detalle: "Mi menor con novena, limpio y con chorus.",
+      receta: () => ({
+        pulsos: rasgueo([40, 47, 54, 55, 59, 66], 0, { separacion: 0.022, suavizado: 0.25, sostener: 0.998, ataque: 0.8, volumen: 0.22 }),
+        duracion: 3,
+        caja: limpio,
+        sala: 0.35,
+        volumen: 1.26,
+        coro: true,
+      }),
+    },
+    {
+      id: "electrica-3",
+      nombre: "Riff de rock",
+      detalle: "Dos golpes apagados con la mano y el acorde abierto.",
+      receta: () => {
+        const mi5 = [40, 47, 52];
+        const apagado = { separacion: 0.008, suavizado: 0.5, sostener: 0.985, ataque: 0.9, volumen: 0.5 };
+        return {
+          pulsos: [
+            ...rasgueo(mi5, 0, { ...apagado, hasta: 0.16 }),
+            ...rasgueo(mi5, 0.18, { ...apagado, hasta: 0.34 }),
+            ...rasgueo(mi5, 0.36, { separacion: 0.012, suavizado: 0.22, sostener: 0.9985, ataque: 0.95, volumen: 0.5 }),
+          ],
+          duracion: 2.8,
+          caja: saturado(4),
+          sala: 0.2,
+          volumen: 0.18,
+        };
+      },
+    },
+    {
+      id: "electrica-4",
+      nombre: "Nota solista con estirón",
+      detalle: "Una nota que sube un tono y vibra, como en un solo.",
+      receta: () => ({
+        pulsos: [{ midi: 62, cuando: 0, pan: 0, suavizado: 0.2, sostener: 0.9995, ataque: 0.95, volumen: 0.6 }],
+        duracion: 2.8,
+        caja: saturado(5),
+        sala: 0.35,
+        volumen: 0.2,
+        estiron: { desde: 0.25, hasta: 0.45, semitonos: 2, vibrato: 0.006 },
+      }),
+    },
+  ],
+  bajo: [
+    {
+      id: "bajo-1",
+      nombre: "Mi grave y su octava",
+      detalle: "El Mi al aire con el pulgar y la octava pellizcada.",
+      receta: () => ({
+        pulsos: [
+          { midi: 28, cuando: 0, pan: -0.1, suavizado: 0.36, sostener: 0.9992, ataque: 0.6, volumen: 0.9 },
+          { midi: 40, cuando: 0.2, pan: 0.15, suavizado: 0.2, sostener: 0.998, ataque: 0.95, volumen: 0.6 },
+        ],
+        duracion: 2.4,
+        caja: bajoDedos,
+        sala: 0.08,
+        volumen: 0.32,
+      }),
+    },
+    {
+      id: "bajo-2",
+      nombre: "Slap",
+      detalle: "Golpe de pulgar, nota muerta y pellizco: funky.",
+      receta: () => ({
+        pulsos: [
+          { midi: 28, cuando: 0, pan: -0.1, suavizado: 0.15, sostener: 0.997, ataque: 1, volumen: 0.9, hasta: 0.36 },
+          { midi: 33, cuando: 0.12, pan: 0, suavizado: 0.5, sostener: 0.95, ataque: 1, volumen: 0.4, hasta: 0.2 },
+          { midi: 40, cuando: 0.24, pan: 0.15, suavizado: 0.12, sostener: 0.997, ataque: 1, volumen: 0.7 },
+          { midi: 28, cuando: 0.36, pan: -0.1, suavizado: 0.15, sostener: 0.9985, ataque: 1, volumen: 0.9 },
+        ],
+        duracion: 2.4,
+        caja: bajoSlap,
+        sala: 0.08,
+        volumen: 0.32,
+      }),
+    },
+    {
+      id: "bajo-3",
+      nombre: "Línea caminando",
+      detalle: "Mi, Sol, La y Si con los dedos, como un walking.",
+      receta: () => ({
+        pulsos: linea([28, 31, 33, 35], 0.32, { suavizado: 0.4, sostener: 0.999, ataque: 0.55, volumen: 0.85 }),
+        duracion: 2.8,
+        caja: bajoDedos,
+        sala: 0.08,
+        volumen: 0.32,
+      }),
+    },
+    {
+      id: "bajo-4",
+      nombre: "Con púa",
+      detalle: "Un La grave repetido con púa, para empujar el rock.",
+      receta: () => ({
+        pulsos: linea([33, 33, 33, 33, 33], 0.16, { suavizado: 0.25, sostener: 0.9985, ataque: 0.95, volumen: 0.8 }),
+        duracion: 2.4,
+        caja: bajoPua,
+        sala: 0.08,
+        volumen: 0.32,
+      }),
+    },
+  ],
+};
+
+/** El sonido de cada instrumento en la app. */
+export const ELEGIDOS: Record<InstrumentoId, string> = { acustica: "acustica-1", electrica: "electrica-1", bajo: "bajo-1" };
+
+function buscar(id: string): Variante | undefined {
+  for (const lista of Object.values(VARIANTES)) {
+    const v = lista.find((x) => x.id === id);
+    if (v) return v;
+  }
+  return undefined;
+}
+
+function montar(c: BaseAudioContext, receta: Receta, destino: AudioNode) {
+  const salida = ganancia(c, receta.volumen);
+  salida.connect(destino);
+  const conSala = c.createConvolver();
+  conSala.buffer = respuestaSala(c);
+  conSala.connect(ganancia(c, receta.sala)).connect(salida);
+
+  const buffer = cuerdas(c, receta.pulsos, receta.duracion);
+  const entrada = c.createGain();
+  const fuentes: AudioBufferSourceNode[] = [];
+  const principal = c.createBufferSource();
+  principal.buffer = buffer;
+  principal.connect(entrada);
+  fuentes.push(principal);
+  if (receta.coro) {
+    const copia = c.createBufferSource();
+    copia.buffer = buffer;
+    copia.playbackRate.value = 1.0045;
+    const retardo = c.createDelay(0.05);
+    retardo.delayTime.value = 0.014;
+    copia.connect(retardo).connect(ganancia(c, 0.7)).connect(entrada);
+    fuentes.push(copia);
+  }
+  const fin = receta.caja(c, entrada);
+  fin.connect(salida);
+  fin.connect(conSala);
+
+  const empezar = (t: number) => {
+    const e = receta.estiron;
+    for (const f of fuentes) {
+      const base = f.playbackRate.value;
+      if (e) {
+        const arriba = base * Math.pow(2, e.semitonos / 12);
+        f.playbackRate.setValueAtTime(base, t + e.desde);
+        f.playbackRate.linearRampToValueAtTime(arriba, t + e.hasta);
+        if (e.vibrato) {
+          const lfo = c.createOscillator();
+          lfo.frequency.value = 5.5;
+          const cuanto = ganancia(c, 0);
+          cuanto.gain.setValueAtTime(0, t + e.hasta);
+          cuanto.gain.linearRampToValueAtTime(arriba * e.vibrato, t + e.hasta + 0.4);
+          lfo.connect(cuanto).connect(f.playbackRate);
+          lfo.start(t + e.hasta);
+          lfo.stop(t + receta.duracion);
+        }
+      }
+      f.start(t);
+    }
+  };
+  return { empezar, salida, fuentes };
+}
+
+/** Suena un instrumento (o una variante concreta). Hay que llamarlo dentro del toque: el iPhone lo exige. */
+export function sonarInstrumento(id: InstrumentoId, varianteId: string = ELEGIDOS[id]) {
   const c = contexto();
-  if (!c) return;
+  const v = buscar(varianteId);
+  if (!c || !v) return;
   void c.resume().catch(() => undefined);
-  const { fuente, salida } = montar(c, id, c.destination);
-  fuente.start(c.currentTime + 0.03);
-  fuente.onended = () => {
+  const { empezar, salida, fuentes } = montar(c, v.receta(), c.destination);
+  empezar(c.currentTime + 0.03);
+  fuentes[0].onended = () => {
     // Deja que acabe la cola de la sala y suelta los nodos
     setTimeout(() => salida.disconnect(), 1000);
   };
 }
 
-/** Para escucharlos sin altavoz (pruebas): el sonido de cada instrumento en un búfer. */
-export async function renderizarInstrumento(id: InstrumentoId): Promise<AudioBuffer> {
-  const c = new OfflineAudioContext(2, Math.round(3.4 * 44100), 44100);
-  montar(c, id, c.destination).fuente.start(0);
+/** Para medirlos sin altavoz (pruebas): una variante en un búfer. */
+export async function renderizarVariante(varianteId: string): Promise<AudioBuffer | null> {
+  const v = buscar(varianteId);
+  if (!v) return null;
+  const receta = v.receta();
+  const c = new OfflineAudioContext(2, Math.round((receta.duracion + 0.8) * 44100), 44100);
+  montar(c, receta, c.destination).empezar(0);
   return c.startRendering();
-}
-
-function montar(c: BaseAudioContext, id: InstrumentoId, destino: AudioNode) {
-  const fuente = c.createBufferSource();
-  const salida = c.createGain();
-  salida.connect(destino);
-  // La sala, en paralelo con el sonido seco
-  const conSala = c.createConvolver();
-  conSala.buffer = respuestaSala(c);
-  const mojado = c.createGain();
-  conSala.connect(mojado).connect(salida);
-
-  let entrada: AudioNode;
-  if (id === "acustica") {
-    // Rasgueo hacia abajo de un Mi mayor abierto: Mi2 Si2 Mi3 Sol#3 Si3 Mi4
-    const acorde = [40, 47, 52, 56, 59, 64];
-    fuente.buffer = cuerdas(
-      c,
-      acorde.map((midi, i) => ({ midi, cuando: i * 0.016, pan: -0.5 + i * 0.2, suavizado: 0.32, sostener: 0.9965, ataque: 0.85, volumen: 0.26 })),
-      2.6,
-    );
-    // Cuerpo de madera: graves redondos y algo de brillo de las cuerdas de acero
-    const cuerpo = filtro(c, "peaking", 110, 1.1, 5);
-    const brillo = filtro(c, "highshelf", 3200, 0.7, 3);
-    const techo = filtro(c, "lowpass", 9000);
-    fuente.connect(cuerpo).connect(brillo).connect(techo);
-    entrada = techo;
-    mojado.gain.value = 0.28;
-    salida.gain.value = 0.9;
-  } else if (id === "electrica") {
-    // Quinta de La (La2 Mi3 La3) con púa, saturada en el amplificador
-    const acorde = [45, 52, 57];
-    fuente.buffer = cuerdas(
-      c,
-      acorde.map((midi, i) => ({ midi, cuando: i * 0.012, pan: -0.25 + i * 0.25, suavizado: 0.22, sostener: 0.9985, ataque: 0.95, volumen: 0.5 })),
-      2.6,
-    );
-    const antes = filtro(c, "highpass", 90);
-    const empuje = c.createGain();
-    empuje.gain.value = 3.2;
-    const amp = saturacion(c, 3.5);
-    // Altavoz de guitarra: sin graves de más ni agudos chillones, con un punto de medios
-    const medios = filtro(c, "peaking", 900, 0.9, 4);
-    const altavoz = filtro(c, "lowpass", 3800, 0.9);
-    fuente.connect(antes).connect(empuje).connect(amp).connect(medios).connect(altavoz);
-    entrada = altavoz;
-    mojado.gain.value = 0.22;
-    salida.gain.value = 0.18;
-  } else {
-    // Bajo: Mi1 con el pulgar y, un momento después, su octava pellizcada
-    fuente.buffer = cuerdas(
-      c,
-      [
-        { midi: 28, cuando: 0, pan: -0.1, suavizado: 0.36, sostener: 0.9992, ataque: 0.6, volumen: 0.9 },
-        { midi: 40, cuando: 0.2, pan: 0.15, suavizado: 0.2, sostener: 0.998, ataque: 0.95, volumen: 0.6 },
-      ],
-      2.4,
-    );
-    // El altavoz del móvil casi no da graves: un poco de saturación le pone armónicos
-    // (el oído «oye» el Mi grave por ellos) y un punto de medios, el chasquido de la cuerda.
-    const empuje = c.createGain();
-    empuje.gain.value = 1.6;
-    const calor = saturacion(c, 1.8);
-    const redondo = filtro(c, "lowpass", 2200, 0.8);
-    const cuerpo = filtro(c, "peaking", 80, 1, 3);
-    const chasquido = filtro(c, "peaking", 800, 1.2, 5);
-    const compresor = c.createDynamicsCompressor();
-    compresor.threshold.value = -18;
-    compresor.ratio.value = 4;
-    fuente.connect(empuje).connect(calor).connect(redondo).connect(cuerpo).connect(chasquido).connect(compresor);
-    entrada = compresor;
-    mojado.gain.value = 0.08;
-    salida.gain.value = 0.4;
-  }
-
-  entrada.connect(salida);
-  entrada.connect(conSala);
-  return { fuente, salida };
 }
