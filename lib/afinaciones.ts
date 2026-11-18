@@ -1,5 +1,7 @@
-// Afinaciones de guitarra de 6 cuerdas. Las notas van de la 6.ª (la más
-// grave) a la 1.ª (la más aguda), como números MIDI (Mi2 = 40).
+// Afinaciones de guitarra (6 cuerdas) y de bajo (4). Las notas van de la
+// cuerda más grave a la más aguda, como números MIDI (Mi2 = 40, Mi1 = 28).
+
+import type { Familia } from "./instrumentos";
 
 export type Grupo = "estandar" | "drop" | "abiertas" | "otras" | "mias";
 
@@ -7,6 +9,8 @@ export interface Afinacion {
   id: string;
   nombre: string;
   grupo: Grupo;
+  /** Sin poner, es de guitarra. */
+  familia?: Familia;
   notas: number[];
   /** Escribir las notas con bemoles (Mi♭) en vez de sostenidos (Re♯). */
   bemoles?: boolean;
@@ -39,6 +43,21 @@ export const AFINACIONES: Afinacion[] = [
   { id: "nashville", nombre: "Nashville", grupo: "otras", notas: [52, 57, 62, 67, 59, 64], nota: "Las cuatro graves una octava más arriba" },
 ];
 
+export const AFINACIONES_BAJO: Afinacion[] = [
+  { id: "bajo-estandar", nombre: "Estándar", grupo: "estandar", familia: "bajo", notas: [28, 33, 38, 43], nota: "La de siempre" },
+  { id: "bajo-medio-tono", nombre: "Medio tono abajo", grupo: "estandar", familia: "bajo", notas: [27, 32, 37, 42], bemoles: true, nota: "Para tocar con guitarras medio tono abajo" },
+  { id: "bajo-un-tono", nombre: "Un tono abajo", grupo: "estandar", familia: "bajo", notas: [26, 31, 36, 41] },
+  { id: "bajo-dos-tonos", nombre: "Dos tonos abajo", grupo: "estandar", familia: "bajo", notas: [24, 29, 34, 39], bemoles: true },
+  { id: "bajo-si-estandar", nombre: "Si estándar", grupo: "estandar", familia: "bajo", notas: [23, 28, 33, 38], nota: "Como un bajo de 5 cuerdas sin la de Sol" },
+
+  { id: "bajo-drop-d", nombre: "Drop D", grupo: "drop", familia: "bajo", notas: [26, 33, 38, 43], nota: "Solo baja la 4.ª un tono" },
+  { id: "bajo-drop-csost", nombre: "Drop C♯", grupo: "drop", familia: "bajo", notas: [25, 32, 37, 42] },
+  { id: "bajo-drop-c", nombre: "Drop C", grupo: "drop", familia: "bajo", notas: [24, 31, 36, 41] },
+  { id: "bajo-drop-b", nombre: "Drop B", grupo: "drop", familia: "bajo", notas: [23, 30, 35, 40] },
+
+  { id: "bajo-quintas", nombre: "Quintas", grupo: "otras", familia: "bajo", notas: [24, 31, 38, 45], nota: "Do, Sol, Re, La, como un violonchelo" },
+];
+
 export const NOMBRE_GRUPO: Record<Grupo, string> = {
   estandar: "Estándar y más graves",
   drop: "Drop",
@@ -50,8 +69,19 @@ export const NOMBRE_GRUPO: Record<Grupo, string> = {
 export const ORDEN_GRUPOS: Grupo[] = ["mias", "estandar", "drop", "abiertas", "otras"];
 
 export const ESTANDAR = AFINACIONES[0];
+export const ESTANDAR_BAJO = AFINACIONES_BAJO[0];
 
-/** Cuerda 6.ª … 1.ª para mostrar al lado de cada nota. */
+export const familiaDe = (a: Afinacion): Familia => a.familia ?? "guitarra";
+
+export function afinacionesDe(familia: Familia): Afinacion[] {
+  return familia === "bajo" ? AFINACIONES_BAJO : AFINACIONES;
+}
+
+export function estandarDe(familia: Familia): Afinacion {
+  return familia === "bajo" ? ESTANDAR_BAJO : ESTANDAR;
+}
+
+/** Cuerda 6.ª (o 4.ª) … 1.ª para mostrar al lado de cada nota. */
 export function numeroCuerda(indice: number, total = 6): number {
   return total - indice;
 }

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { NOMBRE_GRUPO, ORDEN_GRUPOS, type Afinacion } from "@/lib/afinaciones";
 import { partesNota, type Notacion } from "@/lib/notas";
 
 export const ID_CROMATICO = "cromatico";
 
 interface Props {
+  /** Lo que va arriba del todo (el selector de instrumento). */
+  cabecera?: ReactNode;
   afinaciones: Afinacion[];
   actualId: string;
   notacion: Notacion;
@@ -31,11 +33,12 @@ export function NotasEnFila({ notas, notacion, bemoles }: { notas: number[]; not
   );
 }
 
-export default function SelectorAfinacion({ afinaciones, actualId, notacion, onElegir, onCrear, onBorrar }: Props) {
+export default function SelectorAfinacion({ cabecera, afinaciones, actualId, notacion, onElegir, onCrear, onBorrar }: Props) {
   const [borrando, setBorrando] = useState<string | null>(null);
 
   return (
     <div className="selector">
+      {cabecera}
       {ORDEN_GRUPOS.map((grupo) => {
         const lista = afinaciones.filter((a) => a.grupo === grupo);
         if (!lista.length) return null;

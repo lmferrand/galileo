@@ -63,6 +63,8 @@ export function crearContextoAudio(): AudioContext | null {
 
 export class Motor {
   contexto: AudioContext | null = null;
+  /** La nota más grave que se busca: 55 Hz para la guitarra, 27 Hz para el bajo. */
+  frecuenciaMin = 55;
   private flujo: MediaStream | null = null;
   private analizador: AnalyserNode | null = null;
   private crudo: Float32Array<ArrayBuffer> = new Float32Array(4096);
@@ -160,7 +162,7 @@ export class Motor {
       muestras = reducirAMitad(this.crudo, this.reducido);
       frecuencia /= 2;
     }
-    const lectura = detectarTono(muestras, frecuencia, { frecuenciaMin: 55, frecuenciaMax: 1100 });
+    const lectura = detectarTono(muestras, frecuencia, { frecuenciaMin: this.frecuenciaMin, frecuenciaMax: 1100 });
     const valida = lectura && lectura.claridad > 0.82 ? lectura.frecuencia : null;
     this.alLeer(this.estabilizador.meter(valida, ahora));
   };

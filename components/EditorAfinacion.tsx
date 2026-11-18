@@ -5,18 +5,19 @@ import { partesNota, type Notacion } from "@/lib/notas";
 
 interface Props {
   notasIniciales: number[];
+  /** Nota más grave y más aguda que se deja poner (MIDI). */
+  rango: [number, number];
   notacion: Notacion;
   onGuardar: (nombre: string, notas: number[], bemoles: boolean) => void;
   onProbar: (midi: number, indice: number) => void;
 }
 
-const MIN = 28; // Mi1
-const MAX = 76; // Mi5
-
-export default function EditorAfinacion({ notasIniciales, notacion, onGuardar, onProbar }: Props) {
+export default function EditorAfinacion({ notasIniciales, rango, notacion, onGuardar, onProbar }: Props) {
   const [nombre, setNombre] = useState("");
   const [notas, setNotas] = useState<number[]>(notasIniciales);
   const [bemoles, setBemoles] = useState(false);
+  const [MIN, MAX] = rango;
+  const total = notas.length;
 
   const mover = (i: number, paso: number) =>
     setNotas((n) => n.map((m, j) => (j === i ? Math.max(MIN, Math.min(MAX, m + paso)) : m)));
@@ -41,8 +42,8 @@ export default function EditorAfinacion({ notasIniciales, notacion, onGuardar, o
           const p = partesNota(m, notacion, bemoles);
           return (
             <li key={i}>
-              <span className="editor-num">{6 - i}.ª</span>
-              <button type="button" className="boton-redondo" onClick={() => mover(i, -1)} aria-label={`Bajar la cuerda ${6 - i}`} disabled={m <= MIN}>
+              <span className="editor-num">{total - i}.ª</span>
+              <button type="button" className="boton-redondo" onClick={() => mover(i, -1)} aria-label={`Bajar la cuerda ${total - i}`} disabled={m <= MIN}>
                 −
               </button>
               <span className="editor-nota">
@@ -50,7 +51,7 @@ export default function EditorAfinacion({ notasIniciales, notacion, onGuardar, o
                 {p.alteracion && <span className="nota-alt">{p.alteracion}</span>}
                 <sub>{p.octava}</sub>
               </span>
-              <button type="button" className="boton-redondo" onClick={() => mover(i, 1)} aria-label={`Subir la cuerda ${6 - i}`} disabled={m >= MAX}>
+              <button type="button" className="boton-redondo" onClick={() => mover(i, 1)} aria-label={`Subir la cuerda ${total - i}`} disabled={m >= MAX}>
                 +
               </button>
               <button type="button" className="boton-texto" onClick={() => onProbar(m, i)}>

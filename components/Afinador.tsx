@@ -8,7 +8,8 @@ import SelectorAfinacion, { ID_CROMATICO } from "./SelectorAfinacion";
 import EditorAfinacion from "./EditorAfinacion";
 import Ajustes from "./Ajustes";
 import Navegacion from "./Navegacion";
-import { AFINACIONES, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
+import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
+import { enLetra, INSTRUMENTOS, instrumentoDe, type InstrumentoId } from "@/lib/instrumentos";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
 import { tocarArpegio, tocarNota } from "@/lib/tono";
@@ -60,9 +61,30 @@ export default function Afinador() {
     });
   }, []);
 
-  const todas = useMemo<Afinacion[]>(() => [...prefs.propias, ...AFINACIONES], [prefs.propias]);
-  const cromatico = prefs.afinacionId === ID_CROMATICO;
-  const afinacion = todas.find((a) => a.id === prefs.afinacionId) ?? ESTANDAR;
+  const instrumento = instrumentoDe(prefs.instrumento);
+  const familia = instrumento.familia;
+  const total = instrumento.cuerdas;
+  const todas = useMemo<Afinacion[]>(
+    () => [...prefs.propias.filter((a) => familiaDe(a) === familia), ...afinacionesDe(familia)],
+    [prefs.propias, familia],
+  );
+  const afinacionId = familia === "bajo" ? prefs.afinacionBajoId : prefs.afinacionId;
+  const cromatico = afinacionId === ID_CROMATICO;
+  const afinacion = todas.find((a) => a.id === afinacionId) ?? estandarDe(familia);
+  const elegirAfinacion = (id: string) => (familia === "bajo" ? { afinacionBajoId: id } : { afinacionId: id });
+
+  // El bajo baja hasta el Si0 (31 Hz): el oído del motor se ajusta al instrumento.
+  useEffect(() => {
+    if (motor.current) motor.current.frecuenciaMin = instrumento.frecuenciaMin;
+  }, [instrumento.frecuenciaMin]);
+
+  const cambiarInstrumento = (id: InstrumentoId) => {
+    if (id === instrumento.id) return;
+    cambiarPrefs({ instrumento: id });
+    setAutomatico(true);
+    setCuerdaManual(0);
+    setAfinadas(new Set());
+  };
 
   // Cambiar de afinación (o de La) deja todas las cuerdas por afinar.
   useEffect(() => {
@@ -153,11 +175,12 @@ export default function Afinador() {
 
   const empezar = useCallback(async () => {
     if (!motor.current) motor.current = new Motor(alLeer);
+    motor.current.frecuenciaMin = instrumento.frecuenciaMin;
     setEstado("pidiendo");
     const resultado = await motor.current.empezar();
     setEstado(resultado);
     if (resultado === "escuchando") pedirBloqueo();
-  }, [pedirBloqueo, alLeer]);
+  }, [pedirBloqueo, alLeer, instrumento.frecuenciaMin]);
 
   const parar = useCallback(() => {
     motor.current?.parar();
@@ -220,7 +243,7 @@ export default function Afinador() {
   let detalle = "";
   if (estado === "pidiendo") {
     principal = "Permite el micrófono";
-    detalle = "Solo lo usamos para oír la guitarra. No se graba nada.";
+    detalle = `Solo lo usamos para oír ${instrumento.tuyo}. No se graba nada.`;
   } else if (estado === "denegado") {
     principal = "No hay permiso para el micrófono";
     detalle = "En el iPhone: Ajustes, Safari, Micrófono, y permite esta página. Luego vuelve a tocar el botón.";
@@ -231,14 +254,14 @@ export default function Afinador() {
     principal = "No se ha podido abrir el micrófono";
     detalle = "Comprueba que ninguna otra app lo está usando y vuelve a intentarlo.";
   } else if (estado === "parado") {
-    principal = "Afina tu guitarra";
+    principal = `Afina ${instrumento.tuyo}`;
     detalle = "Toca el círculo para empezar a escuchar.";
   } else if (cents === null || !viva) {
     if (lectura?.retenida && cents !== null && Math.abs(cents) <= TOLERANCIA) {
       principal = "Afinada";
-      detalle = cuerda !== null ? `La ${6 - cuerda}.ª cuerda está lista.` : "Perfecta.";
+      detalle = cuerda !== null ? `La ${total - cuerda}.ª cuerda está lista.` : "Perfecta.";
     } else {
-      principal = cromatico ? "Toca una nota" : automatico ? "Toca cualquier cuerda" : `Toca la ${6 - cuerdaManual}.ª cuerda`;
+      principal = cromatico ? "Toca una nota" : automatico ? "Toca cualquier cuerda" : `Toca la ${total - cuerdaManual}.ª cuerda`;
       detalle = cromatico
         ? "Reconozco cualquier nota."
         : automatico
@@ -247,7 +270,7 @@ export default function Afinador() {
     }
   } else if (enTolerancia) {
     principal = "Afinada";
-    detalle = cuerda !== null ? `La ${6 - cuerda}.ª cuerda está lista.` : "Perfecta.";
+    detalle = cuerda !== null ? `La ${total - cuerda}.ª cuerda está lista.` : "Perfecta.";
   } else {
     const grave = cents < 0;
     const lejos = Math.abs(cents) > 50 ? "bastante" : Math.abs(cents) > 20 ? "" : "un poco";
@@ -276,7 +299,10 @@ export default function Afinador() {
       </header>
 
       <button type="button" className="selector-boton" onClick={() => setHoja("afinacion")}>
-        <span className="selector-boton-nombre">{cromatico ? "Cromático" : afinacion.nombre}</span>
+        <span className="selector-boton-nombre">
+          {INSTRUMENTOS.length > 1 && <span className="selector-boton-instrumento">{instrumento.nombre}</span>}
+          {cromatico ? "Cromático" : afinacion.nombre}
+        </span>
         <span className="selector-boton-notas">
           {cromatico
             ? "Cualquier nota"
@@ -298,8 +324,8 @@ export default function Afinador() {
       <section className="escenario">
         <div className="zona-roseta">
           <div className={`estado ${enTolerancia && viva ? "ok" : ""} ${celebrandoAhora ? "fiesta" : ""}`} role="status" aria-live="polite">
-            <p className="estado-principal">{celebrandoAhora ? "Guitarra afinada" : principal}</p>
-            <p className="estado-detalle">{celebrandoAhora ? "Las seis cuerdas están en su sitio." : detalle}</p>
+            <p className="estado-principal">{celebrandoAhora ? instrumento.afinado : principal}</p>
+            <p className="estado-detalle">{celebrandoAhora ? `Las ${enLetra(total)} cuerdas están en su sitio.` : detalle}</p>
           </div>
 
           <Roseta cents={viva || lectura?.retenida ? cents : null} afinada={enTolerancia} brillo={celebrandoAhora} apagada={estado !== "escuchando"}>
@@ -350,19 +376,24 @@ export default function Afinador() {
 
         <div className="zona-pala">
           <div className="pala-marco">
-            <Pala
-              notas={afinacion.notas}
-              notacion={prefs.notacion}
-              bemoles={afinacion.bemoles}
-              seleccionada={!cromatico && !automatico ? cuerdaManual : null}
-              sonando={cromatico ? null : sonandoCuerda}
-              afinadas={afinadas}
-              desactivada={cromatico}
-              onElegir={(i) => {
-                setAutomatico(false);
-                setCuerdaManual(i);
-              }}
-            />
+            {/* Hasta saber qué instrumento tienes elegido no se pinta ninguna pala */}
+            {listo && (
+              <Pala
+                key={instrumento.id}
+                geometria={instrumento.pala}
+                notas={afinacion.notas}
+                notacion={prefs.notacion}
+                bemoles={afinacion.bemoles}
+                seleccionada={!cromatico && !automatico ? cuerdaManual : null}
+                sonando={cromatico ? null : sonandoCuerda}
+                afinadas={afinadas}
+                desactivada={cromatico}
+                onElegir={(i) => {
+                  setAutomatico(false);
+                  setCuerdaManual(i);
+                }}
+              />
+            )}
           </div>
 
           {!cromatico && (
@@ -386,7 +417,7 @@ export default function Afinador() {
                 onClick={() => (automatico ? oirTodas() : oirNota(afinacion.notas[cuerdaManual], cuerdaManual))}
               >
                 <IconoAltavoz />
-                <span>{automatico ? "Oír las seis" : `Oír ${notaFoco?.base ?? ""}${notaFoco?.alteracion ?? ""}`}</span>
+                <span>{automatico ? `Oír las ${enLetra(total)}` : `Oír ${notaFoco?.base ?? ""}${notaFoco?.alteracion ?? ""}`}</span>
               </button>
             </div>
           )}
@@ -396,11 +427,27 @@ export default function Afinador() {
 
       <Hoja abierta={hoja === "afinacion"} titulo="Afinación" onCerrar={() => setHoja(null)}>
         <SelectorAfinacion
+          cabecera={
+            INSTRUMENTOS.length > 1 && (
+              <div
+                className="segmentado instrumentos"
+                role="group"
+                aria-label="Instrumento"
+                style={{ gridTemplateColumns: `repeat(${INSTRUMENTOS.length}, 1fr)` }}
+              >
+                {INSTRUMENTOS.map((i) => (
+                  <button key={i.id} type="button" aria-pressed={i.id === instrumento.id} onClick={() => cambiarInstrumento(i.id)}>
+                    {i.nombre}
+                  </button>
+                ))}
+              </div>
+            )
+          }
           afinaciones={todas}
-          actualId={prefs.afinacionId}
+          actualId={afinacionId}
           notacion={prefs.notacion}
           onElegir={(id) => {
-            cambiarPrefs({ afinacionId: id });
+            cambiarPrefs(elegirAfinacion(id));
             setAutomatico(true);
             setCuerdaManual(0);
             setHoja(null);
@@ -409,7 +456,7 @@ export default function Afinador() {
           onBorrar={(id) =>
             cambiarPrefs({
               propias: prefs.propias.filter((a) => a.id !== id),
-              afinacionId: prefs.afinacionId === id ? ESTANDAR.id : prefs.afinacionId,
+              ...(afinacionId === id ? elegirAfinacion(estandarDe(familia).id) : {}),
             })
           }
         />
@@ -418,11 +465,19 @@ export default function Afinador() {
       <Hoja abierta={hoja === "editor"} titulo="Nueva afinación" onCerrar={() => setHoja("afinacion")}>
         <EditorAfinacion
           notasIniciales={afinacion.notas}
+          rango={instrumento.rango}
           notacion={prefs.notacion}
           onProbar={(m, i) => oirNota(m, i)}
           onGuardar={(nombre, notas, bemoles) => {
-            const nueva: Afinacion = { id: `mia-${Date.now().toString(36)}`, nombre, grupo: "mias", notas, bemoles };
-            cambiarPrefs({ propias: [nueva, ...prefs.propias], afinacionId: nueva.id });
+            const nueva: Afinacion = {
+              id: `mia-${Date.now().toString(36)}`,
+              nombre,
+              grupo: "mias",
+              notas,
+              bemoles,
+              ...(familia === "bajo" ? { familia } : {}),
+            };
+            cambiarPrefs({ propias: [nueva, ...prefs.propias], ...elegirAfinacion(nueva.id) });
             setAutomatico(true);
             setHoja(null);
           }}

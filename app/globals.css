@@ -260,6 +260,11 @@ p {
   font-weight: 700;
   font-size: 15px;
 }
+.selector-boton-instrumento {
+  font-weight: 600;
+  color: var(--laton-claro);
+  margin-right: 7px;
+}
 .selector-boton-notas {
   grid-row: 2;
   display: flex;
@@ -633,8 +638,22 @@ p {
   position: relative;
   flex: none;
   width: min(100cqw, 380px, 57cqh);
-  aspect-ratio: 820 / 1412;
+  /* La proporción la pone cada pala, la de su imagen */
+  aspect-ratio: 815 / 1392;
   container-type: inline-size;
+}
+@keyframes pala-entra {
+  from {
+    opacity: 0;
+  }
+}
+.pala {
+  animation: pala-entra 240ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pala {
+    animation: none;
+  }
 }
 .pala.es-desactivada {
   opacity: 0.45;
@@ -678,7 +697,11 @@ p {
 .pala-cuerda.lisa {
   stroke: #e9eaee;
 }
-.pala-cuerda.afinada.entorchada {
+.pala.niquel .pala-cuerda.entorchada {
+  stroke: #d4d3cf;
+}
+.pala-cuerda.afinada.entorchada,
+.pala.niquel .pala-cuerda.afinada.entorchada {
   stroke: #b5e8cf;
 }
 .pala-cuerda.afinada.lisa {
@@ -729,8 +752,8 @@ p {
 /* Llaves doradas: botones transparentes encima de las de la foto, con la nota grabada */
 .llave {
   position: absolute;
-  width: 19.5cqi;
-  height: 12.5cqi;
+  width: var(--llave-ancho, 19.5cqi);
+  height: var(--llave-alto, 12.5cqi);
   transform: translate(-50%, -50%);
   border-radius: 3cqi;
   display: grid;
@@ -775,7 +798,7 @@ p {
   align-items: flex-start;
   font-family: var(--f-display);
   font-weight: 700;
-  font-size: 6.6cqi;
+  font-size: var(--llave-letra, 6.6cqi);
   line-height: 1;
   text-shadow:
     0 1px 0 rgba(255, 246, 214, 0.75),
@@ -1120,6 +1143,9 @@ li.actual .nota-chip {
   font-size: 14.5px;
   color: var(--texto-2);
   transition: background 160ms, color 160ms;
+}
+.segmentado.instrumentos {
+  margin: 0 0 18px;
 }
 .segmentado button[aria-pressed="true"] {
   background: var(--superficie);
