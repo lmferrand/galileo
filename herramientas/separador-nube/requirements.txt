@@ -1,0 +1,8 @@
+torch==2.9.1
+numpy
+einops
+beartype
+rotary-embedding-torch
+packaging
+huggingface_hub
+spaces
