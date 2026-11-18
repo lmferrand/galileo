@@ -9,8 +9,9 @@ import EditorAfinacion from "./EditorAfinacion";
 import Ajustes from "./Ajustes";
 import Navegacion from "./Navegacion";
 import FondoEstudio, { pedirPermisoMovimiento } from "./FondoEstudio";
+import ElegirInstrumento from "./ElegirInstrumento";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
-import { enLetra, INSTRUMENTOS, instrumentoDe, type InstrumentoId } from "@/lib/instrumentos";
+import { enLetra, INSTRUMENTOS, instrumentoDe, marcarElegido, yaSeEligio, type InstrumentoId } from "@/lib/instrumentos";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
 import { tocarArpegio, tocarNota } from "@/lib/tono";
@@ -21,6 +22,8 @@ const TIEMPO_AFINADA = 350; // ms seguidos dentro de la tolerancia
 const HISTERESIS = 60; // cents que tiene que ganar otra cuerda para cambiar en automático
 
 type HojaAbierta = null | "afinacion" | "ajustes" | "editor";
+
+const MS_TRANSICION = 900;
 
 interface WakeLock {
   release: () => Promise<void>;
@@ -39,6 +42,12 @@ export default function Afinador() {
   const [hoja, setHoja] = useState<HojaAbierta>(null);
   const [celebrando, setCelebrando] = useState(false);
   const [tonoEn, setTonoEn] = useState<number | null>(null);
+  // Pantalla de elegir instrumento: visible, yéndose (con la transición) o quitada.
+  const [eleccion, setEleccion] = useState<{ fase: "si" | "saliendo" | "no"; id: InstrumentoId | null }>(() => ({
+    fase: yaSeEligio() ? "no" : "si",
+    id: null,
+  }));
+  const [subeLaPala, setSubeLaPala] = useState(false);
 
   const motor = useRef<Motor | null>(null);
   const ctxTono = useRef<AudioContext | null>(null);
@@ -78,6 +87,16 @@ export default function Afinador() {
   useEffect(() => {
     if (motor.current) motor.current.frecuenciaMin = instrumento.frecuenciaMin;
   }, [instrumento.frecuenciaMin]);
+
+  const elegirAlEntrar = (id: InstrumentoId) => {
+    marcarElegido();
+    pedirPermisoMovimiento();
+    cambiarInstrumento(id);
+    setSubeLaPala(true);
+    setEleccion({ fase: "saliendo", id });
+    temporizadores.current.push(setTimeout(() => setEleccion({ fase: "no", id: null }), MS_TRANSICION));
+    temporizadores.current.push(setTimeout(() => setSubeLaPala(false), MS_TRANSICION + 900));
+  };
 
   const cambiarInstrumento = (id: InstrumentoId) => {
     if (id === instrumento.id) return;
@@ -285,10 +304,11 @@ export default function Afinador() {
   const celebrandoAhora = celebrando && !cromatico;
 
   return (
-    <main className={`app ${listo ? "es-lista" : ""}`}>
-      {listo && instrumento.fondo && <FondoEstudio key={instrumento.id} foto={instrumento.fondo} />}
+    <main className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""}`}>
+      {listo && instrumento.fondo && <FondoEstudio key={instrumento.id} foto={instrumento.fondo} vertical velo={false} />}
+      {eleccion.fase !== "no" && <ElegirInstrumento saliendo={eleccion.id} onElegir={elegirAlEntrar} />}
       <header className="cabecera">
-        <Navegacion actual="afinar" />
+        <Navegacion actual="afinar" sobreOscuro={!!instrumento.fondo} />
         <div className="cabecera-acciones">
           {(estado === "escuchando" || estado === "pidiendo") && (
             <button type="button" className="boton-icono activo" onClick={parar} aria-label="Pausar el micrófono">
@@ -381,9 +401,10 @@ export default function Afinador() {
         <div className="zona-pala">
           <div className="pala-marco">
             {/* Hasta saber qué instrumento tienes elegido no se pinta ninguna pala */}
-            {listo && (
+            {listo && eleccion.fase !== "si" && (
               <Pala
                 key={instrumento.id}
+                sube={subeLaPala}
                 geometria={instrumento.pala}
                 notas={afinacion.notas}
                 notacion={prefs.notacion}

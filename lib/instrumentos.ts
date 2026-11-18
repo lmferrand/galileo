@@ -32,7 +32,7 @@ export const INSTRUMENTOS: Instrumento[] = [
     familia: "guitarra",
     cuerdas: 6,
     pala: PALA_ACUSTICA,
-    fondo: "/fondo/estudio-acustica-1.webp",
+    fondo: "/fondo/afinar-acustica-1.webp",
     tuyo: "tu guitarra",
     afinado: "Guitarra afinada",
     frecuenciaMin: 55,
@@ -44,6 +44,7 @@ export const INSTRUMENTOS: Instrumento[] = [
     familia: "bajo",
     cuerdas: 4,
     pala: PALA_BAJO,
+    fondo: "/fondo/afinar-bajo-1.webp",
     tuyo: "tu bajo",
     afinado: "Bajo afinado",
     frecuenciaMin: 27,
@@ -53,6 +54,13 @@ export const INSTRUMENTOS: Instrumento[] = [
 
 export function instrumentoDe(id: string | undefined): Instrumento {
   return INSTRUMENTOS.find((i) => i.id === id) ?? INSTRUMENTOS[0];
+}
+
+// Al abrir la app se elige el instrumento; al volver de Pistas sin recargar la página, ya no.
+let elegidoEnEstaVisita = false;
+export const yaSeEligio = () => elegidoEnEstaVisita;
+export function marcarElegido() {
+  elegidoEnEstaVisita = true;
 }
 
 const NUMEROS = ["", "una", "dos", "tres", "cuatro", "cinco", "seis", "siete"];

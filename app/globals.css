@@ -720,11 +720,29 @@ p {
     );
   }
 }
-@media not (prefers-color-scheme: light) {
-  .app:has(.fondo-estudio) .estado-detalle,
-  .app:has(.fondo-estudio) .estado-principal {
-    text-shadow: 0 1px 10px rgba(10, 5, 2, 0.75);
-  }
+/* Con el estudio de fondo (sin velo) los textos van siempre claros, con sombra. */
+.app.con-estudio {
+  --bg: #1d100c;
+  --bg-alto: #3d2117;
+  --superficie: #2a1711;
+  --superficie-2: #3a2219;
+  --linea: rgba(240, 226, 204, 0.16);
+  --texto: #f3e8d6;
+  --texto-2: #dcc6aa;
+  --texto-3: #b39a80;
+  --laton: #d9b26a;
+  --laton-claro: #f1d59d;
+  --laton-osc: #8a6833;
+  --afinado: #a4ecd0;
+  --fuera: #f2a55c;
+  --peligro: #f08a72;
+  color-scheme: dark;
+  color: var(--texto);
+}
+.app.con-estudio .estado-principal,
+.app.con-estudio .estado-detalle,
+.app.con-estudio .pala-acciones {
+  text-shadow: 0 1px 12px rgba(10, 5, 2, 0.85), 0 0 3px rgba(10, 5, 2, 0.6);
 }
 @media (prefers-reduced-motion: reduce) {
   .fondo-estudio {
@@ -770,8 +788,142 @@ p {
 .pala {
   animation: pala-entra 240ms ease-out;
 }
+/* Al elegir el instrumento al entrar, el clavijero sube a primer plano. */
+@keyframes pala-sube {
+  from {
+    opacity: 0;
+    transform: translateY(46%) scale(0.94);
+  }
+}
+.pala.sube {
+  animation: pala-sube 820ms cubic-bezier(0.16, 1, 0.3, 1) 260ms both;
+}
 @media (prefers-reduced-motion: reduce) {
-  .pala {
+  .pala,
+  .pala.sube {
+    animation: none;
+  }
+}
+
+/* ---------------- Elegir instrumento al abrir la app ---------------- */
+.elegir {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #120a06;
+  color: #f3e8d6;
+}
+.elegir-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.elegir-foto {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  transition: transform 900ms cubic-bezier(0.5, 0, 0.2, 1);
+}
+.elegir.saliendo {
+  animation: elegir-se-va 900ms ease-in forwards;
+  pointer-events: none;
+}
+@keyframes elegir-se-va {
+  0%,
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.elegir-texto,
+.elegir-etiqueta {
+  transition: opacity 220ms ease;
+}
+.elegir.saliendo .elegir-texto,
+.elegir.saliendo .elegir-etiqueta {
+  opacity: 0;
+}
+.elegir-texto {
+  position: absolute;
+  top: calc(max(16px, env(safe-area-inset-top)) + 26px);
+  left: 0;
+  right: 0;
+  text-align: center;
+  text-shadow: 0 2px 16px rgba(8, 4, 2, 0.9);
+  pointer-events: none;
+}
+.elegir-texto h1 {
+  margin: 0;
+  font-family: var(--f-display);
+  font-weight: 500;
+  font-size: 36px;
+  line-height: 1.1;
+}
+.elegir-texto p {
+  margin-top: 6px;
+  font-size: 16px;
+  color: #ead8bd;
+}
+.elegir-toque {
+  fill: transparent;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.elegir-toque:focus-visible {
+  stroke: #f1d59d;
+  stroke-width: 4;
+  stroke-dasharray: 10 8;
+}
+.elegir-opcion.pronto .elegir-toque {
+  cursor: default;
+}
+.elegir-halo {
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: elegir-late 2.6s ease-in-out infinite;
+}
+@keyframes elegir-late {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.elegir-etiqueta {
+  pointer-events: none;
+}
+.elegir-etiqueta rect {
+  fill: rgba(18, 9, 5, 0.74);
+  stroke: rgba(241, 213, 157, 0.6);
+  stroke-width: 1.5;
+}
+.elegir-etiqueta text {
+  fill: #f6ead6;
+  font-family: var(--f-ui);
+  font-weight: 700;
+  font-size: 27px;
+  text-anchor: middle;
+}
+.elegir-etiqueta .elegir-pronto {
+  font-size: 16px;
+  font-weight: 600;
+  fill: #c9b196;
+}
+.elegir-opcion.pronto .elegir-etiqueta > * {
+  opacity: 0.8;
+}
+@media (prefers-reduced-motion: reduce) {
+  .elegir-foto {
+    transition: none;
+  }
+  .elegir.saliendo .elegir-foto {
+    transform: none !important;
+  }
+  .elegir-halo {
     animation: none;
   }
 }
