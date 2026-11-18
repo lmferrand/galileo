@@ -104,7 +104,12 @@ async function json(url, opciones) {
   const r = await fetch(url, opciones);
   const t = await r.text();
   if (!r.ok) throw new Error(`${r.status} en ${url.replace(HUB, "")}: ${t.slice(0, 300)}`);
-  return t ? JSON.parse(t) : null;
+  // Algunas respuestas (la verificación de LFS) son solo «OK», sin JSON
+  try {
+    return t ? JSON.parse(t) : null;
+  } catch {
+    return t;
+  }
 }
 
 // 2. Qué va por LFS (lo decide Hugging Face)

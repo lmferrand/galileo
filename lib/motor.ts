@@ -91,6 +91,8 @@ export class Motor {
   private ultimoTic = 0;
   private sordoHasta = 0;
   private alLeer: (l: LecturaEstable | null) => void;
+  /** Volumen (RMS) de cada lectura, para quien quiera notar las pulsadas («Aprender»). */
+  alNivel: ((rms: number, ahora: number) => void) | null = null;
 
   constructor(alLeer: (l: LecturaEstable | null) => void) {
     this.alLeer = alLeer;
@@ -184,6 +186,11 @@ export class Motor {
     if (frecuencia > 30000) {
       muestras = reducirAMitad(this.crudo, this.reducido);
       frecuencia /= 2;
+    }
+    if (this.alNivel) {
+      let suma = 0;
+      for (let i = 0; i < muestras.length; i++) suma += muestras[i] * muestras[i];
+      this.alNivel(Math.sqrt(suma / muestras.length), ahora);
     }
     const lectura = detectarTono(muestras, frecuencia, {
       frecuenciaMin: this.minimo,

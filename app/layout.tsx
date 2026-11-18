@@ -4,6 +4,7 @@ import RegistroOffline from "@/components/RegistroOffline";
 import HuecoIphone from "@/components/HuecoIphone";
 import "./globals.css";
 import "./pistas.css";
+import "./aprender.css";
 
 const bodoni = Bodoni_Moda({
   subsets: ["latin", "symbols"],

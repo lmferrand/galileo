@@ -63,6 +63,16 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const [nombre, setNombre] = useState(cancion.nombre);
   const [editando, setEditando] = useState(false);
   const [borrador, setBorrador] = useState(cancion.nombre);
+  // El crédito (autoría y licencia) va en un globo que abre la «i» junto al título
+  const [verCredito, setVerCredito] = useState(false);
+  useEffect(() => {
+    if (!verCredito) return;
+    const cerrar = (e: PointerEvent) => {
+      if (!(e.target as Element).closest?.(".credito-i")) setVerCredito(false);
+    };
+    document.addEventListener("pointerdown", cerrar);
+    return () => document.removeEventListener("pointerdown", cerrar);
+  }, [verCredito]);
   const [guardado, setGuardado] = useState<Guardado | null>(null);
   const ultimo = useRef({ segundo: -1, tocando: false });
   // Dónde acaban los instrumentos del escenario y lo de arriba: el panel de mandos empieza debajo.
@@ -307,10 +317,24 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
                 <path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" />
               </svg>
             </button>
+            {cancion.credito && (
+              <button
+                type="button"
+                className="credito-i"
+                onClick={() => setVerCredito((v) => !v)}
+                aria-expanded={verCredito}
+                aria-label="Autoría y licencia de la canción"
+              >
+                i
+              </button>
+            )}
+            {verCredito && cancion.credito && (
+              <p className="credito-globo" role="note">
+                {cancion.credito}
+              </p>
+            )}
           </div>
         )}
-
-        {cancion.credito && <p className="credito">{cancion.credito}</p>}
 
         {!error && (
           <section className="transporte" aria-label="Reproducción">

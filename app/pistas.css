@@ -476,10 +476,47 @@ a.marca {
 /* ---------- Segunda entrega: nombre, trozo, velocidad y guardar ---------- */
 
 .titulo-fila {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 6px;
   margin-top: 6px;
+}
+/* Autoría y licencia: una «i» junto al título que abre un globo (menos texto a la vista) */
+.credito-i {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-top: 5px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  background: transparent;
+  color: var(--texto-2);
+  font: italic 700 15px/1 Georgia, serif;
+  cursor: pointer;
+}
+.credito-i[aria-expanded="true"] {
+  color: var(--laton-claro);
+}
+.credito-globo {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(243, 226, 192, 0.2);
+  background: rgba(20, 10, 5, 0.9);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  color: var(--texto-2);
+  font-size: 12.5px;
+  line-height: 1.4;
 }
 .titulo-fila .reproductor-titulo {
   margin-top: 0;

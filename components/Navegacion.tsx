@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 
-/** Logo y pestañas «Afinar» / «Pistas» de la cabecera. */
-export default function Navegacion({ actual }: { actual: "afinar" | "pistas"; sobreOscuro?: boolean }) {
+/** Logo y pestañas «Afinar» / «Pistas» / «Aprender» de la cabecera. */
+export default function Navegacion({ actual }: { actual: "afinar" | "pistas" | "aprender"; sobreOscuro?: boolean }) {
   return (
     <div className="navegacion">
       <Link href="/" className="marca" aria-label="The Clavija, inicio">
@@ -17,6 +17,9 @@ export default function Navegacion({ actual }: { actual: "afinar" | "pistas"; so
         </Link>
         <Link href="/pistas" aria-current={actual === "pistas" ? "page" : undefined}>
           Pistas
+        </Link>
+        <Link href="/aprender" aria-current={actual === "aprender" ? "page" : undefined}>
+          Aprender
         </Link>
       </nav>
     </div>

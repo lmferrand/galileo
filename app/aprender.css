@@ -1,0 +1,457 @@
+/* ============================================================
+   Aprender: el curso de guitarra (mapa de lecciones y lección)
+   ============================================================ */
+
+/* Colores oscuros siempre: va sobre la foto del estudio o la madera */
+.app-aprender {
+  --bg: #1d100c;
+  --superficie: #2a1711;
+  --superficie-2: #3a2219;
+  --linea: rgba(240, 226, 204, 0.16);
+  --texto: #f3e8d6;
+  --texto-2: #dcc6aa;
+  --texto-3: #b39a80;
+  --laton: #d9b26a;
+  --laton-claro: #f1d59d;
+  --laton-osc: #8a6833;
+  --peligro: #f08a72;
+  --acierto: #46e08a;
+  color-scheme: dark;
+  color: var(--texto);
+  height: auto;
+  min-height: 100svh;
+  padding-bottom: max(32px, env(safe-area-inset-bottom));
+}
+html:has(.app-aprender),
+html:has(.app-aprender) body {
+  background: #120a06;
+}
+/* iPhone en modo app: la pantalla mide hasta el borde real y se desplaza por dentro (como Pistas) */
+html.hueco .app-aprender:not(.en-leccion) {
+  height: calc(100svh + var(--hueco-abajo, 0px));
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(max(24px, env(safe-area-inset-bottom)) + 24px);
+}
+html.hueco:has(.app-aprender),
+html.hueco:has(.app-aprender) body {
+  overflow: hidden;
+  height: 100%;
+}
+
+/* Tres pestañas: el logo nunca se encoge (se deformaba) y en móviles estrechos todo algo más junto */
+.marca {
+  flex: none;
+}
+.cabecera {
+  gap: 6px;
+}
+@media (max-width: 420px) {
+  .pestanas a {
+    padding: 7px 10px;
+    font-size: 14px;
+  }
+}
+/* En el afinador, el botón de ajustes solo con su icono (el «La 440» no cabe junto a tres pestañas) */
+@media (max-width: 500px) {
+  .boton-la-texto {
+    display: none;
+  }
+  .boton-la {
+    padding: 0 11px;
+  }
+}
+@media (max-width: 360px) {
+  .app {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .navegacion {
+    gap: 8px;
+  }
+  .marca-logo {
+    height: 34px;
+  }
+  .pestanas a {
+    padding: 6px 7px;
+    font-size: 12.5px;
+  }
+}
+
+/* ---------- El mapa ---------- */
+.aprender-intro h1 {
+  margin-top: 8px;
+  font-family: var(--f-display);
+  font-weight: 500;
+  font-size: 36px;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.6);
+}
+.aprender-intro p {
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--texto-2);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+}
+.aprender-intro a {
+  color: var(--laton-claro);
+}
+.unidad {
+  margin-top: 22px;
+}
+.unidad h2 {
+  margin: 0 0 8px;
+  font-family: var(--f-display);
+  font-size: 21px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.75);
+}
+.unidad ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.leccion-boton {
+  width: 100%;
+  height: 100%;
+  min-height: 98px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(243, 226, 192, 0.2);
+  background: rgba(20, 10, 5, 0.5);
+  -webkit-backdrop-filter: blur(6px) saturate(1.3);
+  backdrop-filter: blur(6px) saturate(1.3);
+  color: var(--texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+.leccion-boton:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.leccion-boton.siguiente {
+  border-color: transparent;
+  background: linear-gradient(160deg, color-mix(in oklab, var(--laton) 38%, rgba(20, 10, 5, 0.6)), rgba(20, 10, 5, 0.55));
+  box-shadow:
+    0 0 0 1.5px var(--laton-claro),
+    0 8px 22px rgba(0, 0, 0, 0.35);
+}
+.leccion-boton.cerrada {
+  opacity: 0.55;
+  cursor: default;
+}
+.leccion-num {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(243, 226, 192, 0.12);
+  color: var(--laton-claro);
+  font-weight: 800;
+  font-size: 13.5px;
+}
+.leccion-boton.siguiente .leccion-num {
+  background: radial-gradient(circle at 34% 28%, #fff1cf 0%, var(--laton-claro) 22%, #c69a52 58%, #7f5d2b 100%);
+  color: #2b1909;
+}
+.leccion-num svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.leccion-boton-titulo {
+  font-weight: 700;
+  font-size: 14.5px;
+  line-height: 1.25;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+}
+.leccion-boton-estrellas,
+.estrellas {
+  color: rgba(243, 226, 192, 0.25);
+  font-size: 14px;
+  letter-spacing: 2px;
+}
+.leccion-boton-estrellas .llena,
+.estrellas .llena {
+  color: var(--laton-claro);
+}
+
+/* ---------- La lección ---------- */
+.app-aprender.en-leccion {
+  height: calc(100svh + var(--hueco-abajo, 0px));
+  min-height: 0;
+  max-width: 640px;
+  padding-bottom: calc(var(--abajo-seguro) + 8px);
+  background: radial-gradient(ellipse at 50% 30%, #3a2014 0%, #1d100c 60%, #120a06 100%);
+}
+html:has(.en-leccion) body {
+  background: #120a06;
+}
+.leccion-arriba {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.leccion-cerrar {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(243, 226, 192, 0.08);
+  color: var(--texto-2);
+  cursor: pointer;
+}
+.leccion-cerrar svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.leccion-progreso.progreso {
+  flex: 1;
+  height: 8px;
+  margin-top: 0;
+}
+.leccion-cuenta {
+  min-width: 3.2em;
+  text-align: right;
+  font-size: 13.5px;
+  color: var(--texto-3);
+  font-variant-numeric: tabular-nums;
+}
+.leccion-titulo {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--texto-2);
+}
+
+/* El carril: la anterior, la de ahora (en latón) y las que vienen */
+.carril {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  min-height: 44px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+.carril li {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 8px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid rgba(243, 226, 192, 0.18);
+  color: var(--texto-2);
+  font-weight: 700;
+  font-size: 14px;
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+.carril li.hecha {
+  opacity: 0.35;
+  border-color: transparent;
+}
+.carril li.ahora {
+  border-color: transparent;
+  background: radial-gradient(circle at 34% 28%, #fff1cf 0%, var(--laton-claro) 22%, #c69a52 58%, #7f5d2b 100%);
+  color: #2b1909;
+  transform: scale(1.12);
+}
+
+.leccion-centro {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.leccion-nota {
+  margin: 0;
+  font-family: var(--f-display);
+  font-size: clamp(64px, 18vw, 96px);
+  line-height: 1;
+  transition: color 160ms ease;
+}
+.leccion-nota .alteracion {
+  font-size: 0.55em;
+  vertical-align: super;
+}
+.leccion-donde {
+  margin: 0 0 6px;
+  font-size: 15px;
+  color: var(--texto-2);
+}
+.leccion-oido {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  text-align: center;
+  font-size: 15px;
+  color: var(--texto-3);
+}
+.leccion-oido.buena {
+  color: var(--acierto);
+}
+/* Acierto: la nota en verde un momento; fallo: roja */
+.en-leccion.acierto .leccion-nota {
+  color: var(--acierto);
+}
+.en-leccion.fallo .leccion-nota {
+  color: #ff8a7a;
+}
+
+.leccion-abajo {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding-top: 8px;
+}
+.leccion-empezar {
+  width: min(100%, 360px);
+}
+.leccion-error {
+  margin: 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--peligro);
+}
+
+/* Al acabar: estrellas y qué hacer */
+.leccion-fin {
+  position: fixed;
+  inset: 0;
+  bottom: calc(-1 * var(--hueco-fijo, 0px));
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 5, 2, 0.6);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.leccion-fin-caja {
+  width: min(100%, 360px);
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(243, 226, 192, 0.18);
+  background: #2a1711;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+.leccion-fin .estrellas {
+  margin: 0;
+  font-size: 44px;
+  letter-spacing: 6px;
+}
+.leccion-fin .estrellas .llena {
+  text-shadow: 0 0 18px rgba(241, 213, 157, 0.5);
+}
+.leccion-fin-texto {
+  margin: 0 0 6px;
+  color: var(--texto-2);
+}
+.leccion-fin .boton-principal {
+  width: 100%;
+}
+
+/* ---------- El diapasón ---------- */
+.diapason {
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+}
+.diapason .cuerda line {
+  stroke: #b9a98c;
+}
+.diapason .cuerda.suena line {
+  stroke: var(--laton-claro);
+  filter: drop-shadow(0 0 3px rgba(241, 213, 157, 0.8));
+}
+.diapason-nombre {
+  fill: var(--texto-3);
+  font-size: 13px;
+  font-weight: 700;
+}
+.diapason .cuerda.suena .diapason-nombre {
+  fill: var(--laton-claro);
+}
+.diapason-num {
+  fill: var(--texto-3);
+  font-size: 11px;
+}
+.diapason-aire {
+  fill: none;
+  stroke: var(--laton-claro);
+  stroke-width: 3;
+}
+.diapason-dedo text {
+  fill: #2b1909;
+  font-weight: 800;
+  font-size: 14px;
+}
+.diapason-dedo,
+.diapason-aire {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dia-aparece 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes dia-aparece {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+}
+.diapason.acierto .diapason-aire,
+.diapason.acierto .cuerda.suena line {
+  stroke: var(--acierto);
+}
+@media (prefers-reduced-motion: reduce) {
+  .diapason-dedo,
+  .diapason-aire {
+    animation: none;
+  }
+  .carril li {
+    transition: none;
+  }
+}
+
+/* iPad y PC: el mapa a lo ancho */
+@media (min-width: 760px) {
+  .app-aprender:not(.en-leccion) {
+    max-width: min(1180px, 100%);
+    padding-left: max(32px, env(safe-area-inset-left));
+    padding-right: max(32px, env(safe-area-inset-right));
+  }
+  .aprender-intro h1 {
+    font-size: 46px;
+  }
+  .unidad ul {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
