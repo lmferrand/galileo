@@ -18,6 +18,7 @@ import { leerAjusteRetraso, Looper, type EstadoLooper, type ModoLooper } from "@
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo, type Compas } from "@/lib/metronomo";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
 import { enLetra, INSTRUMENTOS, instrumentoDe, marcarElegido, yaSeEligio, type InstrumentoId } from "@/lib/instrumentos";
+import { sonarInstrumento } from "@/lib/sonidos";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
 import { tocarArpegio, tocarNota } from "@/lib/tono";
@@ -152,6 +153,7 @@ export default function Afinador() {
   }, [instrumento.frecuenciaMin]);
 
   const elegirAlEntrar = (id: InstrumentoId) => {
+    sonarInstrumento(id);
     marcarElegido();
     pedirPermisoMovimiento();
     cambiarInstrumento(id);
@@ -583,7 +585,10 @@ export default function Afinador() {
                 style={{ gridTemplateColumns: `repeat(${INSTRUMENTOS.length}, 1fr)` }}
               >
                 {INSTRUMENTOS.map((i) => (
-                  <button key={i.id} type="button" aria-pressed={i.id === instrumento.id} onClick={() => cambiarInstrumento(i.id)}>
+                  <button key={i.id} type="button" aria-pressed={i.id === instrumento.id} onClick={() => {
+                    if (i.id !== instrumento.id) sonarInstrumento(i.id);
+                    cambiarInstrumento(i.id);
+                  }}>
                     {i.nombre}
                   </button>
                 ))}
