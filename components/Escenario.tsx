@@ -145,6 +145,20 @@ export default function Escenario({ luces, onTocar, onMedir, horizontal }: Props
           </g>
         ))}
 
+        {/* PC e iPad: la foto va pegada abajo; su borde de arriba se funde con la sala oscura
+            (antes ahí asomaba otra copia desenfocada de la foto y se veía repetida y cortada) */}
+        {horizontal && (
+          <>
+            <defs>
+              <linearGradient id="funde-arriba" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#120a06" stopOpacity="1" />
+                <stop offset="100%" stopColor="#120a06" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <rect width={ANCHO} height={ALTO * 0.3} fill="url(#funde-arriba)" pointerEvents="none" />
+          </>
+        )}
+
         {/* Tocar un instrumento lo quita o lo vuelve a poner */}
         {FOCOS.map((f, i) => {
           const nombre = PISTAS.find((p) => p.id === f.pista)?.nombre.toLowerCase() ?? f.pista;

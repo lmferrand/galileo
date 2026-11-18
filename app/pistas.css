@@ -856,8 +856,8 @@ a.marca {
   }
   .escenario-estudio.horizontal {
     right: var(--panel-ancho);
-    /* lo que no ocupa la foto, con la misma sala desenfocada */
-    background: #120a06 url("/estudio/completo-h-fondo-1.webp") center / cover no-repeat;
+    /* lo que no ocupa la foto: la sala oscura, con un poco de luz cálida (sin otra copia de la foto) */
+    background: linear-gradient(to bottom, #1c0e07 0%, #120a06 40%);
   }
   .reproductor-panel {
     top: 0;
@@ -1185,4 +1185,40 @@ html:has(.app-pistas) body {
 }
 .fondo-estudio.vertical .fondo-velo {
   background: linear-gradient(to bottom, rgba(14, 7, 3, 0.62) 0%, rgba(14, 7, 3, 0.12) 24%, rgba(14, 7, 3, 0) 42%, rgba(14, 7, 3, 0.12) 72%, rgba(14, 7, 3, 0.32) 100%);
+}
+
+/* iPad y PC: la lista de Pistas a lo ancho (antes, una columna de móvil de 540 px) */
+@media (min-width: 760px) {
+  .app-pistas:not(.con-escenario) {
+    max-width: min(1180px, 100%);
+    padding-left: max(32px, env(safe-area-inset-left));
+    padding-right: max(32px, env(safe-area-inset-right));
+  }
+  .pistas-intro h1 {
+    font-size: 46px;
+  }
+  .pistas-bloques {
+    grid-template-columns: repeat(4, minmax(0, 160px));
+    gap: 14px;
+  }
+  .bloque {
+    aspect-ratio: auto;
+    height: 108px;
+    font-size: 15px;
+  }
+  .bloque .icono {
+    width: 32px;
+    height: 32px;
+  }
+  .biblioteca ul {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+  }
+  .biblioteca-nombre {
+    font-size: 20px;
+  }
+}
+/* Nada se sale por los lados (si algo se saliera, el iPad encogería la página entera) */
+.app-pistas {
+  overflow-x: clip;
 }
