@@ -137,8 +137,10 @@ async function separar(L, R, alAvanzar) {
 
 fs.mkdirSync(carpetaSalida, { recursive: true });
 const archivos = fs.readdirSync(carpeta).filter((a) => /\.(mp3|m4a|wav|flac|ogg|opus|aac)$/i.test(a)).sort((a, b) => a.localeCompare(b, "es"));
+// metadatos.json (opcional) junto a las canciones: { "<archivo>": { titulo, estilo, credito, autor, … } }
+const meta = fs.existsSync(carpeta + "/metadatos.json") ? JSON.parse(fs.readFileSync(carpeta + "/metadatos.json", "utf8")) : {};
 const vistos = new Set(), lista = [];
-for (const a of archivos) { const t = titulo(a), clave = t.toLowerCase(); if (vistos.has(clave)) continue; vistos.add(clave); lista.push({ archivo: a, titulo: t, zip: carpetaSalida + "/" + nombreArchivo(t) + ".zip" }); }
+for (const a of archivos) { const t = meta[a]?.titulo ?? titulo(a), clave = t.toLowerCase(); if (vistos.has(clave)) continue; vistos.add(clave); lista.push({ archivo: a, titulo: t, zip: carpetaSalida + "/" + nombreArchivo(t) + ".zip" }); }
 let pendientes = lista.filter((c) => !fs.existsSync(c.zip));
 if (process.env.REVES) pendientes = pendientes.reverse();
 console.log(lista.length + " canciones, " + (lista.length - pendientes.length) + " ya hechas");
@@ -154,7 +156,8 @@ for (const [k, c] of pendientes.entries()) {
     const L = remuestrear(audio.getChannelData(0), audio.sampleRate, SR);
     const R = remuestrear(audio.numberOfChannels > 1 ? audio.getChannelData(1) : audio.getChannelData(0), audio.sampleRate, SR);
     const pistas = await separar(L, R, (h, t) => process.stdout.write("\rtrozo " + h + "/" + t + "   "));
-    const datos = { nombre: c.titulo, frames: L.length, duracion: L.length / SR, separador: "roformer", credito: "Separada con BS-RoFormer SW (jarredou), licencia CC BY-NC-SA 4.0." };
+    const { titulo: _t, credito, ...extra } = meta[c.archivo] ?? {};
+    const datos = { nombre: c.titulo, frames: L.length, duracion: L.length / SR, separador: "roformer", credito: credito ?? "Separada con BS-RoFormer SW (jarredou), licencia CC BY-NC-SA 4.0.", ...extra };
     const paquete = zip([{ nombre: "cancion.json", datos: Buffer.from(JSON.stringify(datos, null, 2)) }, ...ORDEN_ZIP.map((p) => ({ nombre: p + ".mp3", datos: pistas[p] }))]);
     fs.writeFileSync(c.zip + ".tmp", paquete);
     fs.renameSync(c.zip + ".tmp", c.zip);

@@ -7,6 +7,7 @@ import FondoEstudio from "./FondoEstudio";
 import Nube from "./Nube";
 import Hoja from "./Hoja";
 import EstudioEncargos from "./EstudioEncargos";
+import ParaTocar from "./ParaTocar";
 import { estudioEncendido, mandarAlEstudio, type EstadoEstudio } from "@/lib/estudio/cliente";
 import { ErrorNube, nubeDisponible, separarEnLaNube, type FaseNube } from "@/lib/estudio/nube";
 import { borrarCancion, espacio, listarCanciones, pedirPersistencia } from "@/lib/pistas/almacen";
@@ -62,7 +63,7 @@ export default function Pistas() {
   const entradaZip = useRef<HTMLInputElement>(null);
   const entrada = useRef<HTMLInputElement>(null);
   // Hoja abierta: la nube o la ayuda (antes eran una tarjeta y párrafos en la pantalla)
-  const [hoja, setHoja] = useState<"nube" | "ayuda" | null>(null);
+  const [hoja, setHoja] = useState<"nube" | "ayuda" | "tocar" | null>(null);
   const cerrarHoja = useCallback(() => setHoja(null), []);
   // Canciones elegidas que esperan a que digas dónde separarlas (aquí o en el estudio)
   const [porSeparar, setPorSeparar] = useState<File[] | null>(null);
@@ -333,7 +334,30 @@ export default function Pistas() {
             <span>Ayuda</span>
           </button>
         </div>
+        {/* Canciones libres ya separadas, por estilos, para tocar encima */}
+        <button type="button" className="bloque-ancho" onClick={() => setHoja("tocar")}>
+          <IconoPua />
+          <span className="bloque-ancho-textos">
+            <span>Para tocar</span>
+            <small>Blues, rock and roll, funk…</small>
+          </span>
+          <svg className="bloque-ancho-flecha" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </section>
+
+      <Hoja abierta={hoja === "tocar"} titulo="Para tocar" onCerrar={cerrarHoja}>
+        <ParaTocar
+          activa={hoja === "tocar"}
+          canciones={canciones ?? []}
+          onAbrir={(c) => {
+            setHoja(null);
+            void recargar();
+            setAbierta(c);
+          }}
+        />
+      </Hoja>
 
       <Hoja abierta={porSeparar !== null} titulo="¿Dónde las separo?" onCerrar={cerrarDonde}>
         <div className="donde">
@@ -657,6 +681,15 @@ function IconoNube({ pequeno }: { pequeno?: boolean }) {
       aria-label={pequeno ? "También en la nube" : undefined}
     >
       <path d="M7 18.5h10.5a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.6 9.1 4.75 4.75 0 0 0 7 18.5z" />
+    </svg>
+  );
+}
+
+function IconoPua() {
+  return (
+    <svg className="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3.2c-4.6 0-8 1.7-8 4.8 0 3.7 4.1 9.4 6.5 12a2 2 0 0 0 3 0C15.9 17.4 20 11.7 20 8c0-3.1-3.4-4.8-8-4.8z" />
+      <path d="M10.4 9.2v4.6a1.3 1.3 0 1 1-1-1.25M10.4 9.2l3.6-.9v3.9a1.3 1.3 0 1 1-1-1.25" strokeLinecap="round" />
     </svg>
   );
 }
