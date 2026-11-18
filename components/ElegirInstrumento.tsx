@@ -6,6 +6,7 @@
 // de cada foto (vertical para el móvil, horizontal para PC e iPad tumbado) y el
 // SVG la recorta como `cover`.
 
+import { useEffect, useState } from "react";
 import type { InstrumentoId } from "@/lib/instrumentos";
 import { useHorizontal } from "@/lib/horizontal";
 
@@ -59,18 +60,34 @@ const HORIZONTAL: Foto = {
 interface Props {
   /** La que se ha tocado: se acerca a ella mientras la pantalla se va. */
   saliendo: InstrumentoId | null;
+  /** Al volver desde el afinador: empieza cerca de ese instrumento y se aleja hasta el estudio entero. */
+  volviendoDe?: InstrumentoId | null;
   onElegir: (id: InstrumentoId) => void;
 }
 
-export default function ElegirInstrumento({ saliendo, onElegir }: Props) {
+export default function ElegirInstrumento({ saliendo, volviendoDe = null, onElegir }: Props) {
   // Hasta saber si la pantalla es apaisada no se pinta ninguna foto (así no se descarga la que no toca).
   const horizontal = useHorizontal();
   const foto = horizontal ? HORIZONTAL : VERTICAL;
   const { ancho: ANCHO, alto: ALTO, zoom: ZOOM } = foto;
-  const elegida = foto.opciones.find((o) => o.id === saliendo);
+  // Volviendo: el primer fotograma ya está cerca del instrumento y en el siguiente se aleja (con la transición).
+  const [acercada, setAcercada] = useState(volviendoDe !== null);
+  useEffect(() => {
+    if (!acercada) return;
+    let segundo = 0;
+    const primero = requestAnimationFrame(() => {
+      segundo = requestAnimationFrame(() => setAcercada(false));
+    });
+    return () => {
+      cancelAnimationFrame(primero);
+      cancelAnimationFrame(segundo);
+    };
+  }, [acercada]);
+  const destino = saliendo ?? (acercada ? volviendoDe : null);
+  const elegida = foto.opciones.find((o) => o.id === destino);
 
   return (
-    <div className={`elegir ${saliendo ? "saliendo" : ""}`} role="dialog" aria-modal="true" aria-labelledby="elegir-titulo">
+    <div className={`elegir ${saliendo ? "saliendo" : ""} ${volviendoDe ? "llegando" : ""}`} role="dialog" aria-modal="true" aria-labelledby="elegir-titulo">
       {horizontal !== null && (
         <svg viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio="xMidYMid slice" className="elegir-svg">
           <defs>

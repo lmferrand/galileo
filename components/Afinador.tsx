@@ -43,7 +43,8 @@ export default function Afinador() {
   const [celebrando, setCelebrando] = useState(false);
   const [tonoEn, setTonoEn] = useState<number | null>(null);
   // Pantalla de elegir instrumento: visible, yéndose (con la transición) o quitada.
-  const [eleccion, setEleccion] = useState<{ fase: "si" | "saliendo" | "no"; id: InstrumentoId | null }>(() => ({
+  // «volviendo»: has tocado «Estudio» y la vista se aleja de tu instrumento hasta el estudio.
+  const [eleccion, setEleccion] = useState<{ fase: "si" | "saliendo" | "volviendo" | "no"; id: InstrumentoId | null }>(() => ({
     fase: yaSeEligio() ? "no" : "si",
     id: null,
   }));
@@ -227,6 +228,14 @@ export default function Afinador() {
     };
   }, [pedirBloqueo]);
 
+  // ---------- Volver al estudio a elegir otro instrumento ----------
+  const volverAlEstudio = () => {
+    parar();
+    setHoja(null);
+    setEleccion({ fase: "volviendo", id: instrumento.id });
+    temporizadores.current.push(setTimeout(() => setEleccion({ fase: "si", id: null }), MS_TRANSICION));
+  };
+
   // ---------- Nota de referencia ----------
   const contextoTono = () => {
     const ctx = motor.current?.contexto ?? ctxTono.current ?? crearContextoAudio();
@@ -306,7 +315,13 @@ export default function Afinador() {
   return (
     <main className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""}`}>
       {listo && instrumento.fondo && <FondoEstudio key={instrumento.id} foto={instrumento.fondo} fotoHorizontal={instrumento.fondoHorizontal} vertical velo={false} />}
-      {eleccion.fase !== "no" && <ElegirInstrumento saliendo={eleccion.id} onElegir={elegirAlEntrar} />}
+      {eleccion.fase !== "no" && (
+        <ElegirInstrumento
+          saliendo={eleccion.fase === "saliendo" ? eleccion.id : null}
+          volviendoDe={eleccion.fase === "volviendo" ? eleccion.id : null}
+          onElegir={elegirAlEntrar}
+        />
+      )}
       <header className="cabecera">
         <Navegacion actual="afinar" sobreOscuro={!!instrumento.fondo} />
         <div className="cabecera-acciones">
@@ -405,6 +420,7 @@ export default function Afinador() {
               <Pala
                 key={instrumento.id}
                 sube={subeLaPala}
+                baja={eleccion.fase === "volviendo"}
                 geometria={instrumento.pala}
                 notas={afinacion.notas}
                 notacion={prefs.notacion}
@@ -421,6 +437,8 @@ export default function Afinador() {
             )}
           </div>
 
+          {/* Base oscura bajo los botones de abajo: se leen sobre la pala y cierra el borde de la pantalla */}
+          <div className="pie-mandos" aria-hidden="true" />
           {!cromatico && (
             <div className="pala-acciones">
               <button
@@ -447,6 +465,12 @@ export default function Afinador() {
             </div>
           )}
           {cromatico && <p className="pala-nota">En modo cromático no hay cuerdas fijas: toca la nota que quieras.</p>}
+          {eleccion.fase === "no" && (
+            <button type="button" className="boton-oir boton-estudio" onClick={volverAlEstudio} aria-label="Volver al estudio para elegir otro instrumento">
+              <IconoEstudio />
+              <span>Estudio</span>
+            </button>
+          )}
         </div>
       </section>
 
@@ -531,6 +555,17 @@ function IconoAjustes() {
       <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
       <circle cx="16" cy="7" r="2.2" />
       <circle cx="10" cy="17" r="2.2" />
+    </svg>
+  );
+}
+
+/** Una guitarra: volver al estudio a elegir instrumento. */
+function IconoEstudio() {
+  return (
+    <svg viewBox="0 0 24 24" className="icono" aria-hidden="true">
+      <path d="M15 4.5l4.5 4.5M17.6 6.4l-6.9 6.9" />
+      <path d="M10.2 11.6a3.3 3.3 0 0 0-4.7.2c-1.1 1.2-.8 2.3-1.8 3.3-1 1-1.1 2.6 0 3.7 1.1 1.1 2.7 1 3.7 0 1-1 2.1-.7 3.3-1.8a3.3 3.3 0 0 0 .2-4.7" />
+      <circle cx="8.6" cy="15.4" r="1.1" />
     </svg>
   );
 }

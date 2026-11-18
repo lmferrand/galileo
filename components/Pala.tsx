@@ -43,12 +43,14 @@ interface Props {
   desactivada?: boolean;
   /** Al venir de elegir el instrumento: el clavijero sube desde abajo. */
   sube?: boolean;
+  /** Al volver al estudio: el clavijero baja y se va. */
+  baja?: boolean;
   onElegir: (indice: number) => void;
 }
 
 const pct = (v: number, total: number) => `${(v / total) * 100}%`;
 
-export default function Pala({ geometria: g, notas, notacion, bemoles, seleccionada, sonando, afinadas, desactivada, sube, onElegir }: Props) {
+export default function Pala({ geometria: g, notas, notacion, bemoles, seleccionada, sonando, afinadas, desactivada, sube, baja, onElegir }: Props) {
   const { ancho: ANCHO, alto: ALTO } = g.imagen;
   const m = g.mastil;
   const total = notas.length;
@@ -60,7 +62,7 @@ export default function Pala({ geometria: g, notas, notacion, bemoles, seleccion
   } as CSSProperties;
 
   return (
-    <div className={`pala ${g.metal} ${desactivada ? "es-desactivada" : ""} ${sube ? "sube" : ""}`} style={estilo}>
+    <div className={`pala ${g.metal} ${desactivada ? "es-desactivada" : ""} ${sube ? "sube" : ""} ${baja ? "baja" : ""}`} style={estilo}>
       {/* El mástil sigue debajo de la foto hasta el borde de la pantalla */}
       <svg className="pala-capa pala-mastil" viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio="none" aria-hidden="true">
         <defs>
