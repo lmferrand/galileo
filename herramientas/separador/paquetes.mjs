@@ -7,7 +7,9 @@
 //   voz.mp3, guitarra.mp3, bajo.mp3, bateria.mp3, piano.mp3, resto.mp3
 //
 // Uso: node paquetes.mjs <carpeta-canciones> <htdemucs_6s.onnx> <carpeta-salida> [kbps]
-// Si un .zip ya existe, esa canción se salta (se puede parar y seguir).
+// Si un .zip ya existe, esa canción se salta (se puede parar y seguir). Se pueden
+// lanzar dos a la vez (REVES=1 en el segundo, que empieza por el final, y HILOS=4
+// en los dos): cada uno marca la canción que está separando (.enmarcha).
 // «Artista - Título.mp3» → «Título»; las repetidas por título se separan una vez.
 
 import fs from "node:fs";
@@ -159,10 +161,11 @@ for (const a of archivos) {
   lista.push({ archivo: a, titulo: t, zip: path.join(salida, `${nombreArchivo(t)}.zip`) });
 }
 const pendientes = lista.filter((c) => !fs.existsSync(c.zip));
+if (process.env.REVES) pendientes.reverse();
 console.log(`${lista.length} canciones, ${lista.length - pendientes.length} ya hechas, ${pendientes.length} por separar`);
 if (!pendientes.length) process.exit(0);
 
-const nucleos = Math.max(1, Math.min(os.cpus().length - 1, 8));
+const nucleos = Number(process.env.HILOS) || Math.max(1, Math.min(os.cpus().length - 1, 8));
 const sesion = await ort.InferenceSession.create(modelo, { executionProviders: ["cpu"], intraOpNumThreads: nucleos, graphOptimizationLevel: "all" });
 const entradaT = new Float32Array(2 * N);
 const ventana = new Float32Array(N);
@@ -171,6 +174,9 @@ const tTotal = Date.now();
 
 for (const [k, c] of pendientes.entries()) {
   const t0 = Date.now();
+  const marca = c.zip + ".enmarcha";
+  if (fs.existsSync(c.zip) || fs.existsSync(marca)) continue;
+  fs.writeFileSync(marca, String(process.pid));
   try {
     const audio = await decode(fs.readFileSync(path.join(carpeta, c.archivo)));
     const L = remuestrear(audio.getChannelData(0), audio.sampleRate, SR);
@@ -224,6 +230,8 @@ for (const [k, c] of pendientes.entries()) {
     console.log(`\r[${k + 1}/${pendientes.length}] ${c.titulo}: ${(datos.duracion / 60).toFixed(1)} min, ${(paquete.length / 1e6).toFixed(1)} MB, ${((Date.now() - t0) / 1000).toFixed(0)} s`);
   } catch (e) {
     console.log(`\r[${k + 1}/${pendientes.length}] ${c.titulo}: ERROR ${e?.message || e}`);
+  } finally {
+    fs.rmSync(marca, { force: true });
   }
 }
 console.log(`listo en ${((Date.now() - tTotal) / 60000).toFixed(1)} min`);
