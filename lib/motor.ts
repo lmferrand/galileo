@@ -12,6 +12,13 @@ export interface LecturaEstable {
 }
 
 const INTERVALO_MS = 40;
+// Sensibilidad (medida con pulsaciones simuladas, de fuerte a muy suave, en sala tranquila y con
+// ruido): con el iPhone el micro llega flojo y las cuerdas agudas no pasaban de 0,004.
+const VOLUMEN_MIN = 0.0008;
+const UMBRAL_YIN = 0.18;
+const CLARIDAD_MIN = 0.78;
+// El micro pasa por un filtro: fuera el zumbido y los golpes graves, y los agudos que no son de la nota.
+const CORTE_AGUDOS = 1000;
 const RETENER_MS = 900;
 const SALTO_CENTS = 70;
 
@@ -63,8 +70,17 @@ export function crearContextoAudio(): AudioContext | null {
 
 export class Motor {
   contexto: AudioContext | null = null;
-  /** La nota más grave que se busca: 55 Hz para la guitarra, 27 Hz para el bajo. */
-  frecuenciaMin = 55;
+  private minimo = 55;
+  private pasaAltos: BiquadFilterNode | null = null;
+
+  /** La nota más grave que se busca: 55 Hz para la guitarra, 27 Hz para el bajo. El filtro de graves la sigue. */
+  get frecuenciaMin() {
+    return this.minimo;
+  }
+  set frecuenciaMin(hz: number) {
+    this.minimo = hz;
+    if (this.pasaAltos) this.pasaAltos.frequency.value = hz * 1.25;
+  }
   private flujo: MediaStream | null = null;
   private analizador: AnalyserNode | null = null;
   private crudo: Float32Array<ArrayBuffer> = new Float32Array(4096);
@@ -103,13 +119,19 @@ export class Motor {
 
     const ctx = this.contexto;
     const fuente = ctx.createMediaStreamSource(this.flujo);
+    this.pasaAltos = ctx.createBiquadFilter();
+    this.pasaAltos.type = "highpass";
+    this.pasaAltos.frequency.value = this.minimo * 1.25;
+    const pasaBajos = ctx.createBiquadFilter();
+    pasaBajos.type = "lowpass";
+    pasaBajos.frequency.value = CORTE_AGUDOS;
     this.analizador = ctx.createAnalyser();
     this.analizador.fftSize = 4096;
     // El analizador tiene que estar conectado a la salida para que algunos
     // navegadores lo procesen; con volumen 0 no se oye nada.
     const mudo = ctx.createGain();
     mudo.gain.value = 0;
-    fuente.connect(this.analizador);
+    fuente.connect(this.pasaAltos).connect(pasaBajos).connect(this.analizador);
     this.analizador.connect(mudo).connect(ctx.destination);
 
     this.crudo = new Float32Array(this.analizador.fftSize);
@@ -125,6 +147,8 @@ export class Motor {
     this.flujo = null;
     this.analizador?.disconnect();
     this.analizador = null;
+    this.pasaAltos?.disconnect();
+    this.pasaAltos = null;
     this.estabilizador.reiniciar();
     this.alLeer(null);
   }
@@ -162,8 +186,13 @@ export class Motor {
       muestras = reducirAMitad(this.crudo, this.reducido);
       frecuencia /= 2;
     }
-    const lectura = detectarTono(muestras, frecuencia, { frecuenciaMin: this.frecuenciaMin, frecuenciaMax: 1100 });
-    const valida = lectura && lectura.claridad > 0.82 ? lectura.frecuencia : null;
+    const lectura = detectarTono(muestras, frecuencia, {
+      frecuenciaMin: this.minimo,
+      frecuenciaMax: 1100,
+      umbral: UMBRAL_YIN,
+      volumenMin: VOLUMEN_MIN,
+    });
+    const valida = lectura && lectura.claridad > CLARIDAD_MIN ? lectura.frecuencia : null;
     this.alLeer(this.estabilizador.meter(valida, ahora));
   };
 }

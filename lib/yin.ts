@@ -63,6 +63,23 @@ export function detectarTono(
   }
   if (tau === -1) return null;
 
+  // 3b) Con poca señal (el final de una nota, una sala con ruido) YIN se va a veces a
+  // la octava de abajo: el periodo bueno queda justo por encima del umbral y el doble
+  // por debajo. Si la mitad (o un tercio, o un cuarto) del periodo encaja casi igual
+  // de bien, la nota es esa. Con una nota limpia el periodo bueno es mucho mejor que
+  // su mitad, así que esto no sube de octava una cuerda grave sin fundamental.
+  for (const k of [4, 3, 2]) {
+    const centro = Math.round(tau / k);
+    if (centro - 2 < tauMin) continue;
+    let mejor = centro;
+    for (let t = centro - 2; t <= centro + 2; t++) if (d[t] < d[mejor]) mejor = t;
+    const esMinimo = d[mejor] <= d[mejor - 1] && d[mejor] <= d[mejor + 1];
+    if (esMinimo && d[mejor] < d[tau] * 1.5 + 0.03) {
+      tau = mejor;
+      break;
+    }
+  }
+
   // 4) Interpolación parabólica para afinar el periodo entre muestras.
   let periodo = tau;
   if (tau > 1 && tau < tauMax) {
