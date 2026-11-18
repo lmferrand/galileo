@@ -835,18 +835,44 @@ p {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: #120a06 var(--fondo-elegir, none) center / cover no-repeat;
+  background: #120a06;
   color: #f3e8d6;
+  overflow: hidden;
 }
-.elegir-svg {
+/* Una sola capa (foto + sala desenfocada + zonas para tocar) que se acerca entera */
+.elegir-escena {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  transition: transform 900ms cubic-bezier(0.45, 0, 0.2, 1);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+.elegir-marco {
+  position: absolute;
+}
+.elegir-img {
+  display: block;
   width: 100%;
   height: 100%;
-  display: block;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.elegir-foto {
-  transform-box: view-box;
-  transform-origin: 0 0;
-  transition: transform 900ms cubic-bezier(0.5, 0, 0.2, 1);
+/* Solo se funden los bordes donde sobra pantalla */
+.elegir-img.borde-v {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 6%, #000 94%, transparent);
+}
+.elegir-img.borde-h {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
+}
+.elegir-toques {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 .elegir.saliendo {
   animation: elegir-se-va 900ms ease-in forwards;
@@ -854,7 +880,7 @@ p {
 }
 /* Al volver: el estudio aparece mientras la vista se aleja de tu instrumento */
 .elegir.llegando {
-  animation: elegir-llega 600ms ease-out both;
+  animation: elegir-llega 280ms ease-out both;
 }
 @keyframes elegir-llega {
   from {
@@ -863,7 +889,7 @@ p {
 }
 @keyframes elegir-se-va {
   0%,
-  35% {
+  62% {
     opacity: 1;
   }
   100% {
@@ -912,9 +938,14 @@ p {
   cursor: default;
 }
 .elegir-halo {
-  mix-blend-mode: screen;
   pointer-events: none;
   animation: elegir-late 2.6s ease-in-out infinite;
+}
+/* Durante el acercamiento, el halo quieto (para que la capa no se repinte) */
+.elegir.saliendo .elegir-halo,
+.elegir.llegando .elegir-halo {
+  animation: none;
+  opacity: 0.6;
 }
 @keyframes elegir-late {
   0%,
@@ -927,10 +958,11 @@ p {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .elegir-foto {
+  .elegir-escena {
     transition: none;
   }
-  .elegir.saliendo .elegir-foto {
+  .elegir.saliendo .elegir-escena,
+  .elegir.llegando .elegir-escena {
     transform: none !important;
   }
   .elegir-halo {
@@ -1653,7 +1685,7 @@ li.actual .nota-chip {
   height: calc(120px + env(safe-area-inset-bottom) + var(--hueco-abajo, 0px));
   pointer-events: none;
   /* suave: el mástil y sus trastes se siguen viendo debajo */
-  background: linear-gradient(to bottom, rgba(14, 7, 3, 0), rgba(14, 7, 3, 0.42) 45%, rgba(14, 7, 3, 0.55));
+  background: linear-gradient(to bottom, rgba(14, 7, 3, 0), rgba(14, 7, 3, 0.22) 50%, rgba(14, 7, 3, 0.32));
 }
 /* El mástil llega hasta el borde de abajo también en el hueco del iPhone */
 .pala-marco {
@@ -1687,46 +1719,51 @@ html:has(.con-escenario) {
   /* Margen para la raya de inicio del iPhone. En modo app, si el iPhone ya deja su hueco abajo
      (y la barra lo cubre), la raya cae dentro del hueco: solo falta lo que no cubra. */
   --abajo-seguro: max(6px, calc(env(safe-area-inset-bottom) - var(--hueco-abajo, 0px)));
-  --barra: calc(50px + var(--abajo-seguro));
+  --barra: calc(76px + var(--abajo-seguro));
 }
+/* Botones sueltos, de cristal, sin barra: entre ellos se ve el mástil */
 .barra-abajo {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(-1 * var(--hueco-abajo, 0px));
+  bottom: 0;
   z-index: 20;
   display: flex;
-  justify-content: center;
-  gap: min(5vw, 40px);
-  padding: 6px 8px calc(var(--abajo-seguro) + var(--hueco-abajo, 0px));
-  background: rgba(18, 10, 6, 0.9);
-  border-top: 1px solid rgba(240, 226, 204, 0.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.2);
-  backdrop-filter: blur(14px) saturate(1.2);
-  color: #e9d8bf;
+  justify-content: space-evenly;
+  padding: 0 6px var(--abajo-seguro);
+  pointer-events: none;
 }
 .barra-abajo button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   min-width: 64px;
-  padding: 4px 6px;
   font-size: 11.5px;
   font-weight: 700;
-  color: #cdb89c;
-  border-radius: 12px;
+  color: #f3e6d2;
+  text-shadow: 0 1px 6px rgba(8, 4, 2, 0.95), 0 0 2px rgba(8, 4, 2, 0.8);
+  pointer-events: auto;
 }
 .barra-abajo button .icono {
-  width: 25px;
-  height: 25px;
+  box-sizing: content-box;
+  width: 23px;
+  height: 23px;
+  padding: 11px;
+  border-radius: 50%;
   color: #f1d59d;
+  background: rgba(20, 11, 6, 0.42);
+  border: 1px solid rgba(255, 236, 210, 0.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.25);
+  backdrop-filter: blur(10px) saturate(1.25);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
 }
-.barra-abajo button.activo {
-  color: #f6e7cc;
+.barra-abajo button.activo .icono {
+  border-color: rgba(241, 213, 157, 0.75);
+  background: rgba(60, 38, 16, 0.55);
 }
-.barra-abajo button:active {
-  transform: scale(0.95);
+.barra-abajo button:active .icono {
+  transform: scale(0.94);
 }
 .barra-abajo .relleno {
   fill: currentColor;
@@ -1896,15 +1933,6 @@ html:has(.con-escenario) {
 }
 html:has(.app.con-estudio) body {
   background: #120a06;
-}
-.barra-abajo::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100%;
-  height: 120px;
-  background: inherit;
 }
 .barra-abajo .haz {
   opacity: 0.55;

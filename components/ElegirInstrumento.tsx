@@ -4,10 +4,15 @@
 // instrumento, la vista se acerca a él y se funde con el afinador, donde su
 // clavijero sube a primer plano (lo hace Afinador). Las medidas van en píxeles
 // de cada foto (vertical para el móvil, horizontal para PC e iPad tumbado). La foto
-// se ve entera (con margen a los lados) y lo que sobra arriba y abajo es la misma
-// sala desenfocada. Sin etiquetas: se toca el instrumento.
+// se ve entera y sus bordes se funden con el oscuro de la sala (sin otra copia de
+// la foto detrás, que al acercarse se veía duplicada). Sin etiquetas: se toca el
+// instrumento.
+//
+// La foto y las zonas para tocar van en UNA capa que se acerca entera con una
+// transformación CSS: la hace la tarjeta gráfica (fluida en el iPhone). Al
+// acercarse, el encuadre no deja ver el borde de la foto.
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { InstrumentoId } from "@/lib/instrumentos";
 import { useHorizontal } from "@/lib/horizontal";
 
@@ -24,8 +29,6 @@ interface Opcion {
 
 interface Foto {
   src: string;
-  /** La misma, desenfocada, para rellenar lo que no ocupa la foto. */
-  fondo: string;
   ancho: number;
   alto: number;
   zoom: number;
@@ -34,7 +37,6 @@ interface Foto {
 
 const VERTICAL: Foto = {
   src: "/estudio/pistas-1.webp",
-  fondo: "/estudio/pistas-fondo-1.webp",
   ancho: 941,
   alto: 1671,
   zoom: 2.4,
@@ -47,7 +49,6 @@ const VERTICAL: Foto = {
 
 const HORIZONTAL: Foto = {
   src: "/estudio/completo-h1.webp",
-  fondo: "/estudio/completo-h-fondo-1.webp",
   ancho: 1536,
   alto: 1024,
   zoom: 2.1,
@@ -70,7 +71,19 @@ export default function ElegirInstrumento({ saliendo, volviendoDe = null, onEleg
   // Hasta saber si la pantalla es apaisada no se pinta ninguna foto (así no se descarga la que no toca).
   const horizontal = useHorizontal();
   const foto = horizontal ? HORIZONTAL : VERTICAL;
-  const { ancho: ANCHO, alto: ALTO, zoom: ZOOM } = foto;
+  const caja = useRef<HTMLDivElement>(null);
+  const [tam, setTam] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const el = caja.current;
+    if (!el) return;
+    const medir = () => setTam({ w: el.clientWidth, h: el.clientHeight });
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   // Volviendo: el primer fotograma ya está cerca del instrumento y en el siguiente se aleja (con la transición).
   const [acercada, setAcercada] = useState(volviendoDe !== null);
   useEffect(() => {
@@ -87,74 +100,81 @@ export default function ElegirInstrumento({ saliendo, volviendoDe = null, onEleg
   const destino = saliendo ?? (acercada ? volviendoDe : null);
   const elegida = foto.opciones.find((o) => o.id === destino);
 
+  // La foto entera dentro de la pantalla (como «contain») y, al elegir, el instrumento al centro y más cerca.
+  const listo = horizontal !== null && tam !== null;
+  let marco = { left: 0, top: 0, width: 0, height: 0 };
+  let transformacion = "none";
+  // Sobra pantalla arriba y abajo (móvil) o a los lados (ordenador): solo esos bordes se funden.
+  const sobraArriba = listo && tam.w / tam.h < foto.ancho / foto.alto;
+  if (listo) {
+    const e = Math.min(tam.w / foto.ancho, tam.h / foto.alto);
+    marco = { width: foto.ancho * e, height: foto.alto * e, left: (tam.w - foto.ancho * e) / 2, top: (tam.h - foto.alto * e) / 2 };
+    if (elegida) {
+      const z = foto.zoom;
+      const px = marco.left + elegida.cx * e;
+      const py = marco.top + elegida.cy * e;
+      // El instrumento al centro, pero sin que asome el borde de la foto (que tape siempre la pantalla).
+      const encaja = (t: number, desde: number, largo: number, pantalla: number) =>
+        Math.min(-z * desde, Math.max(pantalla - z * (desde + largo), t));
+      // Lo fundido del borde (6 % arriba y abajo o 4 % a los lados) tampoco debe asomar.
+      const fh = sobraArriba ? 0 : 0.04 * marco.width;
+      const fv = sobraArriba ? 0.06 * marco.height : 0;
+      const tx = encaja(tam.w / 2 - z * px, marco.left + fh, marco.width - 2 * fh, tam.w);
+      const ty = encaja(tam.h / 2 - z * py, marco.top + fv, marco.height - 2 * fv, tam.h);
+      transformacion = `translate3d(${tx}px, ${ty}px, 0) scale(${z})`;
+    }
+  }
+
   return (
     <div
+      ref={caja}
       className={`elegir ${saliendo ? "saliendo" : ""} ${volviendoDe ? "llegando" : ""}`}
-      style={horizontal !== null ? ({ "--fondo-elegir": `url("${foto.fondo}")` } as CSSProperties) : undefined} role="dialog" aria-modal="true" aria-labelledby="elegir-titulo">
-      {horizontal !== null && (
-        <svg viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio="xMidYMid meet" className="elegir-svg">
-          <defs>
-            {/* Los bordes de la foto se funden con la sala desenfocada de detrás */}
-          <linearGradient id="elegir-borde-v" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#000" />
-            <stop offset="0.06" stopColor="#fff" />
-            <stop offset="0.94" stopColor="#fff" />
-            <stop offset="1" stopColor="#000" />
-          </linearGradient>
-          <linearGradient id="elegir-borde-h" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#000" />
-            <stop offset="0.04" stopColor="#fff" />
-            <stop offset="0.96" stopColor="#fff" />
-            <stop offset="1" stopColor="#000" />
-          </linearGradient>
-          <mask id="elegir-mascara-v" maskUnits="userSpaceOnUse" x="0" y="0" width={ANCHO} height={ALTO}>
-            <rect width={ANCHO} height={ALTO} fill="url(#elegir-borde-v)" />
-          </mask>
-          <mask id="elegir-mascara-h" maskUnits="userSpaceOnUse" x="0" y="0" width={ANCHO} height={ALTO}>
-            <rect width={ANCHO} height={ALTO} fill="url(#elegir-borde-h)" />
-          </mask>
-          <radialGradient id="elegir-halo">
-              <stop offset="0%" stopColor="#ffe2ad" stopOpacity="0.32" />
-              <stop offset="100%" stopColor="#ffe2ad" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          {/* Al tocar uno, la vista se acerca y lo lleva al centro (el centro de la foto es el de la pantalla) */}
-          <g
-            className="elegir-foto"
-            style={
-              elegida
-                ? { transform: `translate(${ANCHO / 2 - ZOOM * elegida.cx}px, ${ALTO / 2 - ZOOM * elegida.cy}px) scale(${ZOOM})` }
-                : undefined
-            }
-          >
-            <g mask="url(#elegir-mascara-h)">
-            <image href={foto.src} width={ANCHO} height={ALTO} mask="url(#elegir-mascara-v)" />
-          </g>
-            {foto.opciones.map((o) => (
-              <g key={o.id} className={`elegir-opcion ${o.pronto ? "pronto" : ""}`}>
-                {!o.pronto && <ellipse cx={o.cx} cy={o.cy} rx={o.rx * 1.5} ry={o.ry * 1.15} fill="url(#elegir-halo)" className="elegir-halo" />}
-                <ellipse
-                  cx={o.cx}
-                  cy={o.cy}
-                  rx={o.rx}
-                  ry={o.ry}
-                  className="elegir-toque"
-                  role="button"
-                  tabIndex={o.pronto ? -1 : 0}
-                  aria-disabled={o.pronto || undefined}
-                  aria-label={o.pronto ? `${o.nombre}: muy pronto` : `Afinar ${o.id === "bajo" ? "el bajo" : o.id === "electrica" ? "la guitarra eléctrica" : "la guitarra acústica"}`}
-                  onClick={() => !o.pronto && !saliendo && onElegir(o.id)}
-                  onKeyDown={(e) => {
-                    if ((e.key === "Enter" || e.key === " ") && !o.pronto && !saliendo) {
-                      e.preventDefault();
-                      onElegir(o.id);
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="elegir-titulo"
+    >
+      {listo && (
+        <div className="elegir-escena" style={{ transform: transformacion }}>
+          <div className="elegir-marco" style={marco}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className={`elegir-img ${sobraArriba ? "borde-v" : "borde-h"}`} src={foto.src} alt="" draggable={false} />
+            <svg viewBox={`0 0 ${foto.ancho} ${foto.alto}`} className="elegir-toques">
+              <defs>
+                <radialGradient id="elegir-halo">
+                  <stop offset="0%" stopColor="#ffe2ad" stopOpacity="0.32" />
+                  <stop offset="100%" stopColor="#ffe2ad" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              {foto.opciones.map((o) => (
+                <g key={o.id} className={`elegir-opcion ${o.pronto ? "pronto" : ""}`}>
+                  {!o.pronto && <ellipse cx={o.cx} cy={o.cy} rx={o.rx * 1.5} ry={o.ry * 1.15} fill="url(#elegir-halo)" className="elegir-halo" />}
+                  <ellipse
+                    cx={o.cx}
+                    cy={o.cy}
+                    rx={o.rx}
+                    ry={o.ry}
+                    className="elegir-toque"
+                    role="button"
+                    tabIndex={o.pronto ? -1 : 0}
+                    aria-disabled={o.pronto || undefined}
+                    aria-label={
+                      o.pronto
+                        ? `${o.nombre}: muy pronto`
+                        : `Afinar ${o.id === "bajo" ? "el bajo" : o.id === "electrica" ? "la guitarra eléctrica" : "la guitarra acústica"}`
                     }
-                  }}
-                />
-              </g>
-          ))}
-        </g>
-      </svg>
+                    onClick={() => !o.pronto && !saliendo && onElegir(o.id)}
+                    onKeyDown={(ev) => {
+                      if ((ev.key === "Enter" || ev.key === " ") && !o.pronto && !saliendo) {
+                        ev.preventDefault();
+                        onElegir(o.id);
+                      }
+                    }}
+                  />
+                </g>
+              ))}
+            </svg>
+          </div>
+        </div>
       )}
 
       <div className="elegir-texto">
