@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { InstrumentoId } from "@/lib/instrumentos";
+import { precargarSonidos } from "@/lib/sonidos";
 import { useHorizontal } from "@/lib/horizontal";
 
 interface Opcion {
@@ -68,6 +69,8 @@ interface Props {
 }
 
 export default function ElegirInstrumento({ saliendo, volviendoDe = null, onElegir }: Props) {
+  // Los sonidos de cada instrumento, listos para cuando lo toques
+  useEffect(() => precargarSonidos(), []);
   // Hasta saber si la pantalla es apaisada no se pinta ninguna foto (así no se descarga la que no toca).
   const horizontal = useHorizontal();
   const foto = horizontal ? HORIZONTAL : VERTICAL;
