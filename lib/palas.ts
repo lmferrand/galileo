@@ -1,7 +1,8 @@
 // Medidas de la imagen de cada pala. Todo va en píxeles de la imagen recortada y
 // el componente Pala lo pasa a porcentajes, así encaja a cualquier tamaño.
 // Si cambia una imagen: renombrarla (la caché sin conexión es cache-first) y
-// volver a medir. Las cuerdas van de la más grave a la más aguda.
+// volver a medir. Las cuerdas van de la más grave a la más aguda. Las imágenes
+// acaban justo en la cejuela: el diapasón entero lo dibuja Pala (sin corte).
 
 export interface Punto {
   x: number;
@@ -39,10 +40,10 @@ export interface GeometriaPala {
 
 export const PALA_ACUSTICA: GeometriaPala = {
   imagen: {
-    src: "/pala/clavijero3-815.webp",
-    srcSet: "/pala/clavijero3-500.webp 500w, /pala/clavijero3-815.webp 815w",
+    src: "/pala/clavijero4-815.webp",
+    srcSet: "/pala/clavijero4-500.webp 500w, /pala/clavijero4-815.webp 815w",
     ancho: 815,
-    alto: 1392,
+    alto: 1340,
   },
   // Las tres graves a la izquierda (de abajo arriba) y las tres agudas a la derecha.
   llaves: [
@@ -87,10 +88,10 @@ export const PALA_ACUSTICA: GeometriaPala = {
 
 export const PALA_BAJO: GeometriaPala = {
   imagen: {
-    src: "/pala/bajo1-806.webp",
-    srcSet: "/pala/bajo1-500.webp 500w, /pala/bajo1-806.webp 806w",
+    src: "/pala/bajo2-806.webp",
+    srcSet: "/pala/bajo2-500.webp 500w, /pala/bajo2-806.webp 806w",
     ancho: 806,
-    alto: 1434,
+    alto: 1168,
   },
   // 2 + 2: la 4.ª abajo a la izquierda, la 3.ª arriba a la izquierda, la 2.ª arriba a la derecha y la 1.ª abajo a la derecha.
   llaves: [
@@ -129,10 +130,10 @@ export const PALA_BAJO: GeometriaPala = {
 
 export const PALA_ELECTRICA: GeometriaPala = {
   imagen: {
-    src: "/pala/electrica1-746.webp",
-    srcSet: "/pala/electrica1-500.webp 500w, /pala/electrica1-746.webp 746w",
+    src: "/pala/electrica2-746.webp",
+    srcSet: "/pala/electrica2-500.webp 500w, /pala/electrica2-746.webp 746w",
     ancho: 746,
-    alto: 1442,
+    alto: 1209,
   },
   // 3 + 3 como la acústica: las graves a la izquierda (de abajo arriba), las agudas a la derecha.
   llaves: [

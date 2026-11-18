@@ -16,6 +16,24 @@ interface Props {
 export default function Ajustes({ la4, notacion, onLa4, onNotacion, onEntrada }: Props) {
   const [entradas, setEntradas] = useState<Entrada[] | null>(null);
   const [elegida, setElegida] = useState("");
+  const [medidas, setMedidas] = useState("");
+
+  // Medidas de la pantalla (para ajustar la app a cada aparato si algo no encaja abajo).
+  useEffect(() => {
+    const prueba = document.createElement("div");
+    prueba.style.cssText = "position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)";
+    document.body.append(prueba);
+    const estilo = getComputedStyle(prueba);
+    const arriba = Math.round(parseFloat(estilo.paddingTop) || 0);
+    const abajo = Math.round(parseFloat(estilo.paddingBottom) || 0);
+    prueba.remove();
+    const hueco = getComputedStyle(document.documentElement).getPropertyValue("--hueco-abajo").trim() || "0px";
+    const comoApp = matchMedia("(display-mode: standalone)").matches;
+    const visible = Math.round(window.visualViewport?.height ?? window.innerHeight);
+    setMedidas(
+      `Pantalla ${screen.width}×${screen.height}, zona útil ${window.innerWidth}×${window.innerHeight} (visible ${visible}), ${comoApp ? "modo app" : "navegador"}, hueco ${hueco}, márgenes ${arriba} arriba y ${abajo} abajo.`,
+    );
+  }, []);
 
   useEffect(() => {
     setElegida(leerEntrada());
@@ -107,6 +125,7 @@ export default function Ajustes({ la4, notacion, onLa4, onNotacion, onEntrada }:
           En el iPhone, abre esta página en Safari, toca el botón de compartir y elige «Añadir a pantalla de inicio». Así se abre como una app y funciona sin internet.
         </p>
       </section>
+      {medidas && <p className="ajustes-medidas">Medidas de la pantalla: {medidas}</p>}
     </div>
   );
 }

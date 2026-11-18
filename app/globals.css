@@ -1730,6 +1730,11 @@ html:has(.con-escenario) {
   --abajo-seguro: max(8px, env(safe-area-inset-bottom));
   --barra: calc(76px + var(--abajo-seguro));
 }
+/* Con el hueco del iPhone en modo app, el aparato puede decir que el margen de abajo es 0: se
+   deja uno mínimo para que los nombres de los botones no queden pegados al borde. */
+html.hueco {
+  --abajo-seguro: max(30px, env(safe-area-inset-bottom));
+}
 /* Botones sueltos, de cristal, sin barra: entre ellos se ve el mástil */
 .barra-abajo {
   position: fixed;
@@ -2090,4 +2095,11 @@ html:has(.app.con-estudio) body {
   .barra-icono.gira .icono {
     animation: none;
   }
+}
+
+.ajustes-medidas {
+  margin-top: 22px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--texto-3);
 }

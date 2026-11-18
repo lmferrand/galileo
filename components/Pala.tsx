@@ -27,9 +27,22 @@ function trastes(g: GeometriaPala): number[] {
 }
 
 function camino(g: GeometriaPala, i: number) {
-  const puntos = g.recorridos[i];
+  // El recorrido medido llega hasta la cejuela (donde acaba la imagen); de ahí, recta por el mástil.
+  const alto = g.imagen.alto;
+  const puntos: [number, number][] = [];
+  for (const [k, [x, y]] of g.recorridos[i].entries()) {
+    if (y <= alto) {
+      puntos.push([x, y]);
+      continue;
+    }
+    if (k > 0) {
+      const [px, py] = g.recorridos[i][k - 1];
+      puntos.push([px + ((x - px) * (alto - py)) / (y - py), alto]);
+    }
+    break;
+  }
   const [ux] = puntos[puntos.length - 1];
-  return `M${puntos.map(([x, y]) => `${x} ${y}`).join(" L")} L${ux} ${g.imagen.alto + FONDO_EXTRA}`;
+  return `M${puntos.map(([x, y]) => `${x.toFixed(1)} ${y}`).join(" L")} L${ux.toFixed(1)} ${alto + FONDO_EXTRA}`;
 }
 
 interface Props {
