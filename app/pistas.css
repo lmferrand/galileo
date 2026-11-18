@@ -852,7 +852,8 @@ a.marca {
     padding-right: calc(var(--panel-ancho) + 16px);
   }
   .app-pistas.con-escenario .reproductor-arriba {
-    max-width: 640px;
+    /* toda la columna, con el mismo margen a los dos lados (antes 640 px y sobraba a la derecha) */
+    max-width: none;
   }
   .escenario-estudio.horizontal {
     right: var(--panel-ancho);
