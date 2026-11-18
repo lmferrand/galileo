@@ -38,6 +38,18 @@ function titulo(archivo) {
   return resto.join(" - ");
 }
 
+// Algunos mp3 traen la etiqueta ID3 repetida al principio y el lector no los reconoce:
+// se quitan todas las etiquetas del principio y se deja solo el audio.
+function sinId3(buf) {
+  let p = 0;
+  while (buf.length > p + 10 && buf.toString("latin1", p, p + 3) === "ID3") {
+    const tam = (buf[p + 6] << 21) | (buf[p + 7] << 14) | (buf[p + 8] << 7) | buf[p + 9];
+    p += 10 + tam + (buf[p + 5] & 0x10 ? 10 : 0);
+  }
+  while (p < buf.length && buf[p] === 0) p++;
+  return p ? new Uint8Array(buf.subarray(p)) : buf;
+}
+
 const nombreArchivo = (t) => t.replace(/[<>:"/\\|?*]/g, "").replace(/[. ]+$/, "").trim();
 
 function remuestrear(x, de, a) {
@@ -178,7 +190,8 @@ for (const [k, c] of pendientes.entries()) {
   if (fs.existsSync(c.zip) || fs.existsSync(marca)) continue;
   fs.writeFileSync(marca, String(process.pid));
   try {
-    const audio = await decode(fs.readFileSync(path.join(carpeta, c.archivo)));
+    const crudo = fs.readFileSync(path.join(carpeta, c.archivo));
+    const audio = await decode(/\.mp3$/i.test(c.archivo) ? sinId3(crudo) : crudo);
     const L = remuestrear(audio.getChannelData(0), audio.sampleRate, SR);
     const R = remuestrear(audio.numberOfChannels > 1 ? audio.getChannelData(1) : audio.getChannelData(0), audio.sampleRate, SR);
     const total = L.length;
