@@ -13,7 +13,7 @@ const FOTO = "/estudio/pistas-1.webp";
 const ZOOM = 2.4;
 
 interface Opcion {
-  id: InstrumentoId | "electrica";
+  id: InstrumentoId;
   nombre: string;
   cx: number;
   cy: number;
@@ -30,7 +30,7 @@ interface Opcion {
 const OPCIONES: Opcion[] = [
   { id: "acustica", nombre: "Acústica", cx: 158, cy: 918, rx: 74, ry: 182, etiquetaX: 176 },
   { id: "bajo", nombre: "Bajo", cx: 728, cy: 903, rx: 50, ry: 164, etiquetaArriba: true },
-  { id: "electrica", nombre: "Eléctrica", cx: 808, cy: 935, rx: 58, ry: 150, pronto: true, etiquetaX: 764 },
+  { id: "electrica", nombre: "Eléctrica", cx: 808, cy: 935, rx: 58, ry: 150, etiquetaX: 764 },
 ];
 
 interface Props {
@@ -73,12 +73,12 @@ export default function ElegirInstrumento({ saliendo, onElegir }: Props) {
                 role="button"
                 tabIndex={o.pronto ? -1 : 0}
                 aria-disabled={o.pronto || undefined}
-                aria-label={o.pronto ? `${o.nombre}: muy pronto` : `Afinar ${o.id === "bajo" ? "el bajo" : "la guitarra acústica"}`}
-                onClick={() => !o.pronto && !saliendo && onElegir(o.id as InstrumentoId)}
+                aria-label={o.pronto ? `${o.nombre}: muy pronto` : `Afinar ${o.id === "bajo" ? "el bajo" : o.id === "electrica" ? "la guitarra eléctrica" : "la guitarra acústica"}`}
+                onClick={() => !o.pronto && !saliendo && onElegir(o.id)}
                 onKeyDown={(e) => {
                   if ((e.key === "Enter" || e.key === " ") && !o.pronto && !saliendo) {
                     e.preventDefault();
-                    onElegir(o.id as InstrumentoId);
+                    onElegir(o.id);
                   }
                 }}
               />

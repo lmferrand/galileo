@@ -126,3 +126,51 @@ export const PALA_BAJO: GeometriaPala = {
     paso: 192,
   },
 };
+
+export const PALA_ELECTRICA: GeometriaPala = {
+  imagen: {
+    src: "/pala/electrica1-746.webp",
+    srcSet: "/pala/electrica1-500.webp 500w, /pala/electrica1-746.webp 746w",
+    ancho: 746,
+    alto: 1442,
+  },
+  // 3 + 3 como la acústica: las graves a la izquierda (de abajo arriba), las agudas a la derecha.
+  llaves: [
+    { x: 56, y: 816, lado: "izq" },
+    { x: 74, y: 589, lado: "izq" },
+    { x: 67, y: 364, lado: "izq" },
+    { x: 684, y: 356, lado: "der" },
+    { x: 692, y: 584, lado: "der" },
+    { x: 700, y: 812, lado: "der" },
+  ],
+  llave: { ancho: 13.5, alto: 15.5, letra: 5.8 },
+  postes: [
+    { x: 211, y: 819 },
+    { x: 224, y: 589 },
+    { x: 224, y: 359 },
+    { x: 532, y: 349 },
+    { x: 536, y: 584 },
+    { x: 540, y: 819 },
+  ],
+  radioPoste: 44,
+  recorridos: [
+    [[232, 824], [234, 834], [238, 914], [240, 1034], [240, 1154], [240, 1206], [240, 1441]],
+    [[238, 606], [256, 794], [265, 894], [274, 994], [283, 1094], [290, 1154], [291, 1206], [291, 1441]],
+    [[250, 374], [294, 754], [310, 874], [324, 994], [337, 1114], [340, 1154], [342, 1206], [342, 1441]],
+    [[514, 372], [465, 734], [453, 834], [442, 914], [431, 994], [420, 1074], [406, 1154], [400, 1206], [400, 1441]],
+    [[514, 604], [480, 914], [471, 994], [462, 1074], [454, 1154], [451, 1206], [451, 1441]],
+    [[516, 836], [514, 914], [510, 994], [506, 1074], [505, 1154], [503, 1206], [502, 1441]],
+  ],
+  grosor: [8, 7, 6, 5, 4.2, 3.6],
+  entorchadas: 3,
+  metal: "niquel",
+  mastil: {
+    x0: 210,
+    x1: 522,
+    filete: 7,
+    madera: ["#6a2809", "#8e3a12", "#6a2809"],
+    colorFilete: ["#d9b87f", "#f5e2b8", "#d4b07a"],
+    cejuela: 1206,
+    paso: 175,
+  },
+};

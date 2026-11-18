@@ -1,9 +1,9 @@
 // Instrumentos que se pueden afinar. Las guitarras comparten afinaciones (6
 // cuerdas) y el bajo tiene las suyas (4). Cada uno lleva su pala.
 
-import { PALA_ACUSTICA, PALA_BAJO, type GeometriaPala } from "./palas";
+import { PALA_ACUSTICA, PALA_BAJO, PALA_ELECTRICA, type GeometriaPala } from "./palas";
 
-export type InstrumentoId = "acustica" | "bajo";
+export type InstrumentoId = "acustica" | "electrica" | "bajo";
 export type Familia = "guitarra" | "bajo";
 
 export interface Instrumento {
@@ -33,6 +33,18 @@ export const INSTRUMENTOS: Instrumento[] = [
     cuerdas: 6,
     pala: PALA_ACUSTICA,
     fondo: "/fondo/afinar-acustica-1.webp",
+    tuyo: "tu guitarra",
+    afinado: "Guitarra afinada",
+    frecuenciaMin: 55,
+    rango: [28, 76],
+  },
+  {
+    id: "electrica",
+    nombre: "Eléctrica",
+    familia: "guitarra",
+    cuerdas: 6,
+    pala: PALA_ELECTRICA,
+    fondo: "/fondo/afinar-electrica-1.webp",
     tuyo: "tu guitarra",
     afinado: "Guitarra afinada",
     frecuenciaMin: 55,
