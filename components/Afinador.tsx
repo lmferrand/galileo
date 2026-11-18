@@ -10,6 +10,10 @@ import Ajustes from "./Ajustes";
 import Navegacion from "./Navegacion";
 import FondoEstudio, { pedirPermisoMovimiento } from "./FondoEstudio";
 import ElegirInstrumento from "./ElegirInstrumento";
+import BarraAbajo from "./BarraAbajo";
+import MetronomoPanel from "./MetronomoPanel";
+import Grabadora from "./Grabadora";
+import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo, type Compas } from "@/lib/metronomo";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
 import { enLetra, INSTRUMENTOS, instrumentoDe, marcarElegido, yaSeEligio, type InstrumentoId } from "@/lib/instrumentos";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
@@ -21,7 +25,7 @@ const TOLERANCIA = 4; // cents
 const TIEMPO_AFINADA = 350; // ms seguidos dentro de la tolerancia
 const HISTERESIS = 60; // cents que tiene que ganar otra cuerda para cambiar en automático
 
-type HojaAbierta = null | "afinacion" | "ajustes" | "editor";
+type HojaAbierta = null | "afinacion" | "ajustes" | "editor" | "metronomo" | "grabar";
 
 const MS_TRANSICION = 900;
 
@@ -49,6 +53,11 @@ export default function Afinador() {
     id: null,
   }));
   const [subeLaPala, setSubeLaPala] = useState(false);
+  // Metrónomo: vive aquí para que siga sonando con su hoja cerrada.
+  const metronomo = useRef<Metronomo | null>(null);
+  const [metro, setMetro] = useState<AjustesMetronomo>({ bpm: 90, compas: 4 });
+  const [metroSonando, setMetroSonando] = useState(false);
+  const [metroGolpe, setMetroGolpe] = useState<{ tiempo: number; n: number }>({ tiempo: -1, n: 0 });
 
   const motor = useRef<Motor | null>(null);
   const ctxTono = useRef<AudioContext | null>(null);
@@ -61,8 +70,40 @@ export default function Afinador() {
   // Preferencias guardadas: se leen después de hidratar para no descuadrar el HTML.
   useEffect(() => {
     setPrefs(leerPreferencias());
+    setMetro(leerAjustesMetronomo());
     setListo(true);
+    return () => metronomo.current?.cerrar();
   }, []);
+
+  // ---------- Metrónomo ----------
+  const cambiarMetro = (cambio: Partial<AjustesMetronomo>) => {
+    setMetro((m) => {
+      const nuevo = { ...m, ...cambio };
+      guardarAjustesMetronomo(nuevo);
+      if (metronomo.current) {
+        metronomo.current.bpm = nuevo.bpm;
+        metronomo.current.compas = nuevo.compas;
+      }
+      return nuevo;
+    });
+  };
+  const alternarMetronomo = () => {
+    if (!metronomo.current) {
+      metronomo.current = new Metronomo();
+      metronomo.current.alGolpe = (tiempo) => setMetroGolpe((g) => ({ tiempo, n: g.n + 1 }));
+    }
+    const m = metronomo.current;
+    if (m.sonando) {
+      m.parar();
+      setMetroSonando(false);
+      setMetroGolpe((g) => ({ tiempo: -1, n: g.n }));
+    } else {
+      m.bpm = metro.bpm;
+      m.compas = metro.compas;
+      m.empezar();
+      setMetroSonando(true);
+    }
+  };
 
   const cambiarPrefs = useCallback((cambio: Partial<Preferencias>) => {
     setPrefs((p) => {
@@ -465,14 +506,35 @@ export default function Afinador() {
             </div>
           )}
           {cromatico && <p className="pala-nota">En modo cromático no hay cuerdas fijas: toca la nota que quieras.</p>}
-          {eleccion.fase === "no" && (
-            <button type="button" className="boton-oir boton-estudio" onClick={volverAlEstudio} aria-label="Volver al estudio para elegir otro instrumento">
-              <IconoEstudio />
-              <span>Estudio</span>
-            </button>
-          )}
+
         </div>
       </section>
+
+      {eleccion.fase === "no" && (
+        <BarraAbajo
+          onEstudio={volverAlEstudio}
+          onMetronomo={() => setHoja("metronomo")}
+          onGrabar={() => setHoja("grabar")}
+          metronomoSonando={metroSonando}
+          golpe={metroGolpe.n}
+        />
+      )}
+
+      <Hoja abierta={hoja === "metronomo"} titulo="Metrónomo" onCerrar={() => setHoja(null)}>
+        <MetronomoPanel
+          bpm={metro.bpm}
+          compas={metro.compas}
+          sonando={metroSonando}
+          tiempo={metroSonando ? metroGolpe.tiempo : null}
+          onBpm={(bpm) => cambiarMetro({ bpm })}
+          onCompas={(compas: Compas) => cambiarMetro({ compas })}
+          onAlternar={alternarMetronomo}
+        />
+      </Hoja>
+
+      <Hoja abierta={hoja === "grabar"} titulo="Grabarte" onCerrar={() => setHoja(null)}>
+        <Grabadora />
+      </Hoja>
 
       <Hoja abierta={hoja === "afinacion"} titulo="Afinación" onCerrar={() => setHoja(null)}>
         <SelectorAfinacion
@@ -555,17 +617,6 @@ function IconoAjustes() {
       <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
       <circle cx="16" cy="7" r="2.2" />
       <circle cx="10" cy="17" r="2.2" />
-    </svg>
-  );
-}
-
-/** Una guitarra: volver al estudio a elegir instrumento. */
-function IconoEstudio() {
-  return (
-    <svg viewBox="0 0 24 24" className="icono" aria-hidden="true">
-      <path d="M15 4.5l4.5 4.5M17.6 6.4l-6.9 6.9" />
-      <path d="M10.2 11.6a3.3 3.3 0 0 0-4.7.2c-1.1 1.2-.8 2.3-1.8 3.3-1 1-1.1 2.6 0 3.7 1.1 1.1 2.7 1 3.7 0 1-1 2.1-.7 3.3-1.8a3.3 3.3 0 0 0 .2-4.7" />
-      <circle cx="8.6" cy="15.4" r="1.1" />
     </svg>
   );
 }

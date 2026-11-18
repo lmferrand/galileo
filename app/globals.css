@@ -754,8 +754,7 @@ p {
 }
 .app.con-estudio .estado-principal,
 .app.con-estudio .estado-detalle,
-.app.con-estudio .pala-acciones,
-.app.con-estudio .boton-estudio {
+.app.con-estudio .pala-acciones {
   text-shadow: 0 1px 12px rgba(10, 5, 2, 0.85), 0 0 3px rgba(10, 5, 2, 0.6);
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1665,14 +1664,6 @@ html.hueco:has(.app.con-estudio) body {
   overflow: hidden;
 }
 
-/* Botón «Estudio»: abajo en el centro, para volver a elegir instrumento */
-.boton-estudio {
-  position: absolute;
-  left: 50%;
-  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 6px);
-  transform: translateX(-50%);
-  pointer-events: auto;
-}
 
 /* iPhone con la app abierta desde el icono: la pantalla útil acaba un poco antes del
    borde de abajo. El estudio se pinta también por debajo y, si queda hueco, es oscuro. */
@@ -1686,6 +1677,208 @@ html:has(.con-escenario) {
 }
 @media (prefers-reduced-motion: reduce) {
   .elegir.llegando {
+    animation: none;
+  }
+}
+
+/* ---------------- Barra de abajo: Estudio, Metrónomo, Grabar ----------------
+   Ocupa el borde de abajo (y el hueco que deja el iPhone en modo app). */
+:root {
+  --barra: calc(60px + max(8px, env(safe-area-inset-bottom)));
+}
+.barra-abajo {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * var(--hueco-abajo, 0px));
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  gap: min(14vw, 64px);
+  padding: 8px 12px calc(max(8px, env(safe-area-inset-bottom)) + var(--hueco-abajo, 0px));
+  background: rgba(18, 10, 6, 0.9);
+  border-top: 1px solid rgba(240, 226, 204, 0.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  color: #e9d8bf;
+}
+.barra-abajo button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 64px;
+  padding: 4px 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #cdb89c;
+  border-radius: 12px;
+}
+.barra-abajo button .icono {
+  width: 25px;
+  height: 25px;
+  color: #f1d59d;
+}
+.barra-abajo button.activo {
+  color: #f6e7cc;
+}
+.barra-abajo button:active {
+  transform: scale(0.95);
+}
+.barra-abajo .relleno {
+  fill: currentColor;
+  stroke: none;
+}
+.barra-icono {
+  display: grid;
+}
+.barra-icono.late {
+  animation: barra-late 160ms ease-out;
+}
+@keyframes barra-late {
+  from {
+    transform: scale(1.25);
+    filter: drop-shadow(0 0 6px rgba(241, 213, 157, 0.9));
+  }
+}
+/* Con la barra, Automático y Oír quedan justo encima */
+.app.con-estudio .pala-acciones {
+  bottom: calc(var(--barra) + 6px);
+}
+
+/* ---------------- Metrónomo ---------------- */
+.metro-tempo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+}
+.metro-bpm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--f-display);
+  font-size: 64px;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.metro-bpm span {
+  margin-top: 6px;
+  font-family: var(--f-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--texto-3);
+}
+.metro-barra {
+  width: 100%;
+  margin-top: 18px;
+  accent-color: var(--laton-claro);
+}
+.metro-puntos {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 22px;
+}
+.metro-punto {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid var(--laton);
+  transition: background 90ms ease, transform 90ms ease;
+}
+.metro-punto.uno {
+  width: 20px;
+  height: 20px;
+  margin-top: -2px;
+}
+.metro-punto.suena {
+  background: var(--laton-claro);
+  transform: scale(1.15);
+}
+.metro-compas {
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 22px;
+}
+.metro-acciones {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 10px;
+  margin-top: 20px;
+}
+.metro-acciones .boton-principal {
+  padding: 15px 18px;
+  border-radius: 14px;
+  font-weight: 800;
+  font-size: 17px;
+}
+.metro-acciones .boton-principal.parar {
+  background: var(--superficie-2);
+  color: var(--texto);
+  border: 1px solid var(--laton);
+  box-shadow: none;
+}
+.metro-ayuda,
+.grabar-ayuda {
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--texto-3);
+  text-align: center;
+}
+
+/* ---------------- Grabarte ---------------- */
+.grabar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0 4px;
+}
+.grabar-boton {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--texto-2);
+}
+.grabar-punto {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #d9473a;
+  transition: all 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.grabar-boton.grabando .grabar-punto {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+}
+.grabar-reloj {
+  margin-top: 12px;
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.grabar-audio {
+  width: 100%;
+  margin-top: 4px;
+}
+.grabar-acciones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+  margin-top: 18px;
+}
+.grabar-acciones .boton-principal {
+  padding: 15px 18px;
+  border-radius: 14px;
+  font-weight: 800;
+}
+@media (prefers-reduced-motion: reduce) {
+  .barra-icono.late {
     animation: none;
   }
 }

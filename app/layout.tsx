@@ -35,10 +35,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#1d100c" },
-    { media: "(prefers-color-scheme: light)", color: "#ecdcb9" },
-  ],
+  // Oscuro siempre: el iPhone pinta con este color la franja de abajo en modo app, y así se
+  // funde con la barra de abajo y con el estudio.
+  themeColor: "#120a06",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
