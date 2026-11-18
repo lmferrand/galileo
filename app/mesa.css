@@ -156,7 +156,11 @@
 }
 
 /* ---------- La consola: como la mesa de la foto ---------- */
+/* Ocupa el ancho (así los canales que no caben se deslizan dentro) y centra la mesa */
 .consola {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   --perilla: clamp(30px, min(10.5vw, 5.6dvh), 52px);
   --tira: clamp(80px, 25vw, 116px);
   --general: clamp(104px, 30vw, 150px);
@@ -168,6 +172,7 @@
 }
 .consola-chasis {
   display: flex;
+  max-width: 100%;
   border-radius: 14px;
   box-shadow:
     0 30px 60px rgba(0, 0, 0, 0.6),
@@ -187,9 +192,22 @@
 .consola-madera:last-child {
   border-radius: 0 14px 14px 0;
 }
+/* Si no caben todos los canales, se deslizan de lado (la general se queda a la derecha) */
+.consola-desliza {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.consola-desliza::-webkit-scrollbar {
+  display: none;
+}
 .consola-panel {
   display: grid;
-  grid-template-columns: repeat(2, var(--tira)) var(--general);
+  width: max-content;
+  grid-template-columns: repeat(var(--canales, 2), var(--tira)) var(--general);
   grid-template-rows: auto auto auto auto;
   padding: 14px 4px 16px;
   background:
@@ -207,9 +225,24 @@
   border-right: 1px solid rgba(0, 0, 0, 0.55);
   box-shadow: 1px 0 0 rgba(255, 255, 255, 0.05);
 }
-.tira:last-child {
+.tira {
+  scroll-snap-align: start;
+}
+.tira-general {
+  position: sticky;
+  right: 0;
+  z-index: 1;
   border-right: 0;
-  box-shadow: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #2a2623, #1b1816);
+  box-shadow: -10px 0 16px -6px rgba(0, 0, 0, 0.6);
+  border-left: 1px solid rgba(0, 0, 0, 0.6);
+  scroll-snap-align: end;
+}
+/* Las pistas de la canción, con cinta de otro color */
+.tira-pista .tira-nombre {
+  background: #f1d59d;
 }
 .tira-cabeza {
   display: grid;
@@ -307,7 +340,7 @@
   box-shadow:
     0 4px 8px rgba(0, 0, 0, 0.6),
     inset 0 0 0 1px rgba(0, 0, 0, 0.7);
-  touch-action: none;
+  touch-action: pan-x;
   cursor: ns-resize;
   outline: none;
   -webkit-tap-highlight-color: transparent;
@@ -416,7 +449,7 @@
   position: relative;
   width: 42px;
   height: 100%;
-  touch-action: none;
+  touch-action: pan-x;
   cursor: ns-resize;
   border-radius: 6px;
   outline: none;
@@ -614,7 +647,7 @@
   font-variant-numeric: tabular-nums;
 }
 /* Interruptor y nombre en fila (en el afinador van el uno encima del otro) */
-.mesa .interruptor {
+.mesa-hoja .interruptor {
   justify-self: start;
   flex-direction: row;
   gap: 10px;
@@ -731,4 +764,30 @@
   .estudio-halo {
     animation: none;
   }
+}
+
+/* En el reproductor de Pistas: entrar en la Mesa con las 6 pistas */
+.boton-mesa-pistas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklab, var(--laton) 50%, transparent);
+  background: linear-gradient(180deg, #2a2623, #1b1816);
+  color: var(--laton-claro);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.boton-mesa-pistas .icono {
+  width: 22px;
+  height: 22px;
+}
+.boton-mesa-pistas:focus-visible {
+  outline: 2px solid var(--laton-claro);
+  outline-offset: 3px;
 }

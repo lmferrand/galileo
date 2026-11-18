@@ -42,7 +42,7 @@ const BASE: AjustesCanal = {
 
 export const AJUSTES_INICIALES: AjustesMesa = {
   canales: [structuredClone(BASE), { ...structuredClone(BASE), compresor: { activo: true, cantidad: 0.45 }, reverb: { activo: true, tamano: 0.45, mezcla: 0.18 } }],
-  general: 0.7,
+  general: 1,
 };
 
 type Sonido = Pick<AjustesCanal, Efecto>;
@@ -109,31 +109,36 @@ function pick(c: AjustesCanal): Sonido {
 }
 
 const CLAVE = "clavija:mesa:v1";
+const CLAVE_PISTAS = "clavija:mesa:pistas:v1";
+/** El volumen general de serie era 0,7: ahora es 1 (también manda en la canción de Pistas). */
+const GENERAL_ANTIGUO = 0.7;
 
-/** Lo guardado, completado con lo de serie (por si faltan efectos de una versión anterior). */
+/** Lo guardado de un canal, completado con lo de serie (por si faltan efectos de una versión anterior). */
+function completar(g: Partial<AjustesCanal> | undefined, base: AjustesCanal): AjustesCanal {
+  const p = (g ?? {}) as Partial<AjustesCanal>;
+  const efecto = <K extends Efecto>(k: K) => ({ ...base[k], ...(p[k] ?? {}) }) as AjustesCanal[K];
+  return {
+    ganancia: typeof p.ganancia === "number" ? p.ganancia : base.ganancia,
+    volumen: typeof p.volumen === "number" ? p.volumen : base.volumen,
+    panorama: typeof p.panorama === "number" ? p.panorama : base.panorama,
+    silencio: p.silencio === true,
+    puerta: efecto("puerta"),
+    compresor: efecto("compresor"),
+    distorsion: efecto("distorsion"),
+    ecualizador: efecto("ecualizador"),
+    chorus: efecto("chorus"),
+    delay: efecto("delay"),
+    reverb: efecto("reverb"),
+  };
+}
+
 export function leerAjustesMesa(): AjustesMesa {
   try {
-    const p = JSON.parse(localStorage.getItem(CLAVE) ?? "null") as Partial<AjustesMesa> | null;
+    const p = JSON.parse(localStorage.getItem(CLAVE) ?? "null") as (Partial<AjustesMesa> & { v?: number }) | null;
     if (!p || !Array.isArray(p.canales)) return structuredClone(AJUSTES_INICIALES);
-    const canal = (i: 0 | 1): AjustesCanal => {
-      const base = AJUSTES_INICIALES.canales[i];
-      const g = (p.canales?.[i] ?? {}) as Partial<AjustesCanal>;
-      const efecto = <K extends Efecto>(k: K) => ({ ...base[k], ...(g[k] ?? {}) }) as AjustesCanal[K];
-      return {
-        ganancia: typeof g.ganancia === "number" ? g.ganancia : base.ganancia,
-        volumen: typeof g.volumen === "number" ? g.volumen : base.volumen,
-        panorama: typeof g.panorama === "number" ? g.panorama : base.panorama,
-        silencio: g.silencio === true,
-        puerta: efecto("puerta"),
-        compresor: efecto("compresor"),
-        distorsion: efecto("distorsion"),
-        ecualizador: efecto("ecualizador"),
-        chorus: efecto("chorus"),
-        delay: efecto("delay"),
-        reverb: efecto("reverb"),
-      };
-    };
-    return { canales: [canal(0), canal(1)], general: typeof p.general === "number" ? p.general : AJUSTES_INICIALES.general };
+    let general = typeof p.general === "number" ? p.general : AJUSTES_INICIALES.general;
+    if (p.v !== 2 && general === GENERAL_ANTIGUO) general = AJUSTES_INICIALES.general;
+    return { canales: [completar(p.canales[0], AJUSTES_INICIALES.canales[0]), completar(p.canales[1], AJUSTES_INICIALES.canales[1])], general };
   } catch {
     return structuredClone(AJUSTES_INICIALES);
   }
@@ -141,8 +146,41 @@ export function leerAjustesMesa(): AjustesMesa {
 
 export function guardarAjustesMesa(a: AjustesMesa) {
   try {
-    localStorage.setItem(CLAVE, JSON.stringify(a));
+    localStorage.setItem(CLAVE, JSON.stringify({ ...a, v: 2 }));
   } catch {
     /* sin almacenamiento: vale para esta visita */
+  }
+}
+
+/**
+ * Las pistas de la canción (voz, guitarra…) en la Mesa: sin efectos de serie, para que suene como
+ * siempre hasta que toques algo. Su volumen y su silencio son los del reproductor (no van aquí).
+ */
+export const AJUSTES_PISTA: AjustesCanal = {
+  ...structuredClone(BASE),
+  ganancia: 0,
+  volumen: 1,
+  compresor: { activo: false, cantidad: 0.35 },
+  ecualizador: { activo: false, graves: 0, medios: 0, agudos: 0 },
+  reverb: { activo: false, tamano: 0.4, mezcla: 0.2 },
+};
+
+/** Los ajustes de cada pista, en el orden de PISTAS (lib/pistas/tipos). */
+export function leerAjustesPistas(cuantas: number): AjustesCanal[] {
+  let guardadas: Partial<AjustesCanal>[] = [];
+  try {
+    const p = JSON.parse(localStorage.getItem(CLAVE_PISTAS) ?? "null");
+    if (Array.isArray(p)) guardadas = p;
+  } catch {
+    /* nada guardado */
+  }
+  return Array.from({ length: cuantas }, (_, i) => completar(guardadas[i], AJUSTES_PISTA));
+}
+
+export function guardarAjustesPistas(a: AjustesCanal[]) {
+  try {
+    localStorage.setItem(CLAVE_PISTAS, JSON.stringify(a));
+  } catch {
+    /* sin almacenamiento */
   }
 }

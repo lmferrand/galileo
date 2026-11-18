@@ -3,9 +3,11 @@
 // Reproductor de una canción separada: las 6 pistas a la vez, con mezclas
 // rápidas, velocidad sin cambiar el tono, repetir un trozo y guardar la mezcla.
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import Navegacion from "./Navegacion";
 import Escenario from "./Escenario";
+import EstudioMesa from "./EstudioMesa";
+import type { PistasMesa } from "./ConsolaMesa";
 import { useHorizontal } from "@/lib/horizontal";
 import { leerAudios, renombrarCancion } from "@/lib/pistas/almacen";
 import { Reproductor } from "@/lib/pistas/reproductor";
@@ -74,6 +76,9 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
     return () => document.removeEventListener("pointerdown", cerrar);
   }, [verCredito]);
   const [guardado, setGuardado] = useState<Guardado | null>(null);
+  // La Mesa (estudio y consola) con las 6 pistas como canales 3 a 8
+  const [verMesa, setVerMesa] = useState(false);
+  const cerrarMesa = useCallback(() => setVerMesa(false), [setVerMesa]);
   const ultimo = useRef({ segundo: -1, tocando: false });
   // Dónde acaban los instrumentos del escenario y lo de arriba: el panel de mandos empieza debajo.
   const [pie, setPie] = useState(0);
@@ -266,6 +271,17 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   };
 
   const pct = (s: number) => `${(Math.min(s, cancion.duracion) / Math.max(1, cancion.duracion)) * 100}%`;
+  const pistasMesa: PistasMesa = {
+    nombres: PISTAS.map((p) => p.nombre),
+    conArticulo: PISTAS.map((p) => p.conArticulo),
+    volumen,
+    silencio,
+    onVolumen: (i, v) => setVolumen((vs) => vs.map((x, j) => (j === i ? v : x))),
+    onSilencio: (i) => setSilencio((s) => cambiar(s, i)),
+    aplicar: (i, a) => rep.current?.aplicarPista(i, a),
+    volumenGeneral: (v) => rep.current?.volumenGeneral(v),
+    niveles: () => rep.current?.niveles() ?? { pistas: [], general: 0 },
+  };
   const queda = describirMezcla(efectivas);
 
   return (
@@ -443,6 +459,11 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
               })}
             </section>
 
+            <button type="button" className="boton-mesa-pistas" onClick={() => setVerMesa(true)}>
+              <IconoMesa />
+              <span>Entrar en la Mesa</span>
+            </button>
+
             <section className="practica" aria-label="Para practicar">
               <div className="practica-fila">
                 <span className="practica-titulo">Velocidad</span>
@@ -525,7 +546,20 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
           </>
         )}
       </div>
+
+      {verMesa && <EstudioMesa onCerrar={cerrarMesa} pistas={pistasMesa} />}
     </main>
+  );
+}
+
+function IconoMesa() {
+  return (
+    <svg className="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M6 4v16M12 4v16M18 4v16" opacity="0.55" />
+      <rect x="3.6" y="12.5" width="4.8" height="3.4" rx="1" fill="currentColor" stroke="none" />
+      <rect x="9.6" y="6.5" width="4.8" height="3.4" rx="1" fill="currentColor" stroke="none" />
+      <rect x="15.6" y="10" width="4.8" height="3.4" rx="1" fill="currentColor" stroke="none" />
+    </svg>
   );
 }
 

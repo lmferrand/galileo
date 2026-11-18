@@ -19,15 +19,18 @@ function poner(p: AudioParam, v: number, ctx: BaseAudioContext) {
 /**
  * Un efecto que se puede quitar. «Inserción»: o pasa por el efecto o no (compresor, distorsión,
  * ecualizador). «Mezcla»: el sonido limpio sigue y se le suma el efecto (chorus, delay, reverb).
+ * Apagado, el efecto se desenchufa (tras fundirse) y no gasta: con 8 canales importa.
  */
 class Bloque {
   readonly entrada: GainNode;
   readonly salida: GainNode;
   private seco: GainNode;
   private mojado: GainNode;
+  private enchufado = false;
+  private desenchufar: ReturnType<typeof setTimeout> | null = null;
   constructor(
     private ctx: AudioContext,
-    desde: AudioNode,
+    private desde: AudioNode,
     hasta: AudioNode,
   ) {
     this.entrada = ctx.createGain();
@@ -36,17 +39,45 @@ class Bloque {
     this.mojado = ctx.createGain();
     this.mojado.gain.value = 0;
     this.entrada.connect(this.seco).connect(this.salida);
-    this.entrada.connect(desde);
     hasta.connect(this.mojado).connect(this.salida);
   }
+  private enchufar(activo: boolean) {
+    if (activo) {
+      if (this.desenchufar) clearTimeout(this.desenchufar);
+      this.desenchufar = null;
+      if (!this.enchufado) this.entrada.connect(this.desde);
+      this.enchufado = true;
+    } else if (this.enchufado && !this.desenchufar) {
+      this.desenchufar = setTimeout(() => {
+        this.desenchufar = null;
+        try {
+          this.entrada.disconnect(this.desde);
+        } catch {
+          /* ya estaba suelto */
+        }
+        this.enchufado = false;
+      }, 300);
+    }
+  }
   insercion(activo: boolean) {
+    this.enchufar(activo);
     poner(this.seco.gain, activo ? 0 : 1, this.ctx);
     poner(this.mojado.gain, activo ? 1 : 0, this.ctx);
   }
   mezcla(activo: boolean, cantidad: number) {
+    this.enchufar(activo && cantidad > 0);
     poner(this.seco.gain, 1, this.ctx);
     poner(this.mojado.gain, activo ? cantidad : 0, this.ctx);
   }
+}
+
+/** Pico (0–1) de lo que pasa por un medidor. */
+export function picoDe(a: AnalyserNode | null, datos: Float32Array<ArrayBuffer>): number {
+  if (!a) return 0;
+  a.getFloatTimeDomainData(datos);
+  let m = 0;
+  for (let i = 0; i < datos.length; i++) m = Math.max(m, Math.abs(datos[i]));
+  return m;
 }
 
 function curvaDistorsion(drive: number): Float32Array<ArrayBuffer> {
@@ -73,7 +104,8 @@ function respuestaSala(ctx: BaseAudioContext, tamano: number): AudioBuffer {
   return ir;
 }
 
-class Canal {
+/** Un canal con todos sus efectos. Lo usan las entradas de la Mesa y las pistas del reproductor. */
+export class Canal {
   readonly entrada: GainNode;
   readonly salida: GainNode;
   readonly medidor: AnalyserNode;
@@ -346,17 +378,9 @@ export class Mesa {
     if (this.ctx && this.ctx.state !== "running") await this.ctx.resume().catch(() => undefined);
   }
 
-  private pico(a: AnalyserNode | null): number {
-    if (!a) return 0;
-    a.getFloatTimeDomainData(this.datos);
-    let m = 0;
-    for (let i = 0; i < this.datos.length; i++) m = Math.max(m, Math.abs(this.datos[i]));
-    return m;
-  }
-
   /** Picos (0–1) de cada entrada (ya con su ganancia) y de la salida. */
   niveles(): { canales: number[]; general: number } {
-    return { canales: this.canales.map((c) => this.pico(c.medidor)), general: this.pico(this.medidorGeneral) };
+    return { canales: this.canales.map((c) => picoDe(c.medidor, this.datos)), general: picoDe(this.medidorGeneral, this.datos) };
   }
 
   /** Lo que tarda en oírse lo que tocas, en ms (lo que el navegador sabe). */

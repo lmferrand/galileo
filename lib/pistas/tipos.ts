@@ -2,13 +2,13 @@
 
 export type Pista = "voz" | "guitarra" | "bajo" | "bateria" | "piano" | "resto";
 
-export const PISTAS: { id: Pista; nombre: string }[] = [
-  { id: "voz", nombre: "Voz" },
-  { id: "guitarra", nombre: "Guitarra" },
-  { id: "bajo", nombre: "Bajo" },
-  { id: "bateria", nombre: "Batería" },
-  { id: "piano", nombre: "Piano" },
-  { id: "resto", nombre: "Resto" },
+export const PISTAS: { id: Pista; nombre: string; /** «la voz», «el bajo»… */ conArticulo: string }[] = [
+  { id: "voz", nombre: "Voz", conArticulo: "la voz" },
+  { id: "guitarra", nombre: "Guitarra", conArticulo: "la guitarra" },
+  { id: "bajo", nombre: "Bajo", conArticulo: "el bajo" },
+  { id: "bateria", nombre: "Batería", conArticulo: "la batería" },
+  { id: "piano", nombre: "Piano", conArticulo: "el piano" },
+  { id: "resto", nombre: "Resto", conArticulo: "el resto" },
 ];
 
 export const FRECUENCIA = 44100;

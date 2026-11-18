@@ -7,7 +7,7 @@
 // acerca entera con una transformación CSS (fluida en el iPhone). Medidas en píxeles de la foto.
 
 import { useEffect, useRef, useState } from "react";
-import ConsolaMesa from "./ConsolaMesa";
+import ConsolaMesa, { type PistasMesa } from "./ConsolaMesa";
 
 interface Rect {
   x: number;
@@ -30,7 +30,7 @@ const IRSE_MS = 220;
 
 const sinMovimiento = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export default function EstudioMesa({ onCerrar }: { onCerrar: () => void }) {
+export default function EstudioMesa({ onCerrar, pistas }: { onCerrar: () => void; /** Desde Pistas: las 6 pistas de la canción */ pistas?: PistasMesa }) {
   const caja = useRef<HTMLDivElement>(null);
   const [tam, setTam] = useState<{ w: number; h: number } | null>(null);
   const [fase, setFase] = useState<Fase>("estudio");
@@ -147,7 +147,7 @@ export default function EstudioMesa({ onCerrar }: { onCerrar: () => void }) {
         // La barra va dentro de la consola: así la hoja de efectos la tapa
         <div className="estudio-consola">
           <Arriba onCerrar={onCerrar} onEstudio={() => setFase("volviendo")} />
-          <ConsolaMesa />
+          <ConsolaMesa pistas={pistas} />
         </div>
       ) : (
         <Arriba onCerrar={onCerrar} />

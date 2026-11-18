@@ -69,7 +69,7 @@ export const EFECTOS: { id: Efecto; nombre: string; mandos: Mando[] }[] = [
 ];
 
 /** Cuántos efectos tiene encendidos un canal. */
-export const efectosActivos = (c: AjustesCanal) => EFECTOS.filter((e) => c[e.id].activo).length;
+export const efectosActivos = (c: AjustesCanal, sinPuerta = false) => EFECTOS.filter((e) => c[e.id].activo && !(sinPuerta && e.id === "puerta")).length;
 
 function Deslizador({ nombre, valor, min, max, paso, ver, onCambio }: { nombre: string; valor: number; min: number; max: number; paso: number; ver: (v: number) => string; onCambio: (v: number) => void }) {
   return (
@@ -90,7 +90,16 @@ function Deslizador({ nombre, valor, min, max, paso, ver, onCambio }: { nombre: 
   );
 }
 
-export default function EfectosMesa({ canal: c, onCambio }: { canal: AjustesCanal; onCambio: (f: (c: AjustesCanal) => AjustesCanal) => void }) {
+export default function EfectosMesa({
+  canal: c,
+  onCambio,
+  sinPuerta,
+}: {
+  canal: AjustesCanal;
+  onCambio: (f: (c: AjustesCanal) => AjustesCanal) => void;
+  /** Las pistas de la canción no llevan puerta de ruido (no hay ruido que cortar) */
+  sinPuerta?: boolean;
+}) {
   return (
     <div className="mesa-fx">
       <div className="mesa-sonidos" aria-label="Sonidos">
@@ -102,7 +111,7 @@ export default function EfectosMesa({ canal: c, onCambio }: { canal: AjustesCana
       </div>
 
       <ul className="mesa-efectos">
-        {EFECTOS.map((e) => {
+        {EFECTOS.filter((e) => !(sinPuerta && e.id === "puerta")).map((e) => {
           const valores = c[e.id] as unknown as Record<string, number> & { activo: boolean };
           return (
             <li key={e.id} className={valores.activo ? "activo" : ""}>

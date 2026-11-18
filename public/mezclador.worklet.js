@@ -1,8 +1,11 @@
-// Clavija: mezcla las 6 pistas en tiempo real dentro del hilo de audio.
-// Cada pista llega como Int16Array estéreo intercalado (L, R, L, R…) a 44,1 kHz.
+// Clavija: toca las 6 pistas en tiempo real dentro del hilo de audio.
+// Cada pista llega como Int16Array estéreo intercalado (L, R, L, R…) a 44,1 kHz y
+// sale por su propia salida (una por pista, ya con su volumen): así cada una pasa
+// por su canal de la Mesa (efectos) antes de juntarse (lib/pistas/reproductor).
 //
 // La salida se construye a trozos con WSOLA (solapar y sumar buscando el punto
-// en que la onda encaja): así se puede tocar más lento sin que cambie el tono.
+// en que la onda encaja): así se puede tocar más lento sin que cambie el tono. El
+// encaje se busca con la mezcla de todas y vale para todas: nunca se desfasan.
 // A velocidad normal los trozos van seguidos y la reconstrucción es exacta. Los
 // saltos (repetir un trozo, mover la barra) se funden solos en el solape.
 
@@ -17,8 +20,12 @@ const VENTANA = new Float32Array(N);
 for (let i = 0; i < N; i++) VENTANA[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / N);
 
 class MezcladorPistas extends AudioWorkletProcessor {
-  constructor() {
+  constructor(opciones) {
     super();
+    // Una salida por pista
+    const NS = Math.max(1, (opciones && opciones.numberOfOutputs) || 1);
+    this.ns = NS;
+    const varias = (largo) => Array.from({ length: NS }, () => new Float32Array(largo));
     this.pistas = [];
     this.frames = 0;
     this.paso = 1; // frames de la fuente por muestra de salida
@@ -29,14 +36,14 @@ class MezcladorPistas extends AudioWorkletProcessor {
     this.bucle = null; // { a, b } en muestras de salida
     this.analisis = 0;
     this.previo = -HS;
-    this.colaL = new Float32Array(HS);
-    this.colaR = new Float32Array(HS);
-    this.fL = new Float32Array(FIFO);
-    this.fR = new Float32Array(FIFO);
+    this.colaL = varias(HS);
+    this.colaR = varias(HS);
+    this.fL = varias(FIFO);
+    this.fR = varias(FIFO);
     this.fLeer = 0;
     this.fHay = 0;
-    this.trozoL = new Float32Array(N);
-    this.trozoR = new Float32Array(N);
+    this.trozoL = varias(N);
+    this.trozoR = varias(N);
     this.ref = new Float32Array(HS);
     this.region = new Float32Array(2 * DELTA + HS + 2 * DEC);
     this.bloques = 0;
@@ -50,8 +57,10 @@ class MezcladorPistas extends AudioWorkletProcessor {
   reiniciar(pos) {
     this.analisis = pos;
     this.previo = pos - HS;
-    this.colaL.fill(0);
-    this.colaR.fill(0);
+    for (let s = 0; s < this.ns; s++) {
+      this.colaL[s].fill(0);
+      this.colaR[s].fill(0);
+    }
     this.fHay = 0;
     this.fLeer = 0;
   }
@@ -111,35 +120,40 @@ class MezcladorPistas extends AudioWorkletProcessor {
     this.port.postMessage({ tipo: "pos", frame: pos, tocando: this.tocando });
   }
 
-  /** Mezcla de las pistas en [n0, n0+cuantos) de la señal de salida. */
-  leer(n0, cuantos, L, R) {
+  /** Cada pista (con su volumen) en [n0, n0+cuantos) de la señal de salida, en su trozo. */
+  leer(n0, cuantos) {
     const ps = this.pistas;
-    const np = ps.length;
     const paso = this.paso;
     const F = this.frames;
-    for (let i = 0; i < cuantos; i++) {
-      const p = (n0 + i) * paso;
-      let l = 0;
-      let r = 0;
-      if (p >= 0 && p < F - 1) {
-        const k = p | 0;
-        const f = p - k;
-        const a = k * 2;
-        for (let s = 0; s < np; s++) {
-          const g = this.g[s];
-          if (g < 0.0001) continue;
-          const d = ps[s];
+    for (let s = 0; s < this.ns; s++) {
+      const TL = this.trozoL[s];
+      const TR = this.trozoR[s];
+      const d = ps[s];
+      const g = this.g[s];
+      if (!d || g < 0.0001) {
+        TL.fill(0, 0, cuantos);
+        TR.fill(0, 0, cuantos);
+        continue;
+      }
+      const k = g / 32768;
+      for (let i = 0; i < cuantos; i++) {
+        const p = (n0 + i) * paso;
+        if (p >= 0 && p < F - 1) {
+          const q = p | 0;
+          const f = p - q;
+          const a = q * 2;
           if (f === 0) {
-            l += g * d[a];
-            r += g * d[a + 1];
+            TL[i] = k * d[a];
+            TR[i] = k * d[a + 1];
           } else {
-            l += g * (d[a] + (d[a + 2] - d[a]) * f);
-            r += g * (d[a + 1] + (d[a + 3] - d[a + 1]) * f);
+            TL[i] = k * (d[a] + (d[a + 2] - d[a]) * f);
+            TR[i] = k * (d[a + 1] + (d[a + 3] - d[a + 1]) * f);
           }
+        } else {
+          TL[i] = 0;
+          TR[i] = 0;
         }
       }
-      L[i] = l / 32768;
-      R[i] = r / 32768;
     }
   }
 
@@ -229,18 +243,27 @@ class MezcladorPistas extends AudioWorkletProcessor {
     const natural = this.previo + HS;
     const inicio = Math.abs(nominal - natural) <= 1 ? natural : this.buscar(nominal, natural);
 
-    this.leer(inicio, N, this.trozoL, this.trozoR);
-    let w = (this.fLeer + this.fHay) & MASCARA;
-    for (let i = 0; i < HS; i++) {
-      const v = VENTANA[i];
-      this.fL[w] = this.colaL[i] + this.trozoL[i] * v;
-      this.fR[w] = this.colaR[i] + this.trozoR[i] * v;
-      w = (w + 1) & MASCARA;
-    }
-    for (let i = 0; i < HS; i++) {
-      const v = VENTANA[HS + i];
-      this.colaL[i] = this.trozoL[HS + i] * v;
-      this.colaR[i] = this.trozoR[HS + i] * v;
+    this.leer(inicio, N);
+    const w0 = (this.fLeer + this.fHay) & MASCARA;
+    for (let s = 0; s < this.ns; s++) {
+      const fL = this.fL[s];
+      const fR = this.fR[s];
+      const cL = this.colaL[s];
+      const cR = this.colaR[s];
+      const TL = this.trozoL[s];
+      const TR = this.trozoR[s];
+      let w = w0;
+      for (let i = 0; i < HS; i++) {
+        const v = VENTANA[i];
+        fL[w] = cL[i] + TL[i] * v;
+        fR[w] = cR[i] + TR[i] * v;
+        w = (w + 1) & MASCARA;
+      }
+      for (let i = 0; i < HS; i++) {
+        const v = VENTANA[HS + i];
+        cL[i] = TL[HS + i] * v;
+        cR[i] = TR[HS + i] * v;
+      }
     }
     this.fHay += HS;
     this.previo = inicio;
@@ -248,20 +271,22 @@ class MezcladorPistas extends AudioWorkletProcessor {
   }
 
   process(_entradas, salidas) {
-    const salida = salidas[0];
-    const L = salida[0];
-    const R = salida[1] || salida[0];
     if (!this.tocando || this.pistas.length === 0) return true;
 
-    const n = L.length;
+    const n = salidas[0][0].length;
     while (this.fHay < n && this.tocando) this.generar();
     const cuantos = Math.min(n, this.fHay);
-    for (let i = 0; i < cuantos; i++) {
-      const k = (this.fLeer + i) & MASCARA;
-      const l = this.fL[k];
-      const r = this.fR[k];
-      L[i] = l > 1 ? 1 : l < -1 ? -1 : l;
-      R[i] = r > 1 ? 1 : r < -1 ? -1 : r;
+    // Sin recortar: lo que pase de 1 lo frena el limitador del final, ya mezclado
+    for (let s = 0; s < this.ns && s < salidas.length; s++) {
+      const L = salidas[s][0];
+      const R = salidas[s][1] || L;
+      const fL = this.fL[s];
+      const fR = this.fR[s];
+      for (let i = 0; i < cuantos; i++) {
+        const k = (this.fLeer + i) & MASCARA;
+        L[i] = fL[k];
+        R[i] = fR[k];
+      }
     }
     this.fLeer = (this.fLeer + cuantos) & MASCARA;
     this.fHay -= cuantos;
