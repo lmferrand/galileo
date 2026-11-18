@@ -9,6 +9,8 @@ export const PISTAS_NUBE = ["voz", "guitarra", "bajo", "bateria", "piano", "rest
 
 let admin: SupabaseClient | null = null;
 let bucketListo = false;
+const LIMITE_ARCHIVO = "50MB";
+const LIMITE_BYTES = 50 * 1024 * 1024;
 
 export function supabaseAdmin(): SupabaseClient {
   if (!admin) {
@@ -33,9 +35,15 @@ export async function asegurarBucket() {
   if (bucketListo) return;
   const sb = supabaseAdmin();
   const { data } = await sb.storage.getBucket(BUCKET);
+  // Como mucho 50 MB por archivo: es el máximo del plan gratis de Supabase. Si el almacén
+  // pide más que el plan (antes eran 60 MB), Supabase rechaza TODAS las subidas con
+  // «The object exceeded the maximum allowed size».
   if (!data) {
-    const { error } = await sb.storage.createBucket(BUCKET, { public: false, fileSizeLimit: "60MB" });
+    const { error } = await sb.storage.createBucket(BUCKET, { public: false, fileSizeLimit: LIMITE_ARCHIVO });
     if (error && !/exist/i.test(error.message)) throw error;
+  } else if (data.file_size_limit !== LIMITE_BYTES) {
+    const { error } = await sb.storage.updateBucket(BUCKET, { public: false, fileSizeLimit: LIMITE_ARCHIVO });
+    if (error) throw error;
   }
   bucketListo = true;
 }
