@@ -2,7 +2,7 @@
 // en un escenario…). La página se pide a la red primero y, si no hay, se usa
 // la copia guardada. Los archivos con huella (/_next/static) no cambian nunca.
 
-const CACHE = "clavija-app-v47";
+const CACHE = "clavija-app-v48";
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
