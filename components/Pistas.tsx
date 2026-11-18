@@ -6,7 +6,7 @@ import Reproduccion from "./Reproduccion";
 import FondoEstudio from "./FondoEstudio";
 import Nube from "./Nube";
 import { borrarCancion, espacio, listarCanciones, pedirPersistencia } from "@/lib/pistas/almacen";
-import { esPaquete, importarPaquete } from "@/lib/pistas/importar";
+import { contenidoZip, esPaquete, importarSeparada, type CancionEnZip } from "@/lib/pistas/importar";
 import {
   nombreBonito,
   olvidarAviso,
@@ -42,6 +42,8 @@ export default function Pistas() {
   // Canciones que llegan ya separadas (.zip): se añaden al momento, sin separador.
   const [anadiendo, setAnadiendo] = useState<{ nombre: string; hechas: number; total: number } | null>(null);
   const [fallosAnadir, setFallosAnadir] = useState<string | null>(null);
+  const [abriendoZip, setAbriendoZip] = useState(false);
+  const entradaZip = useRef<HTMLInputElement>(null);
   const entrada = useRef<HTMLInputElement>(null);
 
   const recargar = useCallback(async () => {
@@ -103,46 +105,67 @@ export default function Pistas() {
     };
   }, [trabajando]);
 
-  const elegir = (lista: FileList | null) => {
-    const archivos = Array.from(lista ?? []);
-    if (!archivos.length) return;
+  const elegir = async (lista: FileList | null) => {
+    const elegidos = Array.from(lista ?? []);
+    if (!elegidos.length) return;
     setCortada(null);
-    // Las que ya tienes separadas (o ya esperan en la cola) no se repiten.
-    const tienes = new Set([...(canciones ?? []).map((c) => c.nombre), ...sep.enCola, ...(sep.trabajo ? [sep.trabajo.nombre] : [])]);
-    const nuevas: File[] = [];
-    const separadas: File[] = [];
-    const ya: string[] = [];
-    for (const a of archivos) {
-      const nombre = nombreBonito(a.name);
-      if (tienes.has(nombre)) ya.push(nombre);
-      else {
-        tienes.add(nombre);
-        (esPaquete(a) ? separadas : nuevas).push(a);
+    setFallosAnadir(null);
+    // Los .zip se abren: dentro puede haber canciones ya separadas o archivos de música sueltos.
+    const archivos: File[] = [];
+    const yaSeparadas: CancionEnZip[] = [];
+    const fallos: string[] = [];
+    if (elegidos.some(esPaquete)) setAbriendoZip(true);
+    for (const a of elegidos) {
+      if (!esPaquete(a)) {
+        archivos.push(a);
+        continue;
+      }
+      try {
+        const dentro = await contenidoZip(a, a.name);
+        if (!dentro.separadas.length && !dentro.audios.length) fallos.push(`«${a.name}»: no trae canciones (mp3, m4a, wav…).`);
+        yaSeparadas.push(...dentro.separadas);
+        archivos.push(...dentro.audios);
+      } catch (e) {
+        fallos.push(`«${a.name}»: ${(e as Error).message || "no se ha podido abrir."}`);
       }
     }
+    setAbriendoZip(false);
+
+    // Las que ya tienes separadas (o ya esperan en la cola) no se repiten.
+    const tienes = new Set([...(canciones ?? []).map((c) => c.nombre), ...sep.enCola, ...(sep.trabajo ? [sep.trabajo.nombre] : [])]);
+    const ya: string[] = [];
+    const nuevo = (nombre: string) => {
+      if (tienes.has(nombre)) {
+        ya.push(nombre);
+        return false;
+      }
+      tienes.add(nombre);
+      return true;
+    };
+    const aSeparar = archivos.filter((a) => nuevo(nombreBonito(a.name)));
+    const aAnadir = yaSeparadas.filter((c) => nuevo(c.nombre));
     setRepetidas(ya);
-    separarCanciones(nuevas);
-    if (separadas.length) void anadirYaSeparadas(separadas);
+    separarCanciones(aSeparar);
+    if (aAnadir.length) void anadirYaSeparadas(aAnadir, fallos);
+    else if (fallos.length) setFallosAnadir(fallos.join("\n"));
   };
 
-  const anadirYaSeparadas = async (archivos: File[]) => {
-    const orden = [...archivos].sort((a, b) => a.name.localeCompare(b.name, "es"));
+  const anadirYaSeparadas = async (lista: CancionEnZip[], fallosPrevios: string[]) => {
+    const orden = [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
     // Así salen en la lista por orden alfabético (la lista va de la más nueva a la más vieja).
     const base = Date.now();
-    const fallos: string[] = [];
+    const fallos = [...fallosPrevios];
     let ultima: Cancion | null = null;
-    setFallosAnadir(null);
-    for (const [i, a] of orden.entries()) {
-      const nombre = nombreBonito(a.name);
-      setAnadiendo({ nombre, hechas: i, total: orden.length });
+    for (const [i, c] of orden.entries()) {
+      setAnadiendo({ nombre: c.nombre, hechas: i, total: orden.length });
       try {
         const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `c${Date.now().toString(36)}${i}`;
-        ultima = await importarPaquete(a, { id, nombre, creada: base - i });
+        ultima = await importarSeparada(c, { id, nombre: c.nombre, creada: base - i });
       } catch (e) {
         const m = (e as Error).message || "";
         const lleno = /quota|QuotaExceeded|lleno/i.test(m);
         const texto = lleno ? "No cabe en el aparato. Borra alguna canción y vuelve a probar." : m || "No se ha podido añadir.";
-        fallos.push(orden.length > 1 ? `«${nombre}»: ${texto}` : texto);
+        fallos.push(orden.length > 1 ? `«${c.nombre}»: ${texto}` : texto);
         if (lleno) break;
       }
     }
@@ -184,16 +207,30 @@ export default function Pistas() {
           multiple
           className="oculto"
           onChange={(e) => {
-            elegir(e.target.files);
+            void elegir(e.target.files);
             e.target.value = "";
           }}
         />
-        <button type="button" className="boton-principal" onClick={() => entrada.current?.click()} disabled={anadiendo !== null}>
+        <button type="button" className="boton-principal" onClick={() => entrada.current?.click()} disabled={anadiendo !== null || abriendoZip}>
           {trabajando ? "Añadir más canciones" : "Elegir canciones"}
+        </button>
+        <input
+          ref={entradaZip}
+          type="file"
+          accept=".zip,application/zip,application/x-zip-compressed"
+          multiple
+          className="oculto"
+          onChange={(e) => {
+            void elegir(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <button type="button" className="boton-secundario ancho" onClick={() => entradaZip.current?.click()} disabled={anadiendo !== null || abriendoZip}>
+          {abriendoZip ? "Abriendo el .zip…" : "Elegir un .zip con canciones"}
         </button>
         <p className="pistas-letra-pequena">
           Puedes elegir varias a la vez: se separan una detrás de otra. Se separa en este aparato y la canción no sale de aquí. La primera
-          vez descarga el separador ({PESO_MODELO}): mejor con wifi. Las que ya vienen separadas (un .zip por canción) entran al momento.
+          vez descarga el separador ({PESO_MODELO}): mejor con wifi. En un .zip pueden venir varias: las que estén en mp3, m4a o wav se separan y las que ya vengan separadas entran al momento.
         </p>
         {esMovil && (
           <p className="pistas-letra-pequena">

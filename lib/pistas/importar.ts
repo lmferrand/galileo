@@ -7,6 +7,7 @@
 import { guardarCancion } from "./almacen";
 import { FRECUENCIA, PISTAS, type Cancion, type Pista } from "./tipos";
 import { leerWav } from "./wav";
+import { nombreBonito } from "./separar";
 
 type Datos = Omit<Cancion, "duracion" | "frames" | "bytes"> & Partial<Pick<Cancion, "duracion" | "frames">>;
 
@@ -33,14 +34,66 @@ export async function importarPistas(urls: Record<Pista, string>, datos: Datos, 
 
 export const esPaquete = (archivo: File) => /\.zip$/i.test(archivo.name) || /zip/i.test(archivo.type);
 
-/** Una canción ya separada en un .zip (lo prepara el PC: herramientas/separador/paquetes.mjs). */
-export async function importarPaquete(archivo: File, datos: Omit<Datos, "nombre"> & { nombre: string }): Promise<Cancion> {
-  const entradas = await leerZip(archivo);
-  const buscar = (base: string) =>
-    entradas.find((e) => {
-      const nombre = e.nombre.split("/").pop() ?? "";
-      return !nombre.startsWith(".") && nombre.replace(/\.[^.]+$/, "").toLowerCase() === base;
-    });
+const EXT_AUDIO = /\.(mp3|m4a|wav|aac|flac|ogg|opus)$/i;
+const base = (ruta: string) => ruta.split("/").pop() ?? "";
+const sinExtension = (nombre: string) => nombre.replace(/\.[^.]+$/, "");
+// Lo que añaden el Mac y otros programas al comprimir (__MACOSX, ._algo, .DS_Store).
+const oculto = (ruta: string) => ruta.split("/").some((p) => p.startsWith(".") || p === "__MACOSX");
+const tipoAudio = (nombre: string) => {
+  const ext = nombre.split(".").pop()?.toLowerCase();
+  return ext === "wav" ? "audio/wav" : ext === "m4a" || ext === "aac" ? "audio/mp4" : ext === "flac" ? "audio/flac" : ext === "ogg" || ext === "opus" ? "audio/ogg" : "audio/mpeg";
+};
+
+/** Una canción ya separada que viene dentro de un .zip (se abre al añadirla). */
+export interface CancionEnZip {
+  nombre: string;
+  entradas: () => Promise<EntradaZip[]>;
+}
+
+/**
+ * Lo que trae un .zip: canciones ya separadas (las 6 pistas en una carpeta, o un .zip
+ * por canción dentro) y archivos de música sueltos, que se separan como si los eligieras.
+ */
+export async function contenidoZip(archivo: Blob, nombreZip: string): Promise<{ separadas: CancionEnZip[]; audios: File[] }> {
+  const entradas = (await leerZip(archivo)).filter((e) => !oculto(e.nombre));
+  const separadas: CancionEnZip[] = [];
+  const audios: File[] = [];
+  const usadas = new Set<EntradaZip>();
+
+  // Cada carpeta con las 6 pistas es una canción ya separada.
+  const porCarpeta = new Map<string, EntradaZip[]>();
+  for (const e of entradas) {
+    const carpeta = e.nombre.includes("/") ? e.nombre.slice(0, e.nombre.lastIndexOf("/")) : "";
+    const lista = porCarpeta.get(carpeta) ?? [];
+    lista.push(e);
+    porCarpeta.set(carpeta, lista);
+  }
+  for (const [carpeta, lista] of porCarpeta) {
+    const pistas = PISTAS.map((p) => lista.find((e) => EXT_AUDIO.test(e.nombre) && sinExtension(base(e.nombre)).toLowerCase() === p.id));
+    if (pistas.some((e) => !e)) continue;
+    const json = lista.find((e) => base(e.nombre).toLowerCase() === "cancion.json");
+    const suyas = [...(pistas as EntradaZip[]), ...(json ? [json] : [])];
+    suyas.forEach((e) => usadas.add(e));
+    separadas.push({ nombre: nombreBonito(carpeta ? base(carpeta) : nombreZip), entradas: async () => suyas });
+  }
+
+  for (const e of entradas) {
+    if (usadas.has(e)) continue;
+    const nombre = base(e.nombre);
+    if (/\.zip$/i.test(nombre)) {
+      // Un .zip dentro: una canción ya separada. Se abre al añadirla, de una en una.
+      separadas.push({ nombre: nombreBonito(nombre), entradas: async () => (await leerZip(await abrir(e))).filter((x) => !oculto(x.nombre)) });
+    } else if (EXT_AUDIO.test(nombre)) {
+      audios.push(new File([await abrir(e)], nombre, { type: tipoAudio(nombre) }));
+    }
+  }
+  return { separadas, audios };
+}
+
+/** Una canción ya separada: sus 6 pistas (y cancion.json si lo trae) pasan a la biblioteca. */
+export async function importarSeparada(cancion: CancionEnZip, datos: Omit<Datos, "nombre"> & { nombre: string }): Promise<Cancion> {
+  const entradas = await cancion.entradas();
+  const buscar = (nombre: string) => entradas.find((e) => sinExtension(base(e.nombre)).toLowerCase() === nombre);
 
   let info: { nombre?: string; frames?: number; duracion?: number } = {};
   const json = buscar("cancion");
@@ -55,11 +108,10 @@ export async function importarPaquete(archivo: File, datos: Omit<Datos, "nombre"
   const audios = {} as Record<Pista, Blob>;
   for (const p of PISTAS) {
     const e = buscar(p.id);
-    if (!e) throw new Error(`No es una canción separada: le falta la pista «${p.nombre}».`);
-    const extension = e.nombre.split(".").pop()?.toLowerCase();
+    if (!e || !EXT_AUDIO.test(e.nombre)) throw new Error(`No es una canción separada: le falta la pista «${p.nombre}».`);
     // Copia propia de los datos: así no depende de que el archivo elegido siga ahí.
     const datosPista = await (await abrir(e)).arrayBuffer();
-    audios[p.id] = new Blob([datosPista], { type: extension === "wav" ? "audio/wav" : extension === "m4a" ? "audio/mp4" : "audio/mpeg" });
+    audios[p.id] = new Blob([datosPista], { type: tipoAudio(e.nombre) });
   }
 
   return guardarYaSeparada(audios, {
@@ -72,7 +124,7 @@ export async function importarPaquete(archivo: File, datos: Omit<Datos, "nombre"
 
 // ---- ZIP: se lee el índice del final y cada archivo se corta del original sin cargarlo entero ----
 
-interface EntradaZip {
+export interface EntradaZip {
   nombre: string;
   metodo: number;
   datos: Blob;
