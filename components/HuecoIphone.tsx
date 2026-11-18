@@ -12,6 +12,11 @@ import { useEffect } from "react";
  *    al borde. Se mide con una marca fija en bottom: 0. Con la página ya estirada,
  *    el iPhone suele colocar lo fijo en el borde de verdad y entonces es 0.
  * En el navegador normal y en el ordenador, los dos son 0.
+ *
+ * ¡Ojo! Al estirar la página el iPhone cambia su zona útil. Si se volviera a medir con
+ * cada cambio de tamaño, la medida se desharía, la página se encogería, volvería a
+ * cambiar… y todo temblaría sin parar (pasó el 18-nov-2026). Por eso solo se mide al
+ * abrir y al girar el móvil, y el hueco de cada orientación nunca baja.
  */
 export default function HuecoIphone() {
   useEffect(() => {
@@ -20,37 +25,42 @@ export default function HuecoIphone() {
     marca.style.cssText = "position:fixed;left:0;bottom:0;width:1px;height:1px;visibility:hidden;pointer-events:none;";
     document.body.appendChild(marca);
     const raiz = document.documentElement;
+    const comoApp =
+      matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    const huecoDe = { vertical: 0, horizontal: 0 };
+    const valido = (v: number) => (v > 0 && v < 140 ? Math.round(v) : 0);
+    // En el iPhone screen.width y screen.height no se cambian al girar: se mira la ventana.
+    const orientacion = () => (window.innerHeight >= window.innerWidth ? "vertical" : "horizontal");
 
     const medir = () => {
-      const comoApp =
-        matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
-      const vertical = window.innerHeight >= window.innerWidth;
-      const alto = vertical ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
-      const valido = (v: number) => (v > 0 && v < 140 ? Math.round(v) : 0);
-      const hueco = comoApp ? valido(alto - window.innerHeight) : 0;
-      raiz.style.setProperty("--hueco-abajo", `${hueco}px`);
-      raiz.classList.toggle("hueco", hueco > 0);
-      // Después de estirar la página, dónde cae de verdad lo fijo.
-      const fijo = comoApp ? valido(alto - marca.getBoundingClientRect().bottom) : 0;
+      if (!comoApp) return;
+      const o = orientacion();
+      const alto = o === "vertical" ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+      // Solo puede crecer: una vez estirada la página, una medida menor es por el propio estirón.
+      huecoDe[o] = Math.max(huecoDe[o], valido(alto - window.innerHeight));
+      raiz.style.setProperty("--hueco-abajo", `${huecoDe[o]}px`);
+      raiz.classList.toggle("hueco", huecoDe[o] > 0);
+      // Dónde cae de verdad lo fijo, con la página ya estirada.
+      const fijo = valido(alto - marca.getBoundingClientRect().bottom);
       raiz.style.setProperty("--hueco-fijo", `${fijo}px`);
     };
 
-    let raf = 0;
-    const medirYa = () => {
-      cancelAnimationFrame(raf);
+    medir();
+    // Un par de veces más mientras el iPhone termina de colocar la página, y ya está.
+    const tarde = [setTimeout(medir, 400), setTimeout(medir, 1500)];
+
+    // Al girar el móvil (cambia el ancho), otra vez lo mismo para la nueva orientación.
+    let ancho = window.innerWidth;
+    const alCambiar = () => {
+      if (window.innerWidth === ancho) return;
+      ancho = window.innerWidth;
       medir();
-      // Una vez más cuando el navegador haya colocado la página con el hueco ya puesto.
-      raf = requestAnimationFrame(() => requestAnimationFrame(medir));
+      tarde.push(setTimeout(medir, 400));
     };
-    medirYa();
-    const tarde = [setTimeout(medirYa, 400), setTimeout(medirYa, 1500)];
-    window.addEventListener("resize", medirYa);
-    window.visualViewport?.addEventListener("resize", medirYa);
+    window.addEventListener("resize", alCambiar);
     return () => {
-      cancelAnimationFrame(raf);
       tarde.forEach(clearTimeout);
-      window.removeEventListener("resize", medirYa);
-      window.visualViewport?.removeEventListener("resize", medirYa);
+      window.removeEventListener("resize", alCambiar);
       marca.remove();
     };
   }, []);
