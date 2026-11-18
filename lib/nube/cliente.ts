@@ -1,4 +1,4 @@
-// La nube desde el navegador: tu sesión (cuenta de Los Teros en Supabase) y las
+// La nube desde el navegador: tu sesión (cuenta de Clavija en Supabase) y las
 // llamadas a /api/nube/*. Las pistas viajan en MP3 entre Supabase y el aparato.
 
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";

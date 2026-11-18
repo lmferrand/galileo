@@ -1,6 +1,6 @@
 "use client";
 
-// «Tus canciones en la nube»: entrar con la cuenta de Los Teros, subir desde el
+// «Tus canciones en la nube»: entrar con la cuenta de Clavija, subir desde el
 // ordenador lo separado (solo, al acabar) y descargarlo en el móvil.
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -98,8 +98,8 @@ export default function Nube({ canciones, esMovil, onCambio, onAbrir }: Props) {
         <p className="nube-titulo">{esMovil ? "Tus canciones, también en el ordenador" : "Tus canciones, también en el móvil"}</p>
         <p className="nube-texto">
           {esMovil
-            ? "Entra con tu cuenta de Los Teros: lo que separes aquí se subirá solo y lo tendrás también en el ordenador, y al revés."
-            : "Entra con tu cuenta de Los Teros: lo que separes aquí se subirá solo y lo tendrás en el móvil."}
+            ? "Entra con tu cuenta de Clavija: lo que separes aquí se subirá solo y lo tendrás también en el ordenador, y al revés."
+            : "Entra con tu cuenta de Clavija: lo que separes aquí se subirá solo y lo tendrás en el móvil."}
         </p>
         <form
           className="nube-form"
