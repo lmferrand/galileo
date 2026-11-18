@@ -8,6 +8,7 @@ import SelectorAfinacion, { ID_CROMATICO } from "./SelectorAfinacion";
 import EditorAfinacion from "./EditorAfinacion";
 import Ajustes from "./Ajustes";
 import Navegacion from "./Navegacion";
+import FondoEstudio, { pedirPermisoMovimiento } from "./FondoEstudio";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
 import { enLetra, INSTRUMENTOS, instrumentoDe, type InstrumentoId } from "@/lib/instrumentos";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
@@ -174,6 +175,8 @@ export default function Afinador() {
   }, []);
 
   const empezar = useCallback(async () => {
+    // El permiso de la inclinación (para mover el fondo) también hay que pedirlo en el toque.
+    pedirPermisoMovimiento();
     if (!motor.current) motor.current = new Motor(alLeer);
     motor.current.frecuenciaMin = instrumento.frecuenciaMin;
     setEstado("pidiendo");
@@ -283,9 +286,7 @@ export default function Afinador() {
 
   return (
     <main className={`app ${listo ? "es-lista" : ""}`}>
-      {listo && instrumento.fondo && (
-        <div key={instrumento.id} className="fondo-estudio" style={{ backgroundImage: `url(${instrumento.fondo})` }} aria-hidden="true" />
-      )}
+      {listo && instrumento.fondo && <FondoEstudio key={instrumento.id} foto={instrumento.fondo} />}
       <header className="cabecera">
         <Navegacion actual="afinar" />
         <div className="cabecera-acciones">

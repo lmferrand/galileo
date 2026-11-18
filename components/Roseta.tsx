@@ -2,7 +2,9 @@
 
 // La boca de la guitarra hace de medidor: el mosaico de la roseta se enciende
 // desde arriba (afinado) hacia el lado al que se va la nota. Arco superior =
-// de −50 a +50 cents. Cuando la cuerda está afinada, la roseta brilla como el nácar.
+// de −50 a +50 cents. Una manecilla de latón gira con la nota: nace por debajo de
+// la boca (como la de un manómetro bajo su tapa) y se ve del borde hacia fuera,
+// así no tapa la nota. Cuando la cuerda está afinada, la roseta brilla como el nácar.
 
 import { useMemo, type CSSProperties, type ReactNode } from "react";
 
@@ -101,11 +103,14 @@ export default function Roseta({ cents, afinada, brillo, apagada, children }: Pr
         {/* Muesca de latón arriba: ahí está la nota perfecta. */}
         <path d="M200 4 L209 18 L191 18 Z" className="muesca" />
 
-        <circle cx={C} cy={C} r={128} fill="url(#boca)" className="boca" />
-
+        {/* Manecilla: varilla que se afina hacia la punta, anillo de reloj antiguo y la perla. Su base queda bajo la boca. */}
         <g className="aguja" style={{ transform: `rotate(${angulo}deg)`, opacity: c === null ? 0 : 1 }}>
-          <path d="M200 16 L208.5 35 L200 54 L191.5 35 Z" className="aguja-perla" />
+          <path d="M194.4 104 L205.6 104 L202.3 48 L197.7 48 Z" className="aguja-varilla" />
+          <circle cx={C} cy={40} r={7.2} className="aguja-anillo" />
+          <path d="M200 5 L208 19 L200 33 L192 19 Z" className="aguja-perla" />
         </g>
+
+        <circle cx={C} cy={C} r={128} fill="url(#boca)" className="boca" />
       </svg>
 
       <div className="roseta-nacar" aria-hidden="true" />

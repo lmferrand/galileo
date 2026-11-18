@@ -389,6 +389,28 @@ p {
 .es-afinada .aguja-perla {
   fill: var(--afinado-boca);
 }
+.aguja {
+  color: var(--laton-claro);
+}
+.aguja-varilla {
+  fill: currentColor;
+  stroke: var(--boca-borde);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+.aguja-anillo {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.2;
+  paint-order: stroke;
+}
+.es-afinada .aguja {
+  color: var(--afinado-boca);
+}
+.aguja-varilla,
+.aguja-anillo {
+  transition: color 120ms;
+}
 
 /* El nácar: aparece al afinar y da una vuelta entera al acabar las seis. */
 .roseta-nacar {
@@ -614,38 +636,77 @@ p {
 
 /* ---------------- Foto del estudio de fondo ----------------
    El estudio sin el instrumento que afinas (ese lo tienes tú delante, en
-   primer plano), desenfocado y oscurecido para que se lean los textos. */
+   primer plano), desenfocado y con un velo para que se lean los textos. Al
+   inclinar el móvil se mueve (--gx, --gy): la foto de arriba más que la de
+   abajo, y la pala quieta delante. */
 
 .fondo-estudio {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-color: var(--bg);
-  background-size: cover;
-  background-position: 50% 42%;
+  overflow: hidden;
+  background: var(--bg);
   animation: pala-entra 420ms ease-out;
 }
-.fondo-estudio::after {
-  content: "";
+.fondo-ambiente,
+.fondo-panorama,
+.fondo-velo {
   position: absolute;
+}
+.fondo-ambiente {
+  inset: -24px;
+  background-image: var(--foto);
+  background-size: cover;
+  background-position: 50% 42%;
+  transform: translate3d(calc(var(--gx, 0px) * 0.45), calc(var(--gy, 0px) * 0.45), 0);
+}
+/* En vertical la foto apaisada se quedaría en su tercio del centro: arriba se
+   enseña entera a lo ancho y se funde hacia abajo con la de detrás. */
+.fondo-panorama {
+  display: none;
+}
+@media (max-aspect-ratio: 1/1) {
+  .fondo-panorama {
+    display: block;
+    left: 50%;
+    top: 11svh;
+    width: calc(100% + 56px);
+    aspect-ratio: 3 / 2;
+    background-image: var(--foto);
+    background-size: cover;
+    transform: translate3d(calc(-50% + var(--gx, 0px)), var(--gy, 0px), 0);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 9%, #000 74%, transparent);
+    mask-image: linear-gradient(to bottom, transparent, #000 9%, #000 74%, transparent);
+  }
+  .fondo-ambiente {
+    filter: brightness(0.7);
+  }
+}
+.fondo-velo {
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(20, 10, 5, 0.78) 0%,
-    rgba(20, 10, 5, 0.46) 28%,
-    rgba(20, 10, 5, 0.5) 60%,
-    rgba(20, 10, 5, 0.86) 100%
+    rgba(20, 10, 5, 0.66) 0%,
+    rgba(20, 10, 5, 0.3) 22%,
+    rgba(20, 10, 5, 0.42) 46%,
+    rgba(20, 10, 5, 0.84) 100%
   );
 }
 @media (prefers-color-scheme: light) {
-  .fondo-estudio::after {
+  .fondo-velo {
     background: linear-gradient(
       to bottom,
-      rgba(248, 239, 217, 0.9) 0%,
-      rgba(244, 231, 204, 0.62) 30%,
-      rgba(240, 226, 196, 0.56) 60%,
+      rgba(248, 239, 217, 0.88) 0%,
+      rgba(244, 231, 204, 0.55) 24%,
+      rgba(240, 226, 196, 0.56) 50%,
       rgba(236, 220, 185, 0.84) 100%
     );
+  }
+}
+@media not (prefers-color-scheme: light) {
+  .app:has(.fondo-estudio) .estado-detalle,
+  .app:has(.fondo-estudio) .estado-principal {
+    text-shadow: 0 1px 10px rgba(10, 5, 2, 0.75);
   }
 }
 @media (prefers-reduced-motion: reduce) {
