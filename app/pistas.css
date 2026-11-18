@@ -1161,3 +1161,28 @@ html:has(.app-pistas) body {
     background: linear-gradient(100deg, rgba(36, 18, 9, 0.7), rgba(36, 18, 9, 0.5));
   }
 }
+
+/* iPhone con la app abierta desde el icono: si la página entera se desplaza, el iPhone
+   corta el fondo antes del borde de abajo y asoma una franja oscura. Como en el afinador:
+   la pantalla mide lo que el móvil hasta el borde (100svh + hueco), la página no se mueve
+   y la lista se desplaza por dentro. */
+html.hueco .app-pistas:not(.con-escenario) {
+  height: calc(100svh + var(--hueco-abajo, 0px));
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(max(24px, env(safe-area-inset-bottom)) + 24px);
+}
+html.hueco:has(.app-pistas:not(.con-escenario)),
+html.hueco:has(.app-pistas:not(.con-escenario)) body {
+  overflow: hidden;
+  height: 100%;
+}
+/* Y si aun así asomara algo, que sea del color de la madera, no negro */
+html:has(.app-pistas),
+html:has(.app-pistas) body {
+  background: #2a160c;
+}
+.fondo-estudio.vertical .fondo-velo {
+  background: linear-gradient(to bottom, rgba(14, 7, 3, 0.62) 0%, rgba(14, 7, 3, 0.12) 24%, rgba(14, 7, 3, 0) 42%, rgba(14, 7, 3, 0.12) 72%, rgba(14, 7, 3, 0.32) 100%);
+}
