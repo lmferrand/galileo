@@ -10,6 +10,7 @@ import Ajustes from "./Ajustes";
 import Navegacion from "./Navegacion";
 import FondoEstudio, { pedirPermisoMovimiento } from "./FondoEstudio";
 import ElegirInstrumento from "./ElegirInstrumento";
+import Portada from "./Portada";
 import BarraAbajo from "./BarraAbajo";
 import MetronomoPanel from "./MetronomoPanel";
 import Grabadora from "./Grabadora";
@@ -17,7 +18,7 @@ import LooperPanel from "./LooperPanel";
 import { leerAjusteRetraso, Looper, type EstadoLooper, type ModoLooper } from "@/lib/looper";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo, type Compas } from "@/lib/metronomo";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
-import { enLetra, INSTRUMENTOS, instrumentoDe, marcarElegido, yaSeEligio, type InstrumentoId } from "@/lib/instrumentos";
+import { enLetra, INSTRUMENTOS, instrumentoDe, marcarElegido, yaSeEligio, type InstrumentoId, marcarPortada, yaSeVioPortada } from "@/lib/instrumentos";
 import { sonarInstrumento } from "@/lib/sonidos";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
@@ -55,6 +56,8 @@ export default function Afinador() {
     fase: yaSeEligio() ? "no" : "si",
     id: null,
   }));
+  // Portada con el logo al abrir la app (3 s), encima de la pantalla de elegir.
+  const [portada, setPortada] = useState(() => !yaSeVioPortada() && !yaSeEligio());
   const [subeLaPala, setSubeLaPala] = useState(false);
   // Metrónomo: vive aquí para que siga sonando con su hoja cerrada.
   const metronomo = useRef<Metronomo | null>(null);
@@ -379,6 +382,14 @@ export default function Afinador() {
   return (
     <main className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""}`}>
       {listo && instrumento.fondo && <FondoEstudio key={instrumento.id} foto={instrumento.fondo} fotoHorizontal={instrumento.fondoHorizontal} vertical velo={false} />}
+      {portada && (
+        <Portada
+          onFin={() => {
+            marcarPortada();
+            setPortada(false);
+          }}
+        />
+      )}
       {eleccion.fase !== "no" && (
         <ElegirInstrumento
           saliendo={eleccion.fase === "saliendo" ? eleccion.id : null}

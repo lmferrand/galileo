@@ -76,6 +76,12 @@ export function instrumentoDe(id: string | undefined): Instrumento {
 // Al abrir la app se elige el instrumento; al volver de Pistas sin recargar la página, ya no.
 let elegidoEnEstaVisita = false;
 export const yaSeEligio = () => elegidoEnEstaVisita;
+// La portada del logo sale una vez al abrir la app (no al volver de Pistas).
+let portadaVista = false;
+export const yaSeVioPortada = () => portadaVista;
+export function marcarPortada() {
+  portadaVista = true;
+}
 export function marcarElegido() {
   elegidoEnEstaVisita = true;
 }
