@@ -1694,8 +1694,8 @@ html:has(.con-escenario) {
   z-index: 20;
   display: flex;
   justify-content: center;
-  gap: min(14vw, 64px);
-  padding: 8px 12px calc(max(8px, env(safe-area-inset-bottom)) + var(--hueco-abajo, 0px));
+  gap: min(5vw, 40px);
+  padding: 8px 8px calc(max(8px, env(safe-area-inset-bottom)) + var(--hueco-abajo, 0px));
   background: rgba(18, 10, 6, 0.9);
   border-top: 1px solid rgba(240, 226, 204, 0.1);
   -webkit-backdrop-filter: blur(14px) saturate(1.2);
@@ -1879,6 +1879,175 @@ html:has(.con-escenario) {
 }
 @media (prefers-reduced-motion: reduce) {
   .barra-icono.late {
+    animation: none;
+  }
+}
+
+/* Modo app (icono en la pantalla de inicio): el fondo de la página es oscuro siempre, así
+   no asoma una franja clara abajo aunque el iPhone deje un hueco. */
+@media (display-mode: standalone) {
+  html,
+  body {
+    background: #120a06;
+  }
+}
+html:has(.app.con-estudio) body {
+  background: #120a06;
+}
+.barra-abajo::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 120px;
+  background: inherit;
+}
+.barra-abajo .haz {
+  opacity: 0.55;
+}
+.barra-abajo .luz {
+  fill: currentColor;
+  stroke: none;
+  opacity: 0.22;
+}
+
+.ajustes-entrada {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--linea);
+  background: var(--superficie-2);
+  color: var(--texto);
+  font: inherit;
+  font-weight: 600;
+}
+
+.barra-icono.gira .icono {
+  animation: barra-gira 2.4s linear infinite;
+}
+@keyframes barra-gira {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------- Looper ---------------- */
+.looper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.looper-modo {
+  width: 100%;
+  grid-template-columns: 1.2fr 1.4fr 1fr 1fr;
+  margin-top: 4px;
+}
+.looper-ayuda {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--texto-3);
+  text-align: center;
+}
+.looper-boton {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  margin-top: 16px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--texto);
+  background: radial-gradient(closest-side, var(--superficie-2), var(--superficie));
+}
+.looper-boton svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.looper-boton span {
+  position: relative;
+  max-width: 110px;
+  text-align: center;
+  line-height: 1.2;
+}
+.looper-pista,
+.looper-aro {
+  fill: none;
+  stroke-width: 7;
+}
+.looper-pista {
+  stroke: var(--linea);
+}
+.looper-aro {
+  stroke: var(--laton-claro);
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - var(--avance, 0));
+}
+.looper-boton.fase-grabando .looper-pista,
+.looper-boton.fase-capa .looper-pista,
+.looper-boton.fase-cuenta .looper-pista {
+  stroke: #d9473a;
+}
+.looper-boton.fase-capa .looper-aro {
+  stroke: #ff8a7a;
+}
+.looper-boton:disabled {
+  opacity: 0.85;
+}
+.looper-estado {
+  margin-top: 12px;
+  font-weight: 700;
+  font-size: 15px;
+  text-align: center;
+}
+.looper-acciones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  margin-top: 16px;
+}
+.looper-acciones .boton-secundario {
+  padding: 12px 10px;
+  font-size: 15px;
+}
+.looper-acciones button:disabled {
+  opacity: 0.4;
+}
+.looper-opcion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 18px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.looper-opcion input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--laton-claro);
+}
+.looper-retraso {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin-top: 14px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--texto-2);
+}
+.looper-retraso input {
+  width: 100%;
+  accent-color: var(--laton-claro);
+}
+@media (prefers-reduced-motion: reduce) {
+  .barra-icono.gira .icono {
     animation: none;
   }
 }

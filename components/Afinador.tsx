@@ -13,6 +13,8 @@ import ElegirInstrumento from "./ElegirInstrumento";
 import BarraAbajo from "./BarraAbajo";
 import MetronomoPanel from "./MetronomoPanel";
 import Grabadora from "./Grabadora";
+import LooperPanel from "./LooperPanel";
+import { leerAjusteRetraso, Looper, type EstadoLooper, type ModoLooper } from "@/lib/looper";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo, type Compas } from "@/lib/metronomo";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
 import { enLetra, INSTRUMENTOS, instrumentoDe, marcarElegido, yaSeEligio, type InstrumentoId } from "@/lib/instrumentos";
@@ -25,7 +27,7 @@ const TOLERANCIA = 4; // cents
 const TIEMPO_AFINADA = 350; // ms seguidos dentro de la tolerancia
 const HISTERESIS = 60; // cents que tiene que ganar otra cuerda para cambiar en automático
 
-type HojaAbierta = null | "afinacion" | "ajustes" | "editor" | "metronomo" | "grabar";
+type HojaAbierta = null | "afinacion" | "ajustes" | "editor" | "metronomo" | "grabar" | "looper";
 
 const MS_TRANSICION = 900;
 
@@ -58,6 +60,11 @@ export default function Afinador() {
   const [metro, setMetro] = useState<AjustesMetronomo>({ bpm: 90, compas: 4 });
   const [metroSonando, setMetroSonando] = useState(false);
   const [metroGolpe, setMetroGolpe] = useState<{ tiempo: number; n: number }>({ tiempo: -1, n: 0 });
+  // Looper: también vive aquí (el bucle sigue sonando con su hoja cerrada).
+  const looperRef = useRef<Looper | null>(null);
+  const [looper, setLooper] = useState<Looper | null>(null);
+  const [looperEstado, setLooperEstado] = useState<EstadoLooper>({ fase: "apagado", capas: 0, largo: 0, error: null });
+  const [looperModo, setLooperModo] = useState<ModoLooper>("libre");
 
   const motor = useRef<Motor | null>(null);
   const ctxTono = useRef<AudioContext | null>(null);
@@ -72,8 +79,22 @@ export default function Afinador() {
     setPrefs(leerPreferencias());
     setMetro(leerAjustesMetronomo());
     setListo(true);
-    return () => metronomo.current?.cerrar();
+    return () => {
+      metronomo.current?.cerrar();
+      looperRef.current?.cerrar();
+    };
   }, []);
+
+  const abrirLooper = () => {
+    if (!looperRef.current) {
+      const l = new Looper();
+      l.fijarAjuste(leerAjusteRetraso());
+      l.alCambiar = setLooperEstado;
+      looperRef.current = l;
+      setLooper(l);
+    }
+    setHoja("looper");
+  };
 
   // ---------- Metrónomo ----------
   const cambiarMetro = (cambio: Partial<AjustesMetronomo>) => {
@@ -514,7 +535,9 @@ export default function Afinador() {
         <BarraAbajo
           onEstudio={volverAlEstudio}
           onMetronomo={() => setHoja("metronomo")}
+          onLooper={abrirLooper}
           onGrabar={() => setHoja("grabar")}
+          looperActivo={["cuenta", "grabando", "sonando", "capa"].includes(looperEstado.fase)}
           metronomoSonando={metroSonando}
           golpe={metroGolpe.n}
         />
@@ -530,6 +553,19 @@ export default function Afinador() {
           onCompas={(compas: Compas) => cambiarMetro({ compas })}
           onAlternar={alternarMetronomo}
         />
+      </Hoja>
+
+      <Hoja abierta={hoja === "looper"} titulo="Looper" onCerrar={() => setHoja(null)}>
+        {looper && (
+          <LooperPanel
+            looper={looper}
+            estado={looperEstado}
+            modo={looperModo}
+            onModo={setLooperModo}
+            bpm={metro.bpm}
+            compas={metro.compas}
+          />
+        )}
       </Hoja>
 
       <Hoja abierta={hoja === "grabar"} titulo="Grabarte" onCerrar={() => setHoja(null)}>
@@ -596,7 +632,19 @@ export default function Afinador() {
       </Hoja>
 
       <Hoja abierta={hoja === "ajustes"} titulo="Ajustes" onCerrar={() => setHoja(null)}>
-        <Ajustes la4={prefs.la4} notacion={prefs.notacion} onLa4={(la4) => cambiarPrefs({ la4 })} onNotacion={(notacion) => cambiarPrefs({ notacion })} />
+        <Ajustes
+          la4={prefs.la4}
+          notacion={prefs.notacion}
+          onLa4={(la4) => cambiarPrefs({ la4 })}
+          onNotacion={(notacion) => cambiarPrefs({ notacion })}
+          onEntrada={() => {
+            // Si estaba escuchando, se vuelve a abrir el micro con la entrada nueva.
+            if (motor.current?.escuchando) {
+              motor.current.parar();
+              empezar();
+            }
+          }}
+        />
       </Hoja>
     </main>
   );

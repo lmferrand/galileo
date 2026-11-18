@@ -4,6 +4,7 @@
 // ningún sitio) y se puede guardar o compartir. Hasta 5 minutos.
 
 import { useEffect, useRef, useState } from "react";
+import { pedirAudio } from "@/lib/entrada";
 
 const MAX_SEGUNDOS = 300;
 
@@ -65,9 +66,7 @@ export default function Grabadora() {
     }
     setEstado({ fase: "pidiendo" });
     try {
-      flujo.current = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      });
+      flujo.current = await navigator.mediaDevices.getUserMedia(pedirAudio());
     } catch {
       setEstado({ fase: "error", texto: "No hay permiso para el micrófono. En el iPhone: Ajustes, Safari, Micrófono." });
       return;

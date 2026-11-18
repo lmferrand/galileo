@@ -2,6 +2,7 @@
 // detecta la nota y la estabiliza para que la aguja no baile.
 
 import { detectarTono, mediana, reducirAMitad } from "./yin";
+import { pedirAudio } from "./entrada";
 
 export type EstadoMicro = "parado" | "pidiendo" | "escuchando" | "denegado" | "sin-soporte" | "error";
 
@@ -107,9 +108,7 @@ export class Motor {
     const reanudar = this.contexto.resume();
 
     try {
-      this.flujo = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
-      });
+      this.flujo = await navigator.mediaDevices.getUserMedia(pedirAudio());
     } catch (e) {
       const nombre = (e as DOMException)?.name;
       this.flujo = null;

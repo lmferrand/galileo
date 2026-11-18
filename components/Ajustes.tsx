@@ -1,17 +1,73 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { Notacion } from "@/lib/notas";
+import { guardarEntrada, leerEntrada, listarEntradas, pedirAudio, type Entrada } from "@/lib/entrada";
 
 interface Props {
   la4: number;
   notacion: Notacion;
   onLa4: (hz: number) => void;
   onNotacion: (n: Notacion) => void;
+  /** Al cambiar de entrada (para volver a abrir el micro si estaba escuchando). */
+  onEntrada?: () => void;
 }
 
-export default function Ajustes({ la4, notacion, onLa4, onNotacion }: Props) {
+export default function Ajustes({ la4, notacion, onLa4, onNotacion, onEntrada }: Props) {
+  const [entradas, setEntradas] = useState<Entrada[] | null>(null);
+  const [elegida, setElegida] = useState("");
+
+  useEffect(() => {
+    setElegida(leerEntrada());
+    listarEntradas()
+      .then(setEntradas)
+      .catch(() => setEntradas([]));
+  }, []);
+
+  // Sin permiso del micro el navegador no da los nombres: se pide un momento y se suelta.
+  const sinNombres = entradas !== null && entradas.length > 0 && entradas.every((e) => e.nombre.startsWith("Entrada "));
+  const verNombres = async () => {
+    try {
+      const flujo = await navigator.mediaDevices.getUserMedia(pedirAudio());
+      flujo.getTracks().forEach((p) => p.stop());
+      setEntradas(await listarEntradas());
+    } catch {
+      /* sin permiso: se quedan los números */
+    }
+  };
+
   return (
     <div className="ajustes">
+      <section>
+        <h3>Entrada de sonido</h3>
+        <p className="ajustes-ayuda">
+          Con una interfaz de audio puedes enchufar la guitarra o el bajo: el afinador la oye limpia y el looper graba la señal directa.
+          En el iPhone, al enchufarla suele pasar a usarse sola.
+        </p>
+        <select
+          className="ajustes-entrada"
+          value={elegida}
+          onChange={(e) => {
+            setElegida(e.target.value);
+            guardarEntrada(e.target.value);
+            onEntrada?.();
+          }}
+          aria-label="Entrada de sonido"
+        >
+          <option value="">La que elija el aparato</option>
+          {(entradas ?? []).map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.nombre}
+            </option>
+          ))}
+        </select>
+        {sinNombres && (
+          <button type="button" className="boton-texto" onClick={verNombres}>
+            Ver los nombres de las entradas
+          </button>
+        )}
+      </section>
+
       <section>
         <h3>Nota de referencia</h3>
         <p className="ajustes-ayuda">El La central suele estar a 440 Hz. Cámbialo solo si tocas con un piano o una grabación afinados de otra forma.</p>
