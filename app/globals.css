@@ -682,13 +682,26 @@ p {
     filter: brightness(0.7);
   }
 }
-/* La foto de Pistas ya es vertical: solo la de detrás, con los instrumentos a la vista. */
+/* Fotos verticales: solo la capa de detrás, que se mueve entera con el móvil. */
 .fondo-estudio.vertical .fondo-panorama {
   display: none;
 }
 .fondo-estudio.vertical .fondo-ambiente {
+  inset: -40px;
   filter: none;
   background-position: 50% 58%;
+  transform: translate3d(var(--gx, 0px), var(--gy, 0px), 0);
+}
+/* PC e iPad tumbado: la foto horizontal */
+@media (min-aspect-ratio: 1/1) {
+  .fondo-estudio.vertical .fondo-ambiente {
+    background-image: var(--foto-h);
+    background-position: 50% 50%;
+  }
+}
+/* La pala se mueve un poco al revés que el fondo: profundidad */
+.app.con-estudio .pala-marco {
+  transform: translate3d(calc(var(--gx, 0px) * -0.22), calc(var(--gy, 0px) * -0.22), 0);
 }
 /* La lista de Pistas tiene mucho texto: velo más fuerte. */
 .fondo-estudio.vertical .fondo-velo {

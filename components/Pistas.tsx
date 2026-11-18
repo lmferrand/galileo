@@ -135,7 +135,7 @@ export default function Pistas() {
 
   return (
     <main className="app app-pistas">
-      <FondoEstudio foto="/estudio/pistas-fondo-1.webp" vertical />
+      <FondoEstudio foto="/estudio/pistas-fondo-1.webp" fotoHorizontal="/estudio/completo-h-fondo-1.webp" vertical />
       <header className="cabecera">
         <Navegacion actual="pistas" />
       </header>

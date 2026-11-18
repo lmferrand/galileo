@@ -15,6 +15,8 @@ export interface Instrumento {
   pala: GeometriaPala;
   /** Foto del estudio sin este instrumento (lo tienes tú delante), desenfocada, de fondo al afinar. */
   fondo?: string;
+  /** La misma en horizontal, para PC e iPad tumbado. */
+  fondoHorizontal?: string;
   /** «tu guitarra», «tu bajo»… */
   tuyo: string;
   /** «Guitarra afinada», «Bajo afinado». */
@@ -33,6 +35,7 @@ export const INSTRUMENTOS: Instrumento[] = [
     cuerdas: 6,
     pala: PALA_ACUSTICA,
     fondo: "/fondo/afinar-acustica-1.webp",
+    fondoHorizontal: "/fondo/afinar-acustica-h1.webp",
     tuyo: "tu guitarra",
     afinado: "Guitarra afinada",
     frecuenciaMin: 55,
@@ -45,6 +48,7 @@ export const INSTRUMENTOS: Instrumento[] = [
     cuerdas: 6,
     pala: PALA_ELECTRICA,
     fondo: "/fondo/afinar-electrica-1.webp",
+    fondoHorizontal: "/fondo/afinar-electrica-h1.webp",
     tuyo: "tu guitarra",
     afinado: "Guitarra afinada",
     frecuenciaMin: 55,
@@ -57,6 +61,7 @@ export const INSTRUMENTOS: Instrumento[] = [
     cuerdas: 4,
     pala: PALA_BAJO,
     fondo: "/fondo/afinar-bajo-1.webp",
+    fondoHorizontal: "/fondo/afinar-bajo-h1.webp",
     tuyo: "tu bajo",
     afinado: "Bajo afinado",
     frecuenciaMin: 27,

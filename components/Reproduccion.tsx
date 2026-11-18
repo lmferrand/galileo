@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import Navegacion from "./Navegacion";
 import Escenario from "./Escenario";
+import { useHorizontal } from "@/lib/horizontal";
 import { leerAudios, renombrarCancion } from "@/lib/pistas/almacen";
 import { Reproductor } from "@/lib/pistas/reproductor";
 import { leerWav } from "@/lib/pistas/wav";
@@ -64,6 +65,8 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const [pie, setPie] = useState(0);
   const [finArriba, setFinArriba] = useState(0);
   const arriba = useRef<HTMLDivElement>(null);
+  // PC e iPad tumbado: el estudio entero a la izquierda y los mandos en una columna a la derecha.
+  const horizontal = useHorizontal() === true;
   const bloqueo = useRef<BloqueoPantalla | null>(null);
 
   const algunSolo = solo.some(Boolean);
@@ -240,7 +243,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
 
   return (
     <main className="app app-pistas con-escenario">
-      <Escenario luces={luces} onTocar={tocarInstrumento} onMedir={setPie} />
+      <Escenario luces={luces} onTocar={tocarInstrumento} onMedir={setPie} horizontal={horizontal} />
 
       <div className="reproductor-arriba" ref={arriba}>
         <header className="cabecera">
@@ -335,7 +338,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
         )}
       </div>
 
-      <div className="reproductor-panel" style={{ top: Math.max(pie, finArriba + 8) }}>
+      <div className="reproductor-panel" style={horizontal ? undefined : { top: Math.max(pie, finArriba + 8) }}>
         {error ? (
           <div className="tarjeta tarjeta-error" role="alert">
             <p>{error}</p>

@@ -850,3 +850,29 @@ a.marca {
 .con-saltos {
   white-space: pre-line;
 }
+
+/* ---------- PC e iPad tumbado: el estudio a la izquierda, los mandos a la derecha ---------- */
+@media (min-aspect-ratio: 1/1) {
+  .app-pistas.con-escenario {
+    --panel-ancho: min(400px, 44vw);
+    max-width: none;
+    margin: 0;
+    padding-right: calc(var(--panel-ancho) + 16px);
+  }
+  .app-pistas.con-escenario .reproductor-arriba {
+    max-width: 640px;
+  }
+  .escenario-estudio.horizontal {
+    right: var(--panel-ancho);
+    /* lo que no ocupa la foto, con la misma sala desenfocada */
+    background: #120a06 url("/estudio/completo-h-fondo-1.webp") center / cover no-repeat;
+  }
+  .reproductor-panel {
+    top: 0;
+    left: auto;
+    width: var(--panel-ancho);
+    padding-top: max(20px, env(safe-area-inset-top));
+    background: rgba(18, 9, 5, 0.92);
+    border-left: 1px solid var(--linea);
+  }
+}

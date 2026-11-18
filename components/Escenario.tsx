@@ -4,17 +4,12 @@
 // instrumento (la voz, el micrófono; la guitarra, las dos guitarras) y el
 // «resto» es la luz de la sala. Al quitar una pista su instrumento se queda a
 // oscuras, y la luz baja con el volumen. Tocar un instrumento lo quita o lo
-// vuelve a poner. Las medidas van en píxeles de la foto (941 × 1671) y el SVG la
-// recorta como `cover`, así los focos caen siempre en su sitio.
+// vuelve a poner. Las medidas van en píxeles de cada foto: la vertical (móvil),
+// que el SVG recorta como `cover`, y la horizontal (PC e iPad tumbado), que se
+// ve entera con los mandos al lado. Así los focos caen siempre en su sitio.
 
 import { useEffect, useRef } from "react";
 import { PISTAS, type Pista } from "@/lib/pistas/tipos";
-
-const ANCHO = 941;
-const ALTO = 1671;
-const FOTO = "/estudio/pistas-1.webp";
-/** Fila de la foto donde acaban los instrumentos: ahí empiezan los mandos. */
-export const PIE_ESCENARIO = 1090;
 
 interface Foco {
   pista: Pista;
@@ -25,47 +20,86 @@ interface Foco {
   ry: number;
 }
 
-// En orden de atrás adelante (el piano queda detrás del micrófono).
-const FOCOS: Foco[] = [
-  { pista: "piano", que: "el piano", cx: 300, cy: 842, rx: 124, ry: 84 },
-  { pista: "guitarra", que: "la guitarra acústica", cx: 158, cy: 918, rx: 70, ry: 178 },
-  { pista: "bateria", que: "la batería", cx: 516, cy: 930, rx: 186, ry: 152 },
-  { pista: "voz", que: "el micrófono", cx: 305, cy: 868, rx: 36, ry: 236 },
-  { pista: "bajo", que: "el bajo", cx: 728, cy: 903, rx: 48, ry: 160 },
-  { pista: "guitarra", que: "la guitarra eléctrica", cx: 806, cy: 935, rx: 58, ry: 146 },
-];
+interface Foto {
+  src: string;
+  ancho: number;
+  alto: number;
+  /** Fila donde acaban los instrumentos: en vertical, ahí empiezan los mandos. */
+  pie: number;
+  /** De dónde bajan los haces de luz. */
+  techo: number;
+  // En orden de atrás adelante (el piano queda detrás del micrófono).
+  focos: Foco[];
+}
+
+const VERTICAL: Foto = {
+  src: "/estudio/pistas-1.webp",
+  ancho: 941,
+  alto: 1671,
+  pie: 1090,
+  techo: 300,
+  focos: [
+    { pista: "piano", que: "el piano", cx: 300, cy: 842, rx: 124, ry: 84 },
+    { pista: "guitarra", que: "la guitarra acústica", cx: 158, cy: 918, rx: 70, ry: 178 },
+    { pista: "bateria", que: "la batería", cx: 516, cy: 930, rx: 186, ry: 152 },
+    { pista: "voz", que: "el micrófono", cx: 305, cy: 868, rx: 36, ry: 236 },
+    { pista: "bajo", que: "el bajo", cx: 728, cy: 903, rx: 48, ry: 160 },
+    { pista: "guitarra", que: "la guitarra eléctrica", cx: 806, cy: 935, rx: 58, ry: 146 },
+  ],
+};
+
+const HORIZONTAL: Foto = {
+  src: "/estudio/completo-h1.webp",
+  ancho: 1536,
+  alto: 1024,
+  pie: 960,
+  techo: 40,
+  focos: [
+    { pista: "piano", que: "el piano", cx: 505, cy: 535, rx: 190, ry: 112 },
+    { pista: "guitarra", que: "la guitarra acústica", cx: 215, cy: 650, rx: 98, ry: 272 },
+    { pista: "bateria", que: "la batería", cx: 855, cy: 680, rx: 300, ry: 232 },
+    { pista: "voz", que: "el micrófono", cx: 474, cy: 600, rx: 44, ry: 338 },
+    { pista: "bajo", que: "el bajo", cx: 1243, cy: 615, rx: 64, ry: 240 },
+    { pista: "guitarra", que: "la guitarra eléctrica", cx: 1378, cy: 660, rx: 86, ry: 235 },
+  ],
+};
 
 interface Props {
   /** Luz de cada pista (0 apagada … 1), en el orden de PISTAS. */
   luces: number[];
   onTocar: (pista: Pista) => void;
-  /** Dónde acaban los instrumentos en la pantalla (px desde arriba del escenario). */
+  /** Dónde acaban los instrumentos en la pantalla (px desde arriba del escenario), en vertical. */
   onMedir?: (pie: number) => void;
+  /** PC e iPad tumbado: foto horizontal entera, pegada abajo, con los mandos al lado. */
+  horizontal?: boolean;
 }
 
-export default function Escenario({ luces, onTocar, onMedir }: Props) {
+export default function Escenario({ luces, onTocar, onMedir, horizontal }: Props) {
   const caja = useRef<HTMLDivElement>(null);
+  const foto = horizontal ? HORIZONTAL : VERTICAL;
+  const { ancho: ANCHO, alto: ALTO } = foto;
+  const FOCOS = foto.focos;
   const luz = (p: Pista) => luces[PISTAS.findIndex((x) => x.id === p)] ?? 0;
   const sala = luz("resto");
 
   // La foto se recorta como `cover`: dónde cae el pie del escenario depende del tamaño de la pantalla.
   useEffect(() => {
     const el = caja.current;
-    if (!el || !onMedir) return;
+    if (!el || !onMedir || horizontal) return;
     const medir = () => {
       const { width: w, height: h } = el.getBoundingClientRect();
-      const escala = Math.max(w / ANCHO, h / ALTO);
-      onMedir((h - ALTO * escala) / 2 + PIE_ESCENARIO * escala);
+      const escala = Math.max(w / VERTICAL.ancho, h / VERTICAL.alto);
+      onMedir((h - VERTICAL.alto * escala) / 2 + VERTICAL.pie * escala);
     };
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [onMedir]);
+  }, [onMedir, horizontal]);
 
   return (
-    <div ref={caja} className="escenario-estudio">
-      <svg viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio="xMidYMid slice" className="escenario-svg">
+    <div ref={caja} className={`escenario-estudio ${horizontal ? "horizontal" : ""}`}>
+      <svg viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio={horizontal ? "xMidYMax meet" : "xMidYMid slice"} className="escenario-svg">
         <defs>
           <radialGradient id="foco-suave">
             <stop offset="0%" stopColor="#fff" />
@@ -88,17 +122,17 @@ export default function Escenario({ luces, onTocar, onMedir }: Props) {
         </defs>
 
         {/* La sala: más oscura si el «resto» está quitado */}
-        <image href={FOTO} width={ANCHO} height={ALTO} />
+        <image href={foto.src} width={ANCHO} height={ALTO} />
         <rect width={ANCHO} height={ALTO} className="escenario-sala" style={{ opacity: 0.64 + 0.2 * (1 - sala) }} />
 
         {FOCOS.map((f, i) => (
           <g key={i} className="escenario-foco" style={{ opacity: luz(f.pista) }}>
             <polygon
-              points={`${f.cx - 10},300 ${f.cx + 10},300 ${f.cx + f.rx * 0.95},${f.cy} ${f.cx - f.rx * 0.95},${f.cy}`}
+              points={`${f.cx - 10},${foto.techo} ${f.cx + 10},${foto.techo} ${f.cx + f.rx * 0.95},${f.cy} ${f.cx - f.rx * 0.95},${f.cy}`}
               fill="url(#foco-haz)"
               className="escenario-luz"
             />
-            <image href={FOTO} width={ANCHO} height={ALTO} mask={`url(#foco-${i})`} />
+            <image href={foto.src} width={ANCHO} height={ALTO} mask={`url(#foco-${i})`} />
             <ellipse cx={f.cx} cy={f.cy} rx={f.rx * 1.1} ry={f.ry} fill="url(#foco-calido)" className="escenario-luz" />
             <ellipse
               cx={f.cx}

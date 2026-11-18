@@ -305,7 +305,7 @@ export default function Afinador() {
 
   return (
     <main className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""}`}>
-      {listo && instrumento.fondo && <FondoEstudio key={instrumento.id} foto={instrumento.fondo} vertical velo={false} />}
+      {listo && instrumento.fondo && <FondoEstudio key={instrumento.id} foto={instrumento.fondo} fotoHorizontal={instrumento.fondoHorizontal} vertical velo={false} />}
       {eleccion.fase !== "no" && <ElegirInstrumento saliendo={eleccion.id} onElegir={elegirAlEntrar} />}
       <header className="cabecera">
         <Navegacion actual="afinar" sobreOscuro={!!instrumento.fondo} />

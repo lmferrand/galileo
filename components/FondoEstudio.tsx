@@ -1,14 +1,15 @@
 "use client";
 
-// La foto del estudio detrás del afinador. Al inclinar el móvil se desplaza un
-// poco (la parte de arriba más que la de abajo) mientras la pala se queda quieta
-// delante: así parece que hay profundidad. En el iPhone hace falta permiso para
-// leer la inclinación; se pide al tocar «Empezar» (ver pedirPermisoMovimiento).
+// La foto del estudio detrás del afinador y de Pistas. Al inclinar el móvil se
+// desplaza y la pala se mueve un poco al revés: así parece que hay profundidad.
+// En el iPhone hace falta permiso para leer la inclinación; se pide en un toque
+// (ver pedirPermisoMovimiento). En pantallas apaisadas (PC, iPad tumbado) usa la
+// foto horizontal si la hay. Los desplazamientos van en --gx y --gy de <html>.
 
 import { useEffect, useRef, type CSSProperties } from "react";
 
-const MAX_X = 22; // px que se mueve la foto de arriba hacia los lados
-const MAX_Y = 14;
+const MAX_X = 30; // px que se mueve la foto hacia los lados
+const MAX_Y = 20;
 const GRADOS = 24; // inclinación que da el máximo
 
 type ConPermiso = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<"granted" | "denied"> };
@@ -32,8 +33,19 @@ export function pedirPermisoMovimiento() {
 /**
  * `vertical`: la foto ya es vertical y no hace falta enseñarla entera a lo ancho.
  * `velo`: oscurecerla para que se lea texto encima (en el afinador va sin velo, solo desenfocada).
+ * `fotoHorizontal`: la que se usa en pantallas apaisadas.
  */
-export default function FondoEstudio({ foto, vertical, velo = true }: { foto: string; vertical?: boolean; velo?: boolean }) {
+export default function FondoEstudio({
+  foto,
+  fotoHorizontal,
+  vertical,
+  velo = true,
+}: {
+  foto: string;
+  fotoHorizontal?: string;
+  vertical?: boolean;
+  velo?: boolean;
+}) {
   const caja = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -67,8 +79,9 @@ export default function FondoEstudio({ foto, vertical, velo = true }: { foto: st
       raf = 0;
       actual.x += (objetivo.x - actual.x) * 0.12;
       actual.y += (objetivo.y - actual.y) * 0.12;
-      el.style.setProperty("--gx", `${(-actual.x * MAX_X).toFixed(1)}px`);
-      el.style.setProperty("--gy", `${(-actual.y * MAX_Y).toFixed(1)}px`);
+      const raiz = document.documentElement.style;
+      raiz.setProperty("--gx", `${(-actual.x * MAX_X).toFixed(1)}px`);
+      raiz.setProperty("--gy", `${(-actual.y * MAX_Y).toFixed(1)}px`);
       if (Math.abs(objetivo.x - actual.x) > 0.002 || Math.abs(objetivo.y - actual.y) > 0.002) raf = requestAnimationFrame(paso);
     };
 
@@ -83,11 +96,13 @@ export default function FondoEstudio({ foto, vertical, velo = true }: { foto: st
       window.removeEventListener("deviceorientation", alGirar);
       window.removeEventListener("clavija:movimiento", escuchar);
       cancelAnimationFrame(raf);
+      document.documentElement.style.removeProperty("--gx");
+      document.documentElement.style.removeProperty("--gy");
     };
   }, []);
 
   return (
-    <div ref={caja} className={`fondo-estudio ${vertical ? "vertical" : ""}`} style={{ "--foto": `url("${foto}")` } as CSSProperties} aria-hidden="true">
+    <div ref={caja} className={`fondo-estudio ${vertical ? "vertical" : ""}`} style={{ "--foto": `url("${foto}")`, "--foto-h": `url("${fotoHorizontal ?? foto}")` } as CSSProperties} aria-hidden="true">
       <div className="fondo-ambiente" />
       <div className="fondo-panorama" />
       {velo && <div className="fondo-velo" />}
