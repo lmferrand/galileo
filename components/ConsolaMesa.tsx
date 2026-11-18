@@ -10,8 +10,10 @@
 // Si no caben, los canales se deslizan de lado y la sección general se queda a la derecha.
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import EfectosMesa, { dB, efectosActivos, pct } from "./EfectosMesa";
+import EfectosMesa, { dB, efectosActivos } from "./EfectosMesa";
+import { verDb } from "@/lib/mesa/curva";
 import { Fader, Perilla } from "./MandosMesa";
+import TransporteMesa, { type Transporte } from "./TransporteMesa";
 import {
   AJUSTES_INICIALES,
   AJUSTES_PISTA,
@@ -33,8 +35,14 @@ export interface PistasMesa {
   conArticulo: string[];
   volumen: number[];
   silencio: boolean[];
+  solo: boolean[];
   onVolumen: (i: number, v: number) => void;
   onSilencio: (i: number) => void;
+  onSolo: (i: number) => void;
+  /** Hay un «Solo» en alguna entrada: las pistas sin «Solo» se callan */
+  onSoloFuera: (activo: boolean) => void;
+  /** El reproductor de la canción, para tocar, moverse y repetir un trozo desde la Mesa */
+  transporte: Transporte;
   /** Ecualizador, efectos y panorama de una pista */
   aplicar: (i: number, a: AjustesCanal) => void;
   volumenGeneral: (v: number) => void;
@@ -55,18 +63,19 @@ interface PropsTira {
   c: AjustesCanal;
   ganancia: { min: number; max: number; porDefecto: number };
   volumen: number;
-  volumenMax: number;
   silencio: boolean;
+  solo: boolean;
   nFx: number;
   onCanal: (f: (c: AjustesCanal) => AjustesCanal) => void;
   onVolumen: (v: number) => void;
   onSilencio: () => void;
+  onSolo: () => void;
   onEfectos: () => void;
   leer: (texto: string) => void;
   medidor: (el: HTMLSpanElement | null) => void;
 }
 
-function Tira({ nombre, titulo, pista, sinEntrada, c, ganancia, volumen, volumenMax, silencio, nFx, onCanal, onVolumen, onSilencio, onEfectos, leer, medidor }: PropsTira) {
+function Tira({ nombre, titulo, pista, sinEntrada, c, ganancia, volumen, silencio, solo, nFx, onCanal, onVolumen, onSilencio, onSolo, onEfectos, leer, medidor }: PropsTira) {
   const ecualizar = (banda: "agudos" | "graves", v: number) => {
     onCanal((x) => ({ ...x, ecualizador: { ...x.ecualizador, activo: true, [banda]: v } }));
     leer(`${banda === "agudos" ? "Agudos" : "Graves"} ${dB(v)}`);
@@ -114,33 +123,44 @@ function Tira({ nombre, titulo, pista, sinEntrada, c, ganancia, volumen, volumen
         />
       </div>
       <div className="tira-tecla">
-        <button
-          type="button"
-          className={`tecla${silencio ? " on" : ""}`}
-          aria-pressed={silencio}
-          aria-label={`Silenciar ${titulo}`}
-          onClick={() => {
-            onSilencio();
-            leer(silencio ? "Suena" : "En silencio");
-          }}
-        />
-        <span className="mando-nombre" aria-hidden="true">
-          Silencio
-        </span>
+        <div className="tecla-con-nombre">
+          <button
+            type="button"
+            className={`tecla${silencio ? " on" : ""}`}
+            aria-pressed={silencio}
+            aria-label={`Silenciar ${titulo}`}
+            onClick={() => {
+              onSilencio();
+              leer(silencio ? "Suena" : "En silencio");
+            }}
+          />
+          <span className="mando-nombre" aria-hidden="true">
+            Silencio
+          </span>
+        </div>
+        <div className="tecla-con-nombre">
+          <button
+            type="button"
+            className={`tecla tecla-solo${solo ? " on" : ""}`}
+            aria-pressed={solo}
+            aria-label={`Solo ${titulo}`}
+            onClick={() => {
+              onSolo();
+              leer(solo ? "Sin solo" : "Solo");
+            }}
+          />
+          <span className="mando-nombre" aria-hidden="true">
+            Solo
+          </span>
+        </div>
       </div>
       <div className="tira-fader">
         <Fader
           nombre={`Volumen de ${titulo}`}
           valor={volumen}
-          min={0}
-          max={volumenMax}
-          paso={0.01}
-          porDefecto={1}
-          marca={1}
-          ver={pct}
           onCambio={(v) => {
             onVolumen(v);
-            leer(`Volumen ${pct(v)}`);
+            leer(`Volumen ${verDb(v)}`);
           }}
         />
         <span className="led" ref={medidor} aria-hidden="true" />
@@ -157,6 +177,10 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   const [pistasCambiadas, setAjustesPistas] = useState<AjustesCanal[] | null>(null);
   const [retraso, setRetraso] = useState<number | null>(null);
   const [abierta, setAbierta] = useState<Abierta | null>(null);
+  // «Solo» de las entradas (el de las pistas es el del reproductor). No se guarda: es para oír algo un momento.
+  const [soloEntradas, setSoloEntradas] = useState<[boolean, boolean]>([false, false]);
+  const soloEnEntradas = soloEntradas[0] || soloEntradas[1];
+  const algunSolo = soloEnEntradas || (pistas?.solo.some(Boolean) ?? false);
   const [lectura, setLectura] = useState<{ donde: string; texto: string } | null>(null);
   const tLectura = useRef<ReturnType<typeof setTimeout> | null>(null);
   const medidores = useRef<(HTMLSpanElement | null)[]>([]);
@@ -170,10 +194,15 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     ultimasPistas.current = pistas;
   });
 
+  // A la Mesa le llega cada entrada callada si hay algún «Solo» y ella no lo tiene
+  const conSolo = (a: AjustesMesa): AjustesMesa => ({
+    ...a,
+    canales: a.canales.map((c, i) => ({ ...c, silencio: c.silencio || (algunSolo && !soloEntradas[i]) })) as AjustesMesa["canales"],
+  });
   const cambiar = (nuevo: AjustesMesa) => {
     setAjustes(nuevo);
     guardarAjustesMesa(nuevo);
-    mesa.aplicar(nuevo);
+    mesa.aplicar(conSolo(nuevo));
   };
   const cambiarEntrada = (i: number, f: (c: AjustesCanal) => AjustesCanal) => {
     const canales = [...ajustes.canales] as AjustesMesa["canales"];
@@ -195,9 +224,24 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   };
   useEffect(() => () => void (tLectura.current && clearTimeout(tLectura.current)), []);
 
+  // Al cambiar un «Solo»: las entradas y las pistas, a la vez
+  useEffect(() => {
+    mesa.aplicar(conSolo(ajustes));
+    ultimasPistas.current?.onSoloFuera(soloEnEntradas);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [algunSolo, soloEntradas]);
+  // Al salir de la consola se quitan los «Solo» de las entradas (la Mesa sigue sonando)
+  useEffect(
+    () => () => {
+      mesa.aplicar(leerAjustesMesa());
+      ultimasPistas.current?.onSoloFuera(false);
+    },
+    [],
+  );
+
   const encender = async () => {
     if (encendida) return mesa.apagar();
-    const r = await mesa.encender(ajustes);
+    const r = await mesa.encender(conSolo(ajustes));
     if (r === "encendida") setRetraso(mesa.retrasoMs());
   };
 
@@ -259,7 +303,7 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   const tituloHoja = abierta ? (abierta.tipo === "entrada" ? `la entrada ${abierta.i + 1}` : (pistas?.conArticulo[abierta.i] ?? "")) : "";
 
   return (
-    <div className="consola">
+    <div className={`consola${pistas ? " con-transporte" : ""}`}>
       <div className="consola-chasis">
         <span className="consola-madera" aria-hidden="true" />
         <div className="consola-desliza">
@@ -274,14 +318,15 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
                   titulo={`la entrada ${i + 1}`}
                   sinEntrada={encendida && mesa.entradas < 2 && i === 1}
                   c={c}
-                  ganancia={{ min: 0, max: 30, porDefecto: 6 }}
+                  ganancia={{ min: -20, max: 20, porDefecto: 0 }}
                   volumen={c.volumen}
-                  volumenMax={1.5}
                   silencio={c.silencio}
+                  solo={soloEntradas[i]}
                   nFx={efectosActivos(c)}
                   onCanal={(f) => cambiarEntrada(i, f)}
                   onVolumen={(volumen) => cambiarEntrada(i, (x) => ({ ...x, volumen }))}
                   onSilencio={() => cambiarEntrada(i, (x) => ({ ...x, silencio: !x.silencio }))}
+                  onSolo={() => setSoloEntradas((s) => (i === 0 ? [!s[0], s[1]] : [s[0], !s[1]]))}
                   onEfectos={() => setAbierta({ tipo: "entrada", i })}
                   leer={(t) => leer(nombre, t)}
                   medidor={(el) => void (medidores.current[i] = el)}
@@ -297,13 +342,14 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
                 pista
                 c={ajustesPistas[i]}
                 ganancia={{ min: -12, max: 12, porDefecto: 0 }}
-                volumen={pistas.volumen[i]}
-                volumenMax={1}
+                volumen={pistas.volumen[i] * pistas.volumen[i]}
                 silencio={pistas.silencio[i]}
+                solo={pistas.solo[i]}
                 nFx={efectosActivos(ajustesPistas[i], true)}
                 onCanal={(f) => cambiarPista(i, f)}
-                onVolumen={(v) => pistas.onVolumen(i, v)}
+                onVolumen={(a) => pistas.onVolumen(i, Math.sqrt(a))}
                 onSilencio={() => pistas.onSilencio(i)}
+                onSolo={() => pistas.onSolo(i)}
                 onEfectos={() => setAbierta({ tipo: "pista", i })}
                 leer={(t) => leer(nombre, t)}
                 medidor={(el) => void (medidores.current[2 + i] = el)}
@@ -331,6 +377,7 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
                 <span className="led led-general" ref={ledGeneral} aria-hidden="true" />
               </div>
               <div className="tira-tecla">
+                <div className="tecla-con-nombre">
                 <button
                   type="button"
                   className={`tecla tecla-encender${encendida ? " on" : ""}`}
@@ -346,22 +393,17 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
                 <span className="mando-nombre" aria-hidden="true">
                   {encendida ? "Apagar" : "Encender"}
                 </span>
+                </div>
               </div>
               <div className="tira-fader">
                 <Fader
                   rojo
                   nombre="Volumen general"
                   valor={ajustes.general}
-                  min={0}
-                  max={1.5}
-                  paso={0.01}
-                  porDefecto={1}
-                  marca={1}
-                  ver={pct}
                   onCambio={(general) => {
                     cambiar({ ...ajustes, general });
                     pistas?.volumenGeneral(general);
-                    leer("General", `Volumen ${pct(general)}`);
+                    leer("General", `Volumen ${verDb(general)}`);
                   }}
                 />
               </div>
@@ -370,6 +412,8 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
         </div>
         <span className="consola-madera" aria-hidden="true" />
       </div>
+
+      {pistas && <TransporteMesa t={pistas.transporte} />}
 
       {!encendida && <p className="consola-nota">Con cascos en la interfaz: por el altavoz se acopla. La entrada se elige en Ajustes.</p>}
 

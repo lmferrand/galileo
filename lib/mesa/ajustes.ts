@@ -2,9 +2,9 @@
 // general. Se recuerdan en este aparato. Los «sonidos» son puntos de partida (solo tocan efectos).
 
 export interface AjustesCanal {
-  /** dB que se suben a la entrada (0–30) */
+  /** dB que se suben o bajan a la entrada (0 = tal cual) */
   ganancia: number;
-  /** 0–1,5 */
+  /** Multiplicador: 1 = 0 dB (tal cual), hasta +10 dB (lib/mesa/curva) */
   volumen: number;
   /** −1 (izquierda) a 1 (derecha) */
   panorama: number;
@@ -20,15 +20,16 @@ export interface AjustesCanal {
 
 export interface AjustesMesa {
   canales: [AjustesCanal, AjustesCanal];
-  /** 0–1,5 */
+  /** Multiplicador: 1 = 0 dB */
   general: number;
 }
 
 export type Efecto = "puerta" | "compresor" | "distorsion" | "ecualizador" | "chorus" | "delay" | "reverb";
 
+// Todos los mandos empiezan en 0 dB (el sonido tal cual): desde ahí se ajusta.
 const BASE: AjustesCanal = {
-  ganancia: 6,
-  volumen: 0.8,
+  ganancia: 0,
+  volumen: 1,
   panorama: 0,
   silencio: false,
   puerta: { activo: false, umbral: -60 },
@@ -109,7 +110,11 @@ function pick(c: AjustesCanal): Sonido {
 }
 
 const CLAVE = "clavija:mesa:v1";
-const CLAVE_PISTAS = "clavija:mesa:pistas:v1";
+// v2: desde que todo empieza en 0 dB (lo de la v1 se deja: así cada pista empieza a 0 dB)
+const CLAVE_PISTAS = "clavija:mesa:pistas:v2";
+/** Ganancia, volumen, ecualizador y panorama a 0 dB (en el centro); los efectos, como estaban */
+const aCero = (c: AjustesCanal): AjustesCanal => ({ ...c, ganancia: 0, volumen: 1, panorama: 0, ecualizador: { ...c.ecualizador, graves: 0, medios: 0, agudos: 0 } });
+
 /** El volumen general de serie era 0,7: ahora es 1 (también manda en la canción de Pistas). */
 const GENERAL_ANTIGUO = 0.7;
 
@@ -137,8 +142,11 @@ export function leerAjustesMesa(): AjustesMesa {
     const p = JSON.parse(localStorage.getItem(CLAVE) ?? "null") as (Partial<AjustesMesa> & { v?: number }) | null;
     if (!p || !Array.isArray(p.canales)) return structuredClone(AJUSTES_INICIALES);
     let general = typeof p.general === "number" ? p.general : AJUSTES_INICIALES.general;
-    if (p.v !== 2 && general === GENERAL_ANTIGUO) general = AJUSTES_INICIALES.general;
-    return { canales: [completar(p.canales[0], AJUSTES_INICIALES.canales[0]), completar(p.canales[1], AJUSTES_INICIALES.canales[1])], general };
+    if (p.v !== 2 && p.v !== 3 && general === GENERAL_ANTIGUO) general = AJUSTES_INICIALES.general;
+    const canales: AjustesMesa["canales"] = [completar(p.canales[0], AJUSTES_INICIALES.canales[0]), completar(p.canales[1], AJUSTES_INICIALES.canales[1])];
+    // Desde la versión 3 todo empieza en 0 dB: lo guardado antes se pone a 0 dB una vez (los efectos se quedan)
+    if ((p.v ?? 1) < 3) return { canales: canales.map(aCero) as AjustesMesa["canales"], general: 1 };
+    return { canales, general };
   } catch {
     return structuredClone(AJUSTES_INICIALES);
   }
@@ -146,7 +154,7 @@ export function leerAjustesMesa(): AjustesMesa {
 
 export function guardarAjustesMesa(a: AjustesMesa) {
   try {
-    localStorage.setItem(CLAVE, JSON.stringify({ ...a, v: 2 }));
+    localStorage.setItem(CLAVE, JSON.stringify({ ...a, v: 3 }));
   } catch {
     /* sin almacenamiento: vale para esta visita */
   }

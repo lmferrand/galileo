@@ -170,6 +170,11 @@
   justify-items: center;
   gap: 12px;
 }
+/* Con el reproductor debajo (desde Pistas), la mesa algo más baja para que quepa todo */
+.consola.con-transporte {
+  --perilla: clamp(30px, min(10.5vw, 4.7dvh), 50px);
+  --fader-alto: clamp(100px, 20dvh, 220px);
+}
 .consola-chasis {
   display: flex;
   max-width: 100%;
@@ -294,13 +299,35 @@
 .tira-perillas {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 10px;
+  padding-top: 4px;
 }
 .tira-tecla {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 0 12px;
+}
+.tecla-con-nombre {
   display: grid;
   justify-items: center;
   gap: 4px;
-  padding: 14px 0 12px;
+}
+/* En los canales van dos teclas (Silencio y Solo): algo más estrechas */
+.tira:not(.tira-general) .tecla {
+  width: max(28px, calc(var(--perilla) * 0.7));
+}
+/* Solo: verde apagado; encendida, se ilumina */
+.tecla-solo {
+  background: linear-gradient(#3e5a3b, #273d26);
+}
+.tecla-solo.on {
+  background: linear-gradient(#b8f5c8, #2fbf6a);
+  box-shadow:
+    0 0 14px rgba(70, 224, 138, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 3px 5px rgba(0, 0, 0, 0.5);
 }
 .tira-fader {
   display: flex;
@@ -382,6 +409,18 @@
   background: #fffaf0;
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.45);
 }
+/* La muesca del 0 (a las 12): ahí está el sonido tal cual */
+.perilla::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -5px;
+  width: 2px;
+  height: 3px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: rgba(241, 213, 157, 0.75);
+}
 /* El brillo no gira con la tapa: la luz viene siempre de arriba */
 .perilla::after {
   content: "";
@@ -443,11 +482,12 @@
   stroke-linecap: round;
 }
 
-/* Fader: ranura negra con marcas y tapa clara con estrías (la general, roja) */
+/* Fader: ranura negra con su escala en decibelios (el 0 a tres cuartos) y tapa clara con estrías
+   (la general, roja) */
 .fader {
   --tapa: 34px;
   position: relative;
-  width: 42px;
+  width: 58px;
   height: 100%;
   touch-action: pan-x;
   cursor: ns-resize;
@@ -455,22 +495,11 @@
   outline: none;
   -webkit-tap-highlight-color: transparent;
 }
-.fader::before {
-  content: "";
-  position: absolute;
-  top: calc(var(--tapa) / 2);
-  bottom: calc(var(--tapa) / 2);
-  left: 2px;
-  right: 2px;
-  background:
-    repeating-linear-gradient(to bottom, rgba(216, 204, 184, 0.4) 0 1px, transparent 1px 12.5%) left / 8px 100% no-repeat,
-    repeating-linear-gradient(to bottom, rgba(216, 204, 184, 0.4) 0 1px, transparent 1px 12.5%) right / 8px 100% no-repeat;
-}
 .fader-ranura {
   position: absolute;
   top: calc(var(--tapa) / 2 - 4px);
   bottom: calc(var(--tapa) / 2 - 4px);
-  left: 50%;
+  left: 60%;
   width: 5px;
   margin-left: -2.5px;
   border-radius: 3px;
@@ -479,20 +508,46 @@
     inset 0 1px 2px #000,
     0 1px 0 rgba(255, 255, 255, 0.08);
 }
-/* El volumen sin tocar (100 %) */
+.fader-escala {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/* Cada marca: el número a la izquierda y la raya hasta la ranura */
 .fader-marca {
   position: absolute;
   left: 0;
-  right: 0;
+  width: 60%;
   bottom: calc(var(--tapa) / 2 + var(--en) * (100% - var(--tapa)));
+  transform: translateY(50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(216, 204, 184, 0.62);
+  font-variant-numeric: tabular-nums;
+}
+.fader-marca::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  margin-right: 4px;
+  background: rgba(216, 204, 184, 0.38);
+}
+.fader-marca.cero {
+  color: var(--laton-claro);
+  font-size: 10px;
+}
+.fader-marca.cero::after {
   height: 2px;
-  margin-bottom: -1px;
-  background:
-    linear-gradient(90deg, rgba(241, 213, 157, 0.75) 0 11px, transparent 11px calc(100% - 11px), rgba(241, 213, 157, 0.75) calc(100% - 11px));
+  margin-right: 0;
+  background: rgba(241, 213, 157, 0.8);
 }
 .fader-tapa {
   position: absolute;
-  left: 50%;
+  left: 60%;
   bottom: calc(var(--pos, 0) * (100% - var(--tapa)));
   width: 30px;
   height: var(--tapa);
@@ -790,4 +845,228 @@
 .boton-mesa-pistas:focus-visible {
   outline: 2px solid var(--laton-claro);
   outline-offset: 3px;
+}
+
+/* ---------- El reproductor de la canción, debajo de la consola (desde Pistas) ---------- */
+.transporte-mesa {
+  position: sticky;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  z-index: 2;
+  justify-self: center;
+  display: grid;
+  gap: 4px;
+  width: min(100%, 620px);
+  padding: 10px 14px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, #2a2623, #1b1816);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+  color: #d8ccb8;
+}
+.tm-tiempos {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: #cbbfab;
+}
+.tm-trozo-texto {
+  color: var(--laton);
+}
+.tm-trozo-texto.on {
+  color: #ffc561;
+  font-weight: 700;
+}
+.tm-barra {
+  position: relative;
+  height: 34px;
+  touch-action: pan-y;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.tm-barra:focus-visible {
+  outline: 2px solid var(--laton-claro);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+.tm-barra.cargando {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.tm-carril {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 6px;
+  margin-top: -3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #0b0908;
+  box-shadow: inset 0 1px 2px #000;
+}
+.tm-hecho {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--laton-osc), var(--laton));
+}
+/* El trozo elegido; repitiéndose, se ilumina en naranja (como las teclas) */
+.tm-trozo {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  border-radius: 6px;
+  border: 1px solid rgba(217, 178, 106, 0.55);
+  background: rgba(217, 178, 106, 0.16);
+}
+.tm-trozo.on {
+  border-color: #ffb43c;
+  background: rgba(255, 170, 50, 0.26);
+  box-shadow: 0 0 12px rgba(255, 170, 50, 0.35);
+}
+.tm-borde {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 24px;
+  cursor: ew-resize;
+  touch-action: none;
+  outline: none;
+}
+.tm-borde::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 3px;
+  bottom: 3px;
+  width: 5px;
+  margin-left: -2.5px;
+  border-radius: 3px;
+  background: var(--laton-claro);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+}
+.tm-borde:focus-visible::after {
+  background: #fff;
+}
+.tm-borde-desde {
+  left: -12px;
+}
+.tm-borde-hasta {
+  right: -12px;
+}
+.tm-cabezal {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: #fff3dc;
+  box-shadow: 0 0 6px rgba(255, 240, 210, 0.7);
+  pointer-events: none;
+}
+.tm-mandos {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+}
+.tm-salto,
+.tm-quitar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid rgba(243, 232, 214, 0.16);
+  background: rgba(0, 0, 0, 0.25);
+  color: #f3e8d6;
+  cursor: pointer;
+}
+.tm-salto {
+  width: 44px;
+  height: 44px;
+}
+.tm-salto svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.tm-salto-texto {
+  font-family: var(--f-ui);
+  font-size: 7.5px;
+  font-weight: 800;
+  fill: currentColor;
+  stroke: none;
+}
+.tm-tocar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 54px;
+  height: 54px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(160deg, var(--laton-claro), var(--laton));
+  color: #2a1709;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.tm-tocar svg {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+}
+.tm-salto:disabled,
+.tm-tocar:disabled {
+  opacity: 0.5;
+}
+.tm-salto:focus-visible,
+.tm-tocar:focus-visible,
+.tm-quitar:focus-visible {
+  outline: 2px solid var(--laton-claro);
+  outline-offset: 3px;
+}
+.tm-bucle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.tm-quitar {
+  width: 34px;
+  height: 34px;
+  color: #c9b196;
+}
+.tm-quitar svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.tm-ayuda {
+  max-width: 15ch;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: right;
+  color: #c9b196;
+}
+@media (max-width: 360px) {
+  .tm-mandos {
+    gap: 6px;
+  }
+  .tm-salto {
+    width: 40px;
+    height: 40px;
+  }
+  .tm-ayuda {
+    max-width: 12ch;
+  }
 }

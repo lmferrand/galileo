@@ -78,7 +78,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const [guardado, setGuardado] = useState<Guardado | null>(null);
   // La Mesa (estudio y consola) con las 6 pistas como canales 3 a 8
   const [verMesa, setVerMesa] = useState(false);
-  const cerrarMesa = useCallback(() => setVerMesa(false), [setVerMesa]);
+  // Un «Solo» en una entrada de la Mesa: las pistas sin «Solo» se callan
+  const [soloFuera, setSoloFuera] = useState(false);
+  const cerrarMesa = useCallback(() => {
+    setVerMesa(false);
+    setSoloFuera(false);
+  }, [setVerMesa, setSoloFuera]);
   const ultimo = useRef({ segundo: -1, tocando: false });
   // Dónde acaban los instrumentos del escenario y lo de arriba: el panel de mandos empieza debajo.
   const [pie, setPie] = useState(0);
@@ -89,12 +94,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const bloqueo = useRef<BloqueoPantalla | null>(null);
 
   const algunSolo = solo.some(Boolean);
-  const efectivas = PISTAS.map((_, i) => (silencio[i] || (algunSolo && !solo[i]) ? 0 : volumen[i] * volumen[i]));
+  const efectivas = PISTAS.map((_, i) => (silencio[i] || ((algunSolo || soloFuera) && !solo[i]) ? 0 : volumen[i] * volumen[i]));
   const claveGanancias = efectivas.join(",");
   const gananciasIniciales = useRef(efectivas);
   const trozoValido = desde !== null && hasta !== null && hasta - desde >= TROZO_MINIMO;
   // Luz de cada foco del escenario: apagado si la pista no suena, y más tenue con menos volumen.
-  const luces = PISTAS.map((_, i) => (efectivas[i] === 0 ? 0 : 0.35 + 0.65 * volumen[i]));
+  const luces = PISTAS.map((_, i) => (efectivas[i] === 0 ? 0 : 0.35 + 0.65 * Math.min(1, volumen[i])));
 
   useEffect(() => {
     const el = arriba.current;
@@ -276,8 +281,28 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
     conArticulo: PISTAS.map((p) => p.conArticulo),
     volumen,
     silencio,
+    solo,
     onVolumen: (i, v) => setVolumen((vs) => vs.map((x, j) => (j === i ? v : x))),
     onSilencio: (i) => setSilencio((s) => cambiar(s, i)),
+    onSolo: (i) => setSolo((s) => cambiar(s, i)),
+    onSoloFuera: setSoloFuera,
+    transporte: {
+      tocando,
+      cargando,
+      segundo,
+      duracion: cancion.duracion,
+      desde,
+      hasta,
+      repetir,
+      onAlternar: alternar,
+      onIr: ir,
+      onTrozo: (d, h) => {
+        setDesde(d);
+        setHasta(h);
+        if (d === null || h === null) setRepetir(false);
+      },
+      onRepetir: setRepetir,
+    },
     aplicar: (i, a) => rep.current?.aplicarPista(i, a),
     volumenGeneral: (v) => rep.current?.volumenGeneral(v),
     niveles: () => rep.current?.niveles() ?? { pistas: [], general: 0 },
@@ -446,13 +471,13 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
                       min={0}
                       max={1}
                       step={0.01}
-                      value={volumen[i]}
+                      value={Math.min(1, volumen[i])}
                       onChange={(e) => {
                         const v = Number(e.target.value);
                         setVolumen((vs) => vs.map((x, j) => (j === i ? v : x)));
                       }}
                       aria-label={`Volumen de ${p.nombre}`}
-                      style={{ "--hecho": `${volumen[i] * 100}%` } as CSSProperties}
+                      style={{ "--hecho": `${Math.min(1, volumen[i]) * 100}%` } as CSSProperties}
                     />
                   </div>
                 );

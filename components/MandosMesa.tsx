@@ -5,6 +5,7 @@
 // vuelven a su valor de serie con dos toques y se manejan con las flechas del teclado.
 
 import { useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
+import { amplitudDePos, MARCAS, POS_CERO, posDeAmplitud, posDeDb, verDb } from "@/lib/mesa/curva";
 
 export interface PropsMando {
   nombre: string;
@@ -107,15 +108,47 @@ export function Perilla(p: PropsMando & { color: "rojo" | "azul" | "amarillo" | 
   );
 }
 
-/** Fader vertical. `marca`: el valor que se señala con una raya más larga (el volumen sin tocar). */
-export function Fader(p: PropsMando & { rojo?: boolean; marca?: number }) {
+/**
+ * Fader vertical con escala en decibelios (lib/mesa/curva): el 0 dB a tres cuartos del recorrido
+ * y +10 dB arriba. `valor` es el multiplicador (1 = 0 dB). Dos toques: vuelve a 0 dB.
+ */
+export function Fader({ nombre, valor, onCambio, desactivado, rojo }: { nombre: string; valor: number; onCambio: (v: number) => void; desactivado?: boolean; rojo?: boolean }) {
+  const pos = posDeAmplitud(valor);
+  const enPosicion: PropsMando = {
+    nombre,
+    valor: pos,
+    min: 0,
+    max: 1,
+    paso: 0.005,
+    porDefecto: POS_CERO,
+    ver: () => verDb(valor),
+    onCambio: (p) => onCambio(amplitudDePos(p)),
+    desactivado,
+  };
   // El recorrido es lo que mide la ranura (menos la tapa): así el fader va pegado al dedo
-  const manejo = useArrastre(p, (el) => Math.max(60, el.clientHeight - 34));
-  const frac = (p.valor - p.min) / (p.max - p.min);
+  const manejo = useArrastre(enPosicion, (el) => Math.max(60, el.clientHeight - 34));
   return (
-    <div className={`fader${p.rojo ? " fader-rojo" : ""}`} {...accesible(p)} {...manejo} style={{ "--pos": frac } as CSSProperties}>
+    <div
+      className={`fader${rojo ? " fader-rojo" : ""}`}
+      role="slider"
+      tabIndex={desactivado ? -1 : 0}
+      aria-label={nombre}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(pos * 100)}
+      aria-valuetext={verDb(valor)}
+      aria-disabled={desactivado || undefined}
+      {...manejo}
+      style={{ "--pos": pos } as CSSProperties}
+    >
       <span className="fader-ranura" aria-hidden="true" />
-      {p.marca !== undefined && <span className="fader-marca" aria-hidden="true" style={{ "--en": (p.marca - p.min) / (p.max - p.min) } as CSSProperties} />}
+      <span className="fader-escala" aria-hidden="true">
+        {MARCAS.map((m) => (
+          <span key={m.texto} className={`fader-marca${m.db === 0 ? " cero" : ""}`} style={{ "--en": posDeDb(m.db) } as CSSProperties}>
+            {m.texto}
+          </span>
+        ))}
+      </span>
       <span className="fader-tapa" aria-hidden="true" />
     </div>
   );
