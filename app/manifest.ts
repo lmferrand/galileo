@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Clavija · Afinador de guitarra y bajo",
-    short_name: "Clavija",
+    name: "The Clavija · Afinador de guitarra y bajo",
+    short_name: "The Clavija",
     description: "Afinador de guitarra y bajo con el micrófono del móvil.",
     lang: "es",
     start_url: "/",

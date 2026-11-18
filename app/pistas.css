@@ -12,26 +12,18 @@ a.marca {
   color: inherit;
   text-decoration: none;
 }
-.marca picture {
-  display: block;
-  line-height: 0;
-}
 .marca-logo {
   display: block;
-  height: 30px;
+  /* «THE» encima de «Clavija»: más alto que el de antes para que se lea */
+  height: 44px;
   width: auto;
-  filter: drop-shadow(1px 2px 0 rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
   user-select: none;
   -webkit-user-select: none;
 }
-@media (prefers-color-scheme: light) {
-  .marca-logo {
-    filter: drop-shadow(1px 1.5px 0 rgba(120, 80, 30, 0.25));
-  }
-}
 @media (max-width: 380px) {
   .marca-logo {
-    height: 26px;
+    height: 38px;
   }
   .pestanas a {
     padding: 7px 12px;

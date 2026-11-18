@@ -20,12 +20,12 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Clavija · Afinador de guitarra y bajo",
+  title: "The Clavija · Afinador de guitarra y bajo",
   description: "Afina tu guitarra o tu bajo con el micrófono del móvil, en estándar, drop, abiertas o en tu propia afinación.",
-  applicationName: "Clavija",
+  applicationName: "The Clavija",
   appleWebApp: {
     capable: true,
-    title: "Clavija",
+    title: "The Clavija",
     statusBarStyle: "black-translucent",
   },
   formatDetection: { telephone: false },
