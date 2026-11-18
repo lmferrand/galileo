@@ -10,6 +10,7 @@ import { useHorizontal } from "@/lib/horizontal";
 import { leerAudios, renombrarCancion } from "@/lib/pistas/almacen";
 import { Reproductor } from "@/lib/pistas/reproductor";
 import { leerWav } from "@/lib/pistas/wav";
+import { limpiarBajo } from "@/lib/pistas/limpiarBajo";
 import { describirMezcla, guardarArchivo, mezclarCancion, nombreArchivo } from "@/lib/pistas/exportar";
 import { formatoTiempo, PISTAS, type Cancion, type Pista } from "@/lib/pistas/tipos";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
@@ -103,12 +104,20 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
       try {
         const audios = await leerAudios(cancion.id, IDS);
         // De una en una: las que llegan en MP3 se descodifican y así no se juntan seis a la vez en memoria.
-        const datos: Int16Array[] = [];
-        for (const id of IDS) {
-          if (!vivo) return;
-          datos.push(await leerWav(audios[id], cancion.frames));
-        }
-        if (!vivo) return;
+        const leer = async () => {
+          const d: Int16Array[] = [];
+          for (const id of IDS) {
+            if (!vivo) return null;
+            d.push(await leerWav(audios[id], cancion.frames));
+          }
+          return d;
+        };
+        let datos = await leer();
+        if (!datos || !vivo) return;
+        // Los graves que el separador dejó en otras pistas, al bajo (si falla, se leen otra vez tal cual)
+        const limpias = await limpiarBajo(datos);
+        datos = limpias.some((p) => p.length === 0) ? await leer() : limpias;
+        if (!datos || !vivo) return;
         await r.cargar(datos, cancion.frames, gananciasIniciales.current);
         if (vivo) setCargando(false);
       } catch (e) {

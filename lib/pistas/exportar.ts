@@ -4,16 +4,25 @@
 import { leerAudios } from "./almacen";
 import { FRECUENCIA, PISTAS, type Cancion } from "./tipos";
 import { crearWav, leerWav } from "./wav";
+import { limpiarBajo } from "./limpiarBajo";
 
 const IDS = PISTAS.map((p) => p.id);
 
 export async function mezclarCancion(cancion: Cancion, ganancias: number[]): Promise<Blob> {
   const audios = await leerAudios(cancion.id, IDS);
+  const leer = async () => {
+    const d: Int16Array[] = [];
+    for (const id of IDS) d.push(await leerWav(audios[id], cancion.frames));
+    return d;
+  };
+  // Igual que al escucharla: los graves colados en otras pistas, al bajo
+  let pistas = await limpiarBajo(await leer());
+  if (pistas.some((p) => p.length === 0)) pistas = await leer();
   const suma = new Float32Array(cancion.frames * 2);
   for (let s = 0; s < IDS.length; s++) {
     const g = ganancias[s];
     if (g < 0.0001) continue;
-    const datos = await leerWav(audios[IDS[s]], cancion.frames);
+    const datos = pistas[s];
     const n = Math.min(datos.length, suma.length);
     for (let i = 0; i < n; i++) suma[i] += datos[i] * g;
   }
