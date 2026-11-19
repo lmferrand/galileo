@@ -140,8 +140,11 @@
   overscroll-behavior: contain;
   /* Arriba, la grabadora llega hasta el borde: «Estudio» y la ✕ quedan a sus lados */
   padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
-  /* Casi opaco: detrás está la foto del estudio, con su propia mesa */
-  background: radial-gradient(ellipse at 50% 40%, rgba(30, 18, 11, 0.94), rgba(10, 6, 4, 0.98));
+  /* El escritorio del estudio (su foto): la grabadora y la mesa encima; los bordes, algo más oscuros */
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(12, 6, 2, 0) 55%, rgba(12, 6, 2, 0.45) 100%),
+    url(/mesa/escritorio.webp) center / cover no-repeat,
+    #2a1408;
   animation: estudio-aparece 300ms ease both;
 }
 .fase-volviendo .estudio-consola {
@@ -1316,8 +1319,11 @@
 }
 .cf-ayuda-partes {
   margin: 0;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: rgba(20, 10, 5, 0.6);
   font-size: 13px;
-  color: #d8c4a6;
+  color: #ead8bd;
 }
 /* Una sola, a toda pantalla */
 .cf-grande {
