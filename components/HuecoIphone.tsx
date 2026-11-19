@@ -11,7 +11,7 @@ import { useEffect } from "react";
  *  - --hueco-fijo: lo que le falta a lo que va fijo abajo (botones, hojas) para llegar
  *    al borde. Se mide con una marca fija en bottom: 0. Con la página ya estirada,
  *    el iPhone suele colocar lo fijo en el borde de verdad y entonces es 0.
- * En el navegador normal y en el ordenador, los dos son 0.
+ * En el navegador normal, en el ordenador y en Android, los dos son 0.
  *
  * ¡Ojo! Al estirar la página el iPhone cambia su zona útil. Si se volviera a medir con
  * cada cambio de tamaño, la medida se desharía, la página se encogería, volvería a
@@ -25,8 +25,12 @@ export default function HuecoIphone() {
     marca.style.cssText = "position:fixed;left:0;bottom:0;width:1px;height:1px;visibility:hidden;pointer-events:none;";
     document.body.appendChild(marca);
     const raiz = document.documentElement;
+    // Solo en el iPhone y el iPad. En Android la pantalla incluye la barra de arriba y la de los
+    // botones del sistema: la resta daría un «hueco» falso y lo de abajo se saldría (19-nov-2026).
+    const esApple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
     const comoApp =
-      matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+      esApple &&
+      (matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true);
     const huecoDe = { vertical: 0, horizontal: 0 };
     const valido = (v: number) => (v > 0 && v < 140 ? Math.round(v) : 0);
     // En el iPhone screen.width y screen.height no se cambian al girar: se mira la ventana.
