@@ -297,6 +297,34 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     setVerToma(false);
   };
 
+  // El tamaño de la consola, para escalar la grabadora y la mesa
+  const raiz = useRef<HTMLDivElement>(null);
+  const [tam, setTam] = useState<{ w: number; h: number; tactil: boolean } | null>(null);
+  useEffect(() => {
+    const el = raiz.current;
+    if (!el) return;
+    const medir = () => setTam({ w: el.clientWidth, h: el.clientHeight, tactil: matchMedia("(pointer: coarse)").matches });
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const W = tam?.w ?? 900;
+  const H = tam?.h ?? 640;
+  // Pantalla bajita (el móvil tumbado): juntas no se ven; primero las dos en pequeño y, al tocar
+  // una, esa a toda pantalla («Volver» regresa a las dos)
+  const partido = H < 520;
+  const [parte, setParte] = useState<"las-dos" | "cinta" | "mesa">("las-dos");
+  const vista = partido ? parte : "juntas";
+  // Juntas: la grabadora arriba (sin tapar «Estudio» ni la ✕) y la mesa debajo, que se desliza si no cabe
+  const altoCinta = Math.max(110, Math.min(0.46 * H, 380));
+  const escalaCinta = Math.max(0.1, Math.min((W - 240) / ANCHO_CINTA, altoCinta / ALTO_CINTA, 1));
+  const escala = Math.min(1, Math.max(Math.min(W / ANCHO_MESA, (H - altoCinta - 8) / ALTO_MESA), tam?.tactil ? 0.5 : 0.42));
+  // Por separado: cada una lo más grande que quepa; las dos juntas, en pequeño una encima de otra
+  const escalaCintaGrande = Math.min((W - 16) / ANCHO_CINTA, (H - 8) / ALTO_CINTA);
+  const escalaMesaGrande = Math.min((W - 8) / ANCHO_MESA, (H - 4) / ALTO_MESA);
+  const anchoResumen = Math.min(W * 0.92, (H - 34) / (ALTO_CINTA / ANCHO_CINTA + ALTO_MESA / ANCHO_MESA));
+
   // Los medidores, sin pasar por React: las entradas si la Mesa está encendida y las pistas siempre
   useEffect(() => {
     if (!encendida && !conPistas) return;
@@ -345,35 +373,19 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
       );
       agujas.forEach((el, i) => el?.setAttribute("transform", `rotate(${VU_REPOSO} ${VUS[i].eje[0]} ${VUS[i].eje[1]})`));
     };
-  }, [encendida, conPistas]);
+  }, [encendida, conPistas, vista]);
 
-  // La mesa, lo más grande que quepa abajo; si así queda demasiado pequeña, más grande y se desliza
-  const [escala, setEscala] = useState(0.5);
+  // Escape: en una parte en grande, vuelve a las dos (antes de que lo oiga el estudio)
   useEffect(() => {
-    const el = abajo.current;
-    if (!el) return;
-    const medir = () => {
-      const cabe = Math.min(el.clientWidth / ANCHO_MESA, el.clientHeight / ALTO_MESA);
-      const minimo = matchMedia("(pointer: coarse)").matches ? 0.5 : 0.42;
-      setEscala(Math.min(1, Math.max(cabe, minimo)));
+    if (vista !== "cinta" && vista !== "mesa") return;
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || document.querySelector(".hoja")) return;
+      e.stopImmediatePropagation();
+      setParte("las-dos");
     };
-    medir();
-    const ro = new ResizeObserver(medir);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // La grabadora, arriba y fija: lo que quepa, dejando sitio a los lados para «Estudio» y la ✕
-  const [escalaCinta, setEscalaCinta] = useState(0.3);
-  useEffect(() => {
-    const el = cinta.current;
-    if (!el) return;
-    const medir = () => setEscalaCinta(Math.max(0.1, Math.min((el.clientWidth - 240) / ANCHO_CINTA, el.clientHeight / ALTO_CINTA, 1)));
-    medir();
-    const ro = new ResizeObserver(medir);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+    document.addEventListener("keydown", tecla, true);
+    return () => document.removeEventListener("keydown", tecla, true);
+  }, [vista]);
 
   // Escape cierra primero la hoja de efectos (antes de que lo oiga el estudio)
   useEffect(() => {
@@ -457,35 +469,90 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     };
   };
 
-  return (
-    <div className="consola-foto">
-      {/* Arriba, fija: la grabadora de bobinas (VU, teclas, la onda de la canción y REC = entradas) */}
-      <div className="cf-cinta" ref={cinta}>
-        <GrabadoraMesa
-          escala={escalaCinta}
-          t={pistas?.transporte ?? null}
-          aviso={aviso}
-          contador={grabando && !conPistas ? transcurrido : null}
-          rec={{ grabando: !!grabando, ocupado: estado === "abriendo", onPulsar: () => void pulsarRec() }}
-          toma={toma && !grabando ? () => setVerToma(true) : null}
-        />
-      </div>
+  const propsCinta = {
+    t: pistas?.transporte ?? null,
+    aviso,
+    contador: grabando && !conPistas ? transcurrido : null,
+    rec: { grabando: !!grabando, ocupado: estado === "abriendo", onPulsar: () => void pulsarRec() },
+    toma: toma && !grabando ? () => setVerToma(true) : null,
+  };
+  const propsMesa = {
+    canales: [entrada(0), entrada(1), ...PISTA_DE_CANAL.map(pista)],
+    sinEntrada2: encendida && mesa.entradas < 2,
+    general: ajustes.general,
+    onGeneral: (general: number) => cambiarGeneral({ ...ajustes, general }),
+    maestros: ajustes.maestros,
+    onMaestros: (maestros: AjustesMesa["maestros"]) => cambiarGeneral({ ...ajustes, maestros }),
+    conCancion: conPistas,
+    entradas: { encendidas: encendida, ocupadas: estado === "abriendo", onPulsar: () => void encender() },
+    leer,
+  };
+  const elegir = (p: "cinta" | "mesa") => ({
+    role: "button" as const,
+    tabIndex: 0,
+    onClick: () => setParte(p),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        setParte(p);
+      }
+    },
+  });
 
-      {/* Abajo: la mesa de mezclas, que se desliza con el dedo */}
-      <div className="cf-abajo" ref={abajo}>
-        <MesaFoto
-          escala={escala}
-          canales={[entrada(0), entrada(1), ...PISTA_DE_CANAL.map(pista)]}
-          sinEntrada2={encendida && mesa.entradas < 2}
-          general={ajustes.general}
-          onGeneral={(general) => cambiarGeneral({ ...ajustes, general })}
-          maestros={ajustes.maestros}
-          onMaestros={(maestros) => cambiarGeneral({ ...ajustes, maestros })}
-          conCancion={conPistas}
-          entradas={{ encendidas: encendida, ocupadas: estado === "abriendo", onPulsar: () => void encender() }}
-          leer={leer}
-        />
-      </div>
+  return (
+    <div className={`consola-foto vista-${vista}`} ref={raiz}>
+      {vista === "juntas" && (
+        <>
+          {/* Arriba, fija: la grabadora de bobinas (VU, teclas, la onda de la canción y REC) */}
+          <div className="cf-cinta" ref={cinta} style={{ height: altoCinta }}>
+            <GrabadoraMesa escala={escalaCinta} {...propsCinta} />
+          </div>
+          {/* Abajo: la mesa de mezclas, que se desliza con el dedo */}
+          <div className="cf-abajo" ref={abajo}>
+            <MesaFoto escala={escala} {...propsMesa} />
+          </div>
+        </>
+      )}
+
+      {vista === "las-dos" && (
+        <div className="cf-resumen">
+          <div className="cf-parte" aria-label="Ver la grabadora en grande" {...elegir("cinta")}>
+            <div inert ref={cinta}>
+              <GrabadoraMesa escala={anchoResumen / ANCHO_CINTA} {...propsCinta} />
+            </div>
+          </div>
+          <div className="cf-parte" aria-label="Ver la mesa de mezclas en grande" {...elegir("mesa")}>
+            <div inert ref={abajo}>
+              <MesaFoto escala={anchoResumen / ANCHO_MESA} {...propsMesa} />
+            </div>
+          </div>
+          <p className="cf-ayuda-partes">Toca la grabadora o la mesa para verla en grande</p>
+        </div>
+      )}
+
+      {vista === "cinta" && (
+        <div className="cf-grande" ref={cinta}>
+          <GrabadoraMesa escala={escalaCintaGrande} {...propsCinta} />
+        </div>
+      )}
+      {vista === "mesa" && (
+        <div className="cf-grande" ref={abajo}>
+          <MesaFoto escala={escalaMesaGrande} {...propsMesa} />
+        </div>
+      )}
+      {(vista === "cinta" || vista === "mesa") && (
+        <button type="button" className="estudio-boton cf-volver" onClick={() => setParte("las-dos")} aria-label="Volver a ver la grabadora y la mesa">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+        </button>
+      )}
+      {/* En la mesa en grande no se ve la pantalla de la grabadora: el mando que mueves, aquí */}
+      {vista === "mesa" && lectura && (
+        <p className="cf-lectura" role="status">
+          {lectura.donde} · {lectura.texto}
+        </p>
+      )}
 
       <div className="cf-girar" aria-live="polite">
         <svg viewBox="0 0 48 48" aria-hidden="true">
