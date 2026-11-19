@@ -830,6 +830,18 @@ p {
   aspect-ratio: 815 / 1392;
   container-type: inline-size;
 }
+/* Móvil tumbado: la pantalla del afinador es más alta que el móvil y se desliza. La pala llega
+   siempre más abajo del borde (detrás de los botones), así nunca se ve dónde acaba el mástil. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .pala {
+    width: auto;
+    height: 104cqh;
+  }
+  /* Y la página acaba justo donde acaba el mástil (la sombra de los botones no la alarga) */
+  .app.con-estudio {
+    overflow-y: clip;
+  }
+}
 @keyframes pala-entra {
   from {
     opacity: 0;
