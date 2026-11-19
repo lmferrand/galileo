@@ -64,6 +64,8 @@ export interface PistasMesa {
   volumenGeneral: (v: number) => void;
   /** Picos (0–1) de cada pista y de la salida (también por lado: izq y der) */
   niveles: () => { pistas: number[]; general: number; izq?: number; der?: number };
+  /** Espectro de cada pista tras su fader (dB por banda; hz = lo que mide cada banda) */
+  espectros: () => { datos: Float32Array<ArrayBuffer>[]; hz: number } | null;
 }
 
 type Abierta = { tipo: "entrada" | "pista"; i: number };
@@ -357,6 +359,79 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     if (quedan.length === 0) setVerTomas(false);
   };
 
+  // ---------- Aviso de mezcla: cuando un instrumento tapa a otro ----------
+  // Mientras suena la canción se mira la energía de cada pista (tras su fader) en los graves (donde
+  // se pisan el bajo y la batería) y en los medios (donde la guitarra, el piano o el resto tapan la
+  // voz). Si el choque dura un par de segundos, un consejo en la pantalla; el mismo no se repite enseguida.
+  const [consejo, setConsejo] = useState<string | null>(null);
+  useEffect(() => {
+    if (!conPistas || !tocandoCancion) return;
+    const suave: { graves: number; medios: number }[] = [];
+    const seguidos = new Map<string, number>();
+    const ultimaVez = new Map<string, number>();
+    let ticks = 0;
+    let borrar: ReturnType<typeof setTimeout> | null = null;
+    const banda = (d: Float32Array, hz: number, desde: number, hasta: number) => {
+      let p = 0;
+      let n = 0;
+      for (let k = Math.max(1, Math.floor(desde / hz)); k <= Math.min(d.length - 1, Math.ceil(hasta / hz)); k++) {
+        p += Math.pow(10, d[k] / 10);
+        n++;
+      }
+      return n ? 10 * Math.log10(p / n + 1e-12) : -120;
+    };
+    const id = setInterval(() => {
+      const e = ultimasPistas.current?.espectros();
+      const nombres = ultimasPistas.current?.conArticulo;
+      if (!e || !nombres) return;
+      ticks++;
+      e.datos.forEach((d, i) => {
+        const g = banda(d, e.hz, 40, 160);
+        const m = banda(d, e.hz, 800, 3500);
+        const a = suave[i];
+        suave[i] = a ? { graves: a.graves * 0.7 + g * 0.3, medios: a.medios * 0.7 + m * 0.3 } : { graves: g, medios: m };
+      });
+      if (ticks < 8 || suave.length < 6) return;
+      // Los choques de ahora (con su fuerza)
+      const ahora: { clave: string; fuerza: number; texto: string }[] = [];
+      const voz = suave[0].medios;
+      if (voz > -75) {
+        for (const j of [1, 4, 5]) {
+          const exceso = suave[j].medios - voz;
+          if (exceso > 4) {
+            const quien = nombres[j];
+            ahora.push({ clave: `voz-${j}`, fuerza: exceso, texto: `${quien[0].toUpperCase()}${quien.slice(1)} tapa la voz: baja ${quien} o sus agudos (HIGH)` });
+          }
+        }
+      }
+      const [bajo, bateria] = [suave[2].graves, suave[3].graves];
+      if (bajo > -48 && bateria > -48 && Math.abs(bajo - bateria) < 3) {
+        ahora.push({ clave: "graves", fuerza: 3, texto: "El bajo y la batería se pisan en los graves: baja los graves (LOW) de uno de los dos" });
+      }
+      // Que dure 2 s (8 vueltas) y que no se haya dicho en los últimos 25 s
+      const claves = new Set(ahora.map((c) => c.clave));
+      for (const k of [...seguidos.keys()]) if (!claves.has(k)) seguidos.delete(k);
+      const t = performance.now();
+      let elegido: (typeof ahora)[number] | null = null;
+      for (const c of ahora) {
+        const veces = (seguidos.get(c.clave) ?? 0) + 1;
+        seguidos.set(c.clave, veces);
+        if (veces < 8 || t - (ultimaVez.get(c.clave) ?? -1e9) < 25000) continue;
+        if (!elegido || c.fuerza > elegido.fuerza) elegido = c;
+      }
+      if (!elegido) return;
+      ultimaVez.set(elegido.clave, t);
+      setConsejo(elegido.texto);
+      if (borrar) clearTimeout(borrar);
+      borrar = setTimeout(() => setConsejo(null), 6000);
+    }, 250);
+    return () => {
+      clearInterval(id);
+      if (borrar) clearTimeout(borrar);
+      setConsejo(null);
+    };
+  }, [conPistas, tocandoCancion]);
+
   // «?»: qué hace cada mando
   const [verAyuda, setVerAyuda] = useState(false);
   useEffect(() => {
@@ -534,7 +609,9 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   // Lo que enseña la pantalla de la grabadora: el mando que se mueve o cómo están las entradas
   const aviso = lectura
     ? `${lectura.donde} · ${lectura.texto}`
-    : cuenta !== null
+    : consejo
+      ? `Consejo · ${consejo}`
+      : cuenta !== null
       ? `● Prepárate: ${cuenta}…`
       : grabando
       ? "● Grabando lo que tocas (REC para parar)"
@@ -695,9 +772,9 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
         </button>
       )}
       {/* En la mesa en grande no se ve la pantalla de la grabadora: el mando que mueves, aquí */}
-      {vista === "mesa" && lectura && (
-        <p className="cf-lectura" role="status">
-          {lectura.donde} · {lectura.texto}
+      {(vista === "mesa" || vista === "canal") && (lectura || consejo) && (
+        <p className={`cf-lectura${lectura ? "" : " cf-consejo"}`} role="status">
+          {lectura ? `${lectura.donde} · ${lectura.texto}` : consejo}
         </p>
       )}
 

@@ -1726,3 +1726,12 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* El consejo de mezcla (cuando un instrumento tapa a otro), en ámbar */
+.cf-lectura.cf-consejo {
+  max-width: min(92vw, 640px);
+  border-color: rgba(255, 190, 90, 0.55);
+  color: #ffd79a;
+  white-space: normal;
+  text-align: center;
+}

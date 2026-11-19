@@ -335,6 +335,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
     aplicar: (i, a) => rep.current?.aplicarPista(i, a),
     volumenGeneral: (v) => rep.current?.volumenGeneral(v),
     niveles: () => rep.current?.niveles() ?? { pistas: [], general: 0 },
+    espectros: () => rep.current?.espectros() ?? null,
   };
   const queda = describirMezcla(efectivas);
 

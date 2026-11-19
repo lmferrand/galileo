@@ -121,6 +121,8 @@ export class Canal {
   readonly entrada: GainNode;
   readonly salida: GainNode;
   readonly medidor: AnalyserNode;
+  /** Lo que sale del canal (tras ecualizador, efectos y fader): para ver si tapa a otro */
+  readonly espectro: AnalyserNode;
   private puerta: AudioWorkletNode | null;
   private compresor: DynamicsCompressorNode;
   private maquillaje: GainNode;
@@ -212,6 +214,10 @@ export class Canal {
     this.panorama = c.createStereoPanner();
     this.volumen = c.createGain();
     this.salida = this.volumen;
+    this.espectro = c.createAnalyser();
+    this.espectro.fftSize = 2048;
+    this.espectro.smoothingTimeConstant = 0.6;
+    this.volumen.connect(this.espectro);
 
     const tras = this.puerta ?? this.entrada;
     if (this.puerta) this.entrada.connect(this.puerta);

@@ -181,6 +181,15 @@ export class Reproductor {
     return ctx ? ctx.baseLatency + (ctx.outputLatency ?? 0) : 0;
   }
 
+  // El espectro de cada pista tras su fader (en dB por banda de frecuencia), para el aviso de mezcla
+  private espectrosDatos: Float32Array<ArrayBuffer>[] = [];
+  espectros(): { datos: Float32Array<ArrayBuffer>[]; hz: number } | null {
+    if (!this.ctx || this.canales.length === 0) return null;
+    if (this.espectrosDatos.length !== this.canales.length) this.espectrosDatos = this.canales.map((c) => new Float32Array(c.espectro.frequencyBinCount));
+    this.canales.forEach((c, i) => c.espectro.getFloatFrequencyData(this.espectrosDatos[i]));
+    return { datos: this.espectrosDatos, hz: this.ctx.sampleRate / (2 * this.espectrosDatos[0].length) };
+  }
+
   /** 0,5 = a la mitad de velocidad, sin cambiar el tono. */
   velocidad(valor: number) {
     this.nodo?.port.postMessage({ tipo: "velocidad", valor });
