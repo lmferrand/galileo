@@ -830,17 +830,17 @@ p {
   aspect-ratio: 815 / 1392;
   container-type: inline-size;
 }
-/* Móvil tumbado: la pantalla del afinador es más alta que el móvil y se desliza. Se para justo
-   donde acaba la pala (Afinador mide --fin-pala y fija --alto-marco para que la pala no cambie)
-   y sin rebote al estirar con el dedo: así nunca se ve el final del mástil. */
+/* Móvil tumbado: la pantalla del afinador es más alta que el móvil y se desliza. Se para con el
+   primer traste justo encima de los botones (Afinador mide --fin-pala; --ancho-pala deja la pala de
+   su tamaño) y sin rebote al estirar con el dedo: el mástil llega al borde y no se ve su final. */
 @media (orientation: landscape) and (max-height: 520px) {
   .app.con-estudio {
     height: var(--fin-pala, calc(100svh + var(--hueco-abajo, 0px)));
     min-height: var(--fin-pala, 600px);
     overflow-y: clip;
   }
-  .app.con-estudio .pala-marco {
-    height: var(--alto-marco);
+  .app.con-estudio .pala {
+    width: var(--ancho-pala, min(100cqw, 380px, 46cqh));
   }
   html:has(.app.con-estudio),
   html:has(.app.con-estudio) body {

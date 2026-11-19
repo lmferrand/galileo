@@ -381,9 +381,9 @@ export default function Afinador() {
   const sonandoCuerda = tonoEn ?? (viva ? cuerda : null);
   const celebrandoAhora = celebrando && !cromatico;
 
-  // Móvil tumbado: la pantalla es más alta que el móvil y se desliza. Que se pare justo donde acaba
-  // la pala (si no, al subir del todo se ve el final del mástil): se mide dónde acaba y la página
-  // se recorta ahí, con el marco de la pala del mismo tamaño para que la pala no cambie.
+  // Móvil tumbado: la pantalla es más alta que el móvil y se desliza. Que se pare con el primer traste
+  // justo encima de los botones de abajo (el mástil dibujado sigue hasta el borde: no se ve el corte).
+  // Se mide dónde cae ese traste y la página acaba ahí; la pala se queda de su tamaño (--ancho-pala).
   const raiz = useRef<HTMLElement>(null);
   useEffect(() => {
     const app = raiz.current;
@@ -393,7 +393,7 @@ export default function Afinador() {
     const ro = new ResizeObserver(() => medir());
     const medir = () => {
       app.style.removeProperty("--fin-pala");
-      app.style.removeProperty("--alto-marco");
+      app.style.removeProperty("--ancho-pala");
       const marco = app.querySelector<HTMLElement>(".pala-marco");
       const pala = marco?.querySelector<HTMLElement>(".pala");
       if (marco && marco !== marcoVisto) {
@@ -401,11 +401,14 @@ export default function Afinador() {
         ro.observe(marco);
       }
       if (!tumbado.matches || !marco || !pala) return;
-      // Dónde acaba la pala dentro de la página, sin contar sus movimientos (el giroscopio)
-      let y = pala.offsetHeight;
-      for (let el: HTMLElement | null = pala; el && el !== app; el = el.offsetParent as HTMLElement | null) y += el.offsetTop;
-      app.style.setProperty("--alto-marco", `${marco.offsetHeight}px`);
-      app.style.setProperty("--fin-pala", `${Math.round(y)}px`);
+      // Dónde cae el primer traste dentro de la página, sin contar los movimientos (el giroscopio)
+      let arriba = 0;
+      for (let el: HTMLElement | null = pala; el && el !== app; el = el.offsetParent as HTMLElement | null) arriba += el.offsetTop;
+      const g = instrumento.pala;
+      const traste = arriba + ((g.mastil.cejuela + g.mastil.paso) / g.imagen.alto) * pala.offsetHeight;
+      const botones = document.querySelector<HTMLElement>(".barra-abajo")?.offsetHeight ?? 76;
+      app.style.setProperty("--ancho-pala", `${pala.offsetWidth}px`);
+      app.style.setProperty("--fin-pala", `${Math.round(Math.max(app.offsetHeight, traste + botones + 18))}px`);
     };
     medir();
     tumbado.addEventListener("change", medir);
@@ -415,9 +418,9 @@ export default function Afinador() {
       tumbado.removeEventListener("change", medir);
       window.removeEventListener("resize", medir);
       app.style.removeProperty("--fin-pala");
-      app.style.removeProperty("--alto-marco");
+      app.style.removeProperty("--ancho-pala");
     };
-  }, [listo, instrumento.id, eleccion.fase]);
+  }, [listo, instrumento.id, instrumento.pala, eleccion.fase]);
 
   return (
     <main ref={raiz} className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""}`}>
