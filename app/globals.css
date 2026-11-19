@@ -837,15 +837,20 @@ p {
   .app.con-estudio {
     height: var(--fin-pala, calc(100svh + var(--hueco-abajo, 0px)));
     min-height: var(--fin-pala, 600px);
-    overflow-y: clip;
   }
   .app.con-estudio .pala {
     width: var(--ancho-pala, min(100cqw, 380px, 46cqh));
   }
-  html:has(.app.con-estudio),
-  html:has(.app.con-estudio) body {
-    overscroll-behavior-y: none;
-  }
+}
+/* En todas las posiciones: la página acaba en el borde de la pantalla (la sombra de los botones no
+   la alarga; si no, en vertical se podía subir un poco y el mástil acababa antes del borde) y sin
+   rebote al estirar con el dedo. */
+.app.con-estudio {
+  overflow-y: clip;
+}
+html:has(.app.con-estudio),
+html:has(.app.con-estudio) body {
+  overscroll-behavior-y: none;
 }
 @keyframes pala-entra {
   from {
