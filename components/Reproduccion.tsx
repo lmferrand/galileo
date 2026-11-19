@@ -18,6 +18,7 @@ import { describirMezcla, guardarArchivo, mezclarCancion, nombreArchivo } from "
 import { formatoTiempo, FRECUENCIA, PISTAS, type Cancion, type Pista } from "@/lib/pistas/tipos";
 import { tomaA, type Toma } from "@/lib/mesa/toma";
 import { ondaDe } from "@/lib/pistas/onda";
+import { ajustesPorDefecto, guardarAjustesCancion, leerAjustesCancion, nombreNuevo, NOMBRES_PARTES, type Marca } from "@/lib/pistas/ajustesCancion";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
 const IDS = PISTAS.map((p) => p.id);
@@ -57,10 +58,13 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const [error, setError] = useState<string | null>(null);
   const [tocando, setTocando] = useState(false);
   const [segundo, setSegundo] = useState(0);
-  const [volumen, setVolumen] = useState<number[]>(() => PISTAS.map(() => 1));
-  const [silencio, setSilencio] = useState<boolean[]>(() => PISTAS.map(() => false));
+  // Lo que la canción recuerda de la última vez (mezcla, velocidad, marcas de sus partes)
+  const [inicial] = useState(() => (typeof window === "undefined" ? ajustesPorDefecto(PISTAS.length) : leerAjustesCancion(cancion.id, PISTAS.length)));
+  const [volumen, setVolumen] = useState<number[]>(() => inicial.volumen);
+  const [silencio, setSilencio] = useState<boolean[]>(() => inicial.silencio);
   const [solo, setSolo] = useState<boolean[]>(() => PISTAS.map(() => false));
-  const [velocidad, setVelocidad] = useState(1);
+  const [velocidad, setVelocidad] = useState(inicial.velocidad);
+  const [marcas, setMarcas] = useState<Marca[]>(inicial.marcas);
   const [desde, setDesde] = useState<number | null>(null);
   const [hasta, setHasta] = useState<number | null>(null);
   const [repetir, setRepetir] = useState(false);
@@ -193,6 +197,26 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   useEffect(() => {
     if (!tocando) rep.current?.pararToma();
   }, [tocando]);
+
+  // Se guarda lo de esta canción (para la próxima vez y para el repertorio)
+  useEffect(() => {
+    guardarAjustesCancion(cancion.id, { volumen, silencio, velocidad, tono: inicial.tono, marcas });
+  }, [cancion.id, volumen, silencio, velocidad, marcas, inicial.tono]);
+
+  // ---- Partes de la canción (marcas) ----
+  const marcar = (nombre: string) => {
+    const s = Math.round(segundo * 10) / 10;
+    setMarcas((ms) => [...ms.filter((m) => Math.abs(m.segundo - s) > 0.5), { segundo: s, nombre: nombreNuevo(ms, nombre) }].sort((a, b) => a.segundo - b.segundo));
+  };
+  const quitarMarca = (i: number) => setMarcas((ms) => ms.filter((_, j) => j !== i));
+  const repetirParte = (i: number) => {
+    const ini = marcas[i].segundo;
+    const fin = marcas[i + 1]?.segundo ?? cancion.duracion;
+    setDesde(ini);
+    setHasta(fin);
+    setRepetir(true);
+    ir(ini);
+  };
 
   // Si cambias la mezcla, el archivo preparado ya no vale.
   useEffect(() => {
@@ -540,6 +564,38 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
                 )}
               </div>
               {velocidad !== 1 && <p className="practica-ayuda">Más lenta pero en el mismo tono, para sacarla con calma.</p>}
+
+              <div className="practica-fila partes">
+                <span className="practica-titulo">Partes</span>
+                {marcas.length > 0 ? (
+                  <ul className="partes-lista">
+                    {marcas.map((m, i) => (
+                      <li key={`${m.segundo}-${m.nombre}`} className="parte">
+                        <button type="button" className="chip" onClick={() => ir(m.segundo)} disabled={cargando} aria-label={`Ir a ${m.nombre} (${formatoTiempo(m.segundo)})`}>
+                          {m.nombre} <small>{formatoTiempo(m.segundo)}</small>
+                        </button>
+                        <button type="button" className="boton-texto suave parte-boton" onClick={() => repetirParte(i)} disabled={cargando} aria-label={`Repetir ${m.nombre}`}>
+                          ↻
+                        </button>
+                        <button type="button" className="boton-texto suave parte-boton" onClick={() => quitarMarca(i)} aria-label={`Quitar la marca ${m.nombre}`}>
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <span className="practica-ayuda">Sin marcas todavía</span>
+                )}
+              </div>
+              <div className="partes-nueva">
+                <span>Marcar aquí ({formatoTiempo(segundo)}):</span>
+                {NOMBRES_PARTES.map((n) => (
+                  <button key={n} type="button" className="chip" onClick={() => marcar(n)} disabled={cargando}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <p className="practica-ayuda">Pon la canción donde empieza cada parte y toca su nombre. Luego, tocar la parte va a ella y ↻ la repite. Esta canción lo recuerda, igual que su mezcla y su velocidad.</p>
 
               <div className="practica-fila trozo">
                 <span className="practica-titulo">Repetir un trozo</span>
