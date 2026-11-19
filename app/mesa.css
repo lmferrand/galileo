@@ -143,7 +143,7 @@
   /* El escritorio del estudio (su foto): la grabadora y la mesa encima; los bordes, algo más oscuros */
   background:
     radial-gradient(ellipse at 50% 50%, rgba(12, 6, 2, 0) 55%, rgba(12, 6, 2, 0.45) 100%),
-    url(/mesa/escritorio.webp) center / cover no-repeat,
+    url(/mesa/escritorio2.webp) center / cover no-repeat,
     #2a1408;
   animation: estudio-aparece 300ms ease both;
 }

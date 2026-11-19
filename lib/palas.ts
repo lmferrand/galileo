@@ -40,8 +40,8 @@ export interface GeometriaPala {
 
 export const PALA_ACUSTICA: GeometriaPala = {
   imagen: {
-    src: "/pala/clavijero4-815.webp",
-    srcSet: "/pala/clavijero4-500.webp 500w, /pala/clavijero4-815.webp 815w",
+    src: "/pala/clavijero5-815.webp",
+    srcSet: "/pala/clavijero5-500.webp 500w, /pala/clavijero5-815.webp 815w",
     ancho: 815,
     alto: 1340,
   },
@@ -88,8 +88,8 @@ export const PALA_ACUSTICA: GeometriaPala = {
 
 export const PALA_BAJO: GeometriaPala = {
   imagen: {
-    src: "/pala/bajo2-806.webp",
-    srcSet: "/pala/bajo2-500.webp 500w, /pala/bajo2-806.webp 806w",
+    src: "/pala/bajo3-806.webp",
+    srcSet: "/pala/bajo3-500.webp 500w, /pala/bajo3-806.webp 806w",
     ancho: 806,
     alto: 1168,
   },
@@ -130,8 +130,8 @@ export const PALA_BAJO: GeometriaPala = {
 
 export const PALA_ELECTRICA: GeometriaPala = {
   imagen: {
-    src: "/pala/electrica2-746.webp",
-    srcSet: "/pala/electrica2-500.webp 500w, /pala/electrica2-746.webp 746w",
+    src: "/pala/electrica3-746.webp",
+    srcSet: "/pala/electrica3-500.webp 500w, /pala/electrica3-746.webp 746w",
     ancho: 746,
     alto: 1209,
   },
