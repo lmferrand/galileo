@@ -136,9 +136,9 @@
   inset: 0;
   z-index: 4;
   display: flex;
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
-  padding: calc(max(12px, env(safe-area-inset-top)) + 58px) 10px calc(max(16px, env(safe-area-inset-bottom)) + 12px);
+  padding: calc(max(12px, env(safe-area-inset-top)) + 54px) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   background: radial-gradient(ellipse at 50% 62%, rgba(18, 10, 6, 0.5), rgba(18, 10, 6, 0.88));
   animation: estudio-aparece 300ms ease both;
 }
@@ -160,199 +160,13 @@
   }
 }
 
-/* ---------- La consola: como la mesa de la foto ---------- */
-/* Ocupa el ancho (así los canales que no caben se deslizan dentro) y centra la mesa */
-.consola {
-  width: 100%;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr);
-  --perilla: clamp(30px, min(10.5vw, 5.6dvh), 52px);
-  --tira: clamp(80px, 25vw, 116px);
-  --general: clamp(104px, 30vw, 150px);
-  --fader-alto: clamp(110px, 25dvh, 240px);
-  margin: auto;
-  display: grid;
-  justify-items: center;
-  gap: 12px;
-}
-/* Con el reproductor debajo (desde Pistas), la mesa algo más baja para que quepa todo */
-.consola.con-transporte {
-  --perilla: clamp(30px, min(10.5vw, 4.7dvh), 50px);
-  --fader-alto: clamp(100px, 20dvh, 220px);
-}
-.consola-chasis {
-  display: flex;
-  max-width: 100%;
-  border-radius: 14px;
-  box-shadow:
-    0 30px 60px rgba(0, 0, 0, 0.6),
-    0 2px 0 rgba(0, 0, 0, 0.5);
-}
-/* Los laterales de madera */
-.consola-madera {
-  width: clamp(10px, 2.6vw, 20px);
-  background:
-    repeating-linear-gradient(176deg, rgba(0, 0, 0, 0.13) 0 2px, transparent 2px 7px),
-    linear-gradient(90deg, #5e3016, #9b5a2b 45%, #6d3a1b);
-  box-shadow: inset 0 1px 0 rgba(255, 220, 170, 0.25);
-}
-.consola-madera:first-child {
-  border-radius: 14px 0 0 14px;
-}
-.consola-madera:last-child {
-  border-radius: 0 14px 14px 0;
-}
-/* Si no caben todos los canales, se deslizan de lado (la general se queda a la derecha) */
-.consola-desliza {
-  min-width: 0;
-  background: linear-gradient(180deg, #2a2623, #1b1816);
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-}
-.consola-desliza::-webkit-scrollbar {
-  display: none;
-}
-.consola-panel {
-  display: grid;
-  width: max-content;
-  grid-template-columns: repeat(var(--canales, 2), var(--tira)) var(--general);
-  grid-template-rows: auto auto auto auto;
-  padding: 14px 4px 16px;
-  background:
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, #2a2623, #1b1816);
-  border-top: 1px solid rgba(255, 255, 255, 0.09);
-  color: #d8ccb8;
-}
-.tira {
-  display: grid;
-  grid-row: 1 / span 4;
-  grid-template-rows: subgrid;
-  justify-items: center;
-  padding: 0 6px;
-  border-right: 1px solid rgba(0, 0, 0, 0.55);
-  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.05);
-}
-.tira {
-  scroll-snap-align: start;
-}
-.tira-general {
-  position: sticky;
-  right: 0;
-  z-index: 1;
-  border-right: 0;
-  background:
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, #2a2623, #1b1816);
-  box-shadow: -10px 0 16px -6px rgba(0, 0, 0, 0.6);
-  border-left: 1px solid rgba(0, 0, 0, 0.6);
-  scroll-snap-align: end;
-}
-/* Las pistas de la canción, con cinta de otro color */
-.tira-pista .tira-nombre {
-  background: #f1d59d;
-}
-.tira-cabeza {
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  gap: 8px;
-  padding-bottom: 12px;
-}
-/* El nombre del canal, en cinta de pintor (como en los estudios) */
-.tira-nombre {
-  padding: 3px 8px;
-  border-radius: 2px;
-  background: #e8dfcc;
-  color: #2a1d14;
-  font-size: 12.5px;
-  font-weight: 800;
-  white-space: nowrap;
-  transform: rotate(-1.2deg);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
-}
-.tira-fx {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 4px clamp(7px, 2.6vw, 11px);
-  border-radius: 99px;
-  border: 1px solid rgba(217, 178, 106, 0.45);
-  background: rgba(0, 0, 0, 0.28);
-  color: var(--laton-claro);
-  font: inherit;
-  font-size: clamp(11.5px, 3.4vw, 12.5px);
-  font-weight: 700;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.tira-fx-n {
-  display: grid;
-  place-items: center;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 4px;
-  border-radius: 99px;
-  background: var(--laton);
-  color: #2a1709;
-  font-size: 10.5px;
-  font-weight: 800;
-}
-.tira-perillas {
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  padding-top: 4px;
-}
-.tira-tecla {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 14px 0 12px;
-}
+/* ---------- Teclas y pantalla de la consola ---------- */
 .tecla-con-nombre {
   display: grid;
   justify-items: center;
   gap: 4px;
 }
-/* En los canales van dos teclas (Silencio y Solo): algo más estrechas */
-.tira:not(.tira-general) .tecla {
-  width: max(28px, calc(var(--perilla) * 0.7));
-}
-/* Solo: verde apagado; encendida, se ilumina */
-.tecla-solo {
-  background: linear-gradient(#3e5a3b, #273d26);
-}
-.tecla-solo.on {
-  background: linear-gradient(#b8f5c8, #2fbf6a);
-  box-shadow:
-    0 0 14px rgba(70, 224, 138, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 3px 5px rgba(0, 0, 0, 0.5);
-}
-.tira-fader {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  height: var(--fader-alto);
-}
-.tira.sin-entrada .tira-perillas,
-.tira.sin-entrada .tira-tecla,
-.tira.sin-entrada .tira-fader {
-  opacity: 0.4;
-}
 
-/* Un mando con su nombre debajo */
-.mando {
-  display: grid;
-  justify-items: center;
-  gap: 3px;
-}
 .mando-nombre {
   font-size: 10.5px;
   font-weight: 600;
@@ -360,92 +174,9 @@
   white-space: nowrap;
 }
 
-/* Perilla: falda negra estriada y tapa de color; la raya blanca marca el valor */
-.perilla {
-  --color: #c9432e;
-  --claro: #e46a52;
-  --oscuro: #7e2414;
-  position: relative;
-  width: var(--perilla);
-  height: var(--perilla);
-  border-radius: 50%;
-  background: repeating-conic-gradient(#181514 0 7deg, #2c2825 7deg 14deg);
-  box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.6),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.7);
-  touch-action: pan-x;
-  cursor: ns-resize;
-  outline: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.perilla-azul {
-  --color: #3a87c4;
-  --claro: #73b2e3;
-  --oscuro: #1c4c76;
-}
-.perilla-amarillo {
-  --color: #dfa22a;
-  --claro: #f5ca64;
-  --oscuro: #8a5c10;
-}
-.perilla-crema {
-  --color: #e6dac4;
-  --claro: #fff8ea;
-  --oscuro: #a39276;
-}
-.perilla-tapa {
-  position: absolute;
-  inset: 15%;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--claro) 0%, var(--color) 58%, var(--oscuro) 100%);
-  box-shadow:
-    inset 0 -2px 3px rgba(0, 0, 0, 0.35),
-    0 1px 2px rgba(0, 0, 0, 0.5);
-  transform: rotate(var(--giro, 0deg));
-}
-.perilla-tapa::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 7%;
-  width: 2px;
-  height: 36%;
-  margin-left: -1px;
-  border-radius: 1px;
-  background: #fffaf0;
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.45);
-}
-/* La muesca del 0 (a las 12): ahí está el sonido tal cual */
-.perilla::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: -5px;
-  width: 2px;
-  height: 3px;
-  margin-left: -1px;
-  border-radius: 1px;
-  background: rgba(241, 213, 157, 0.75);
-}
-/* El brillo no gira con la tapa: la luz viene siempre de arriba */
-.perilla::after {
-  content: "";
-  position: absolute;
-  inset: 15%;
-  border-radius: 50%;
-  background: radial-gradient(circle at 34% 26%, rgba(255, 255, 255, 0.4), transparent 52%);
-  pointer-events: none;
-}
-.perilla:focus-visible,
-.fader:focus-visible,
-.tecla:focus-visible,
-.tira-fx:focus-visible {
+.tecla:focus-visible {
   outline: 2px solid var(--laton-claro);
   outline-offset: 3px;
-}
-.perilla[aria-disabled="true"],
-.fader[aria-disabled="true"] {
-  cursor: default;
 }
 
 /* Tecla cuadrada: naranja apagada; encendida, se ilumina */
@@ -486,140 +217,6 @@
   stroke: currentColor;
   stroke-width: 2.4;
   stroke-linecap: round;
-}
-
-/* Fader: ranura negra con su escala en decibelios (el 0 a tres cuartos) y tapa clara con estrías
-   (la general, roja) */
-.fader {
-  --tapa: 34px;
-  position: relative;
-  width: 58px;
-  height: 100%;
-  touch-action: pan-x;
-  cursor: ns-resize;
-  border-radius: 6px;
-  outline: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.fader-ranura {
-  position: absolute;
-  top: calc(var(--tapa) / 2 - 4px);
-  bottom: calc(var(--tapa) / 2 - 4px);
-  left: 60%;
-  width: 5px;
-  margin-left: -2.5px;
-  border-radius: 3px;
-  background: #050404;
-  box-shadow:
-    inset 0 1px 2px #000,
-    0 1px 0 rgba(255, 255, 255, 0.08);
-}
-.fader-escala {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-/* Cada marca: el número a la izquierda y la raya hasta la ranura */
-.fader-marca {
-  position: absolute;
-  left: 0;
-  width: 60%;
-  bottom: calc(var(--tapa) / 2 + var(--en) * (100% - var(--tapa)));
-  transform: translateY(50%);
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 8.5px;
-  font-weight: 700;
-  line-height: 1;
-  color: rgba(216, 204, 184, 0.62);
-  font-variant-numeric: tabular-nums;
-}
-.fader-marca::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  margin-right: 4px;
-  background: rgba(216, 204, 184, 0.38);
-}
-.fader-marca.cero {
-  color: var(--laton-claro);
-  font-size: 10px;
-}
-.fader-marca.cero::after {
-  height: 2px;
-  margin-right: 0;
-  background: rgba(241, 213, 157, 0.8);
-}
-.fader-tapa {
-  position: absolute;
-  left: 60%;
-  bottom: calc(var(--pos, 0) * (100% - var(--tapa)));
-  width: 30px;
-  height: var(--tapa);
-  margin-left: -15px;
-  border-radius: 4px;
-  background:
-    linear-gradient(transparent calc(50% - 1px), #2a2420 calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
-    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0 1px, transparent 1px 4px),
-    linear-gradient(#f5f0e7, #c9c0b0);
-  box-shadow:
-    0 7px 10px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 #fff,
-    inset 0 -2px 2px rgba(0, 0, 0, 0.2);
-}
-.fader-rojo .fader-tapa {
-  background:
-    linear-gradient(transparent calc(50% - 1px), #4a0f08 calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
-    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.12) 0 1px, transparent 1px 4px),
-    linear-gradient(#ec5a48, #a8261b);
-  box-shadow:
-    0 7px 10px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 210, 200, 0.7),
-    inset 0 -2px 2px rgba(0, 0, 0, 0.25);
-}
-
-/* Medidor de luces: verde, amarillo y rojo arriba; lo que no suena queda en penumbra */
-.led {
-  position: relative;
-  width: 6px;
-  margin: 17px 0;
-  border-radius: 2px;
-  background: linear-gradient(to top, #2fbf5f 0%, #46e08a 62%, #f2c83a 80%, #ff4a3d 94%);
-  -webkit-mask-image: repeating-linear-gradient(to top, #000 0 4px, transparent 4px 6px);
-  mask-image: repeating-linear-gradient(to top, #000 0 4px, transparent 4px 6px);
-}
-.led::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: var(--nivel, 0%);
-  background: rgba(22, 16, 14, 0.85);
-}
-/* La general: dos columnas de luces bajo la pantalla */
-.general-arriba {
-  grid-row: 1 / span 2;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  justify-items: center;
-  gap: 14px;
-  width: 100%;
-  padding-bottom: 6px;
-}
-.led-general {
-  width: 18px;
-  margin: 0;
-  min-height: 80px;
-  -webkit-mask-image:
-    repeating-linear-gradient(to top, #000 0 4px, transparent 4px 6px),
-    linear-gradient(90deg, #000 0 42%, transparent 42% 58%, #000 58%);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    repeating-linear-gradient(to top, #000 0 4px, transparent 4px 6px),
-    linear-gradient(90deg, #000 0 42%, transparent 42% 58%, #000 58%);
-  mask-composite: intersect;
 }
 
 /* La pantalla: enseña el mando que mueves */
@@ -673,13 +270,6 @@
   font-weight: 800;
   line-height: 1.2;
   font-variant-numeric: tabular-nums;
-}
-.consola-nota {
-  max-width: 34ch;
-  margin: 0;
-  text-align: center;
-  font-size: 13px;
-  color: #c9b196;
 }
 
 /* ---------- Hoja de efectos de un canal ---------- */
@@ -778,35 +368,9 @@
   .estudio-consola {
     padding-top: max(10px, env(safe-area-inset-top));
   }
-  .consola {
-    --perilla: clamp(28px, 8.4dvh, 36px);
-    --tira: 104px;
-    --general: 124px;
-    --fader-alto: clamp(90px, 28dvh, 140px);
-  }
-  .consola-panel {
-    padding: 10px 4px 12px;
-  }
-  .tira-cabeza {
-    gap: 5px;
-    padding-bottom: 8px;
-  }
-  .tira-perillas {
-    grid-template-columns: repeat(2, auto);
-    gap: 6px 10px;
-  }
-  .tira-tecla {
-    padding: 6px 0;
-  }
-  .general-arriba {
-    gap: 8px;
-  }
   .pantalla {
     min-height: 72px;
     padding: 6px;
-  }
-  .led-general {
-    min-height: 40px;
   }
 }
 
@@ -854,12 +418,7 @@
 }
 
 /* ---------- La pantalla de la canción, en lo alto de la mesa (desde Pistas) ---------- */
-/* La columna del centro de la mesa: la pantalla arriba y los canales debajo */
-.consola-centro {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
+
 .pantalla-cancion {
   display: grid;
   grid-template-areas:
@@ -1067,5 +626,356 @@
   }
   .pc-tecla {
     width: 40px;
+  }
+}
+
+/* ---------- La consola con la foto de la mesa (ConsolaMesa + MesaFoto) ---------- */
+/* Arriba, fija, la pantalla y el reproductor; abajo la mesa, que se desliza si no cabe */
+.consola-foto {
+  --perilla: 40px;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cf-arriba {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px 10px;
+}
+.cf-estado {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #2c2825, #201d1a);
+}
+.cf-pantalla {
+  width: 168px;
+  min-height: 62px;
+  padding: 6px 8px;
+}
+.cf-nota {
+  max-width: 24ch;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #c9b196;
+}
+.cf-arriba .pantalla-cancion {
+  flex: 1 1 420px;
+  min-width: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.cf-abajo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(234, 216, 189, 0.35) transparent;
+}
+/* La mesa: la caja ocupa lo que mide escalada y la foto va dentro, escalada desde la esquina */
+.mf-caja {
+  position: relative;
+  flex: none;
+  margin: auto;
+}
+.mf {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+.mf-foto,
+.mf-dibujo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.mf-marcas {
+  fill: none;
+  stroke: #e9e4da;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+.mf-marcas-fader {
+  stroke-width: 2;
+}
+.mf-numero {
+  font-family: "Arial Narrow", "Roboto Condensed", var(--f-ui), Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  fill: #ece6da;
+}
+.mf-numero.cero {
+  font-size: 17px;
+  fill: #fff;
+}
+.mf-canal {
+  display: contents;
+}
+.mf-mando {
+  position: absolute;
+  border-radius: 10px;
+  touch-action: none;
+  cursor: ns-resize;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.mf-mando:focus-visible {
+  box-shadow: 0 0 0 3px rgba(255, 210, 122, 0.85);
+}
+.mf-mando[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.45;
+}
+/* Las ruedas: falda negra estriada, tapa de metal cepillado (la luz no gira) y la raya que gira */
+.mf-rueda {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.mf-falda {
+  position: absolute;
+  left: calc(var(--d) * -0.72);
+  top: calc(var(--d) * -0.56);
+  width: calc(var(--d) * 1.44);
+  height: calc(var(--d) * 1.34);
+  border-radius: 50% / 40%;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, #040404, #2e2e2e 26%, #0c0c0c 52%, #272727 78%, #050505);
+  box-shadow:
+    0 5px 6px rgba(0, 0, 0, 0.75),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.6);
+}
+.mf-rojo .mf-falda {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, #1c0202, #5c0b0b 26%, #2a0404 52%, #521010 78%, #1a0202);
+}
+.mf-tapa {
+  position: absolute;
+  left: calc(var(--d) / -2);
+  top: calc(var(--d) / -2);
+  width: var(--d);
+  height: var(--d);
+  border-radius: 50%;
+  transform: scaleY(0.9);
+  background:
+    radial-gradient(circle, transparent 58%, rgba(0, 0, 0, 0.3) 100%),
+    repeating-conic-gradient(rgba(255, 255, 255, 0.07) 0 1.5deg, rgba(0, 0, 0, 0.05) 1.5deg 3deg),
+    conic-gradient(var(--c1), var(--c2) 45deg, var(--c3) 90deg, var(--c4) 135deg, var(--c1) 180deg, var(--c2) 225deg, var(--c3) 270deg, var(--c4) 315deg, var(--c1));
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.mf-plata {
+  --c1: #f6f6f3;
+  --c2: #8d8d8a;
+  --c3: #e2e2df;
+  --c4: #7b7b78;
+}
+.mf-azul {
+  --c1: #a6d4ff;
+  --c2: #0d45b0;
+  --c3: #4b97ff;
+  --c4: #082f80;
+}
+.mf-rojo {
+  --c1: #ff8a7c;
+  --c2: #8c0c0c;
+  --c3: #ff4636;
+  --c4: #6c0606;
+}
+.mf-raya {
+  position: absolute;
+  left: 50%;
+  top: 5%;
+  width: max(2px, calc(var(--d) * 0.075));
+  height: 45%;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 0 1.5px rgba(0, 0, 0, 0.9);
+  transform: translateX(-50%) rotate(var(--giro));
+  transform-origin: 50% 100%;
+}
+/* Los faders: ranura con la luz del nivel dentro y la tapa de la foto */
+.mf-ranura {
+  position: absolute;
+  width: 14px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #000, #141414 50%, #000);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.9),
+    0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.mf-luz {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  height: calc(var(--nivel, 0%) * 0.96);
+  border-radius: 3px;
+  background: linear-gradient(to top, #2fbf6a, #46e08a 55%, #ffd23c 80%, #ff5b3c) bottom / 100% 220px no-repeat;
+  box-shadow: 0 0 6px rgba(70, 224, 138, 0.55);
+}
+.mf-luz.satura {
+  box-shadow: 0 0 8px rgba(255, 80, 50, 0.9);
+}
+.mf-tapa-fader {
+  position: absolute;
+  background: url(/mesa/fader-tapa.webp) center / 100% 100% no-repeat;
+  filter: drop-shadow(0 5px 4px rgba(0, 0, 0, 0.65));
+  pointer-events: none;
+}
+/* Las teclas de la foto: apagadas se oscurecen, encendidas brillan */
+.mf-boton {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+.mf-boton:focus-visible {
+  outline: 3px solid rgba(255, 210, 122, 0.9);
+  outline-offset: 2px;
+}
+.mf-boton:active {
+  transform: translateY(1px);
+}
+.mf-roja:not(.on) {
+  background: rgba(30, 4, 2, 0.66);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.6);
+}
+.mf-roja.on {
+  box-shadow: 0 0 16px 3px rgba(255, 50, 30, 0.55);
+}
+.mf-ambar:not(.on) {
+  background: rgba(25, 14, 2, 0.5);
+}
+.mf-ambar.on {
+  background: rgba(255, 240, 200, 0.12);
+  box-shadow: 0 0 16px 2px rgba(255, 190, 60, 0.6);
+}
+.mf-tapado {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  border-radius: 14px;
+  background: rgba(12, 8, 6, 0.74);
+}
+.mf-tapado p {
+  max-width: 15em;
+  margin: 0;
+  text-align: center;
+  font-size: 30px;
+  line-height: 1.3;
+  color: #ead8bd;
+  text-shadow: 0 2px 8px #000;
+}
+/* En el móvil de pie: que lo gire */
+.cf-girar {
+  display: none;
+}
+@media (orientation: portrait) and (pointer: coarse) and (max-width: 600px) {
+  .cf-girar {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 14px;
+    padding: 24px;
+    border-radius: 12px;
+    background: rgba(18, 10, 6, 0.95);
+    color: #ead8bd;
+    text-align: center;
+  }
+  .cf-girar svg {
+    width: 72px;
+    height: 72px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    animation: girar-movil 2s ease-in-out infinite;
+  }
+  .cf-girar p {
+    margin: 0;
+    font-size: 18px;
+  }
+}
+@keyframes girar-movil {
+  0%,
+  25% {
+    transform: rotate(0deg);
+  }
+  65%,
+  100% {
+    transform: rotate(-90deg);
+  }
+}
+/* Tumbado y bajito (móvil): la barra de arriba va a los lados de la pantalla y el reproductor en una fila */
+@media (max-height: 500px) and (min-width: 600px) {
+  .cf-arriba .pantalla-cancion {
+    grid-template-areas: "teclas pantalla";
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 8px 10px;
+  }
+  .cf-arriba .pc-pantalla {
+    height: 64px;
+  }
+  .cf-arriba .pc-bucle {
+    margin-left: 4px;
+  }
+}
+@media (max-height: 500px) {
+  .estudio-consola {
+    padding-top: max(8px, env(safe-area-inset-top));
+  }
+  .cf-arriba {
+    margin: 0 52px 0 118px;
+  }
+  .cf-nota {
+    display: none;
+  }
+  .cf-pantalla {
+    width: 140px;
+    min-height: 48px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cf-girar svg {
+    animation: none;
   }
 }

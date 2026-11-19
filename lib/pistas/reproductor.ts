@@ -5,7 +5,7 @@
 
 import { FRECUENCIA, PISTAS } from "./tipos";
 import { Canal, picoDe } from "../mesa/mesa";
-import { AJUSTES_PISTA, leerAjustesMesa, leerAjustesPistas, type AjustesCanal } from "../mesa/ajustes";
+import { AJUSTES_PISTA, conMaestros, generalCancion, leerAjustesMesa, leerAjustesPistas, type AjustesCanal } from "../mesa/ajustes";
 
 type CtxAudio = typeof AudioContext;
 
@@ -53,14 +53,15 @@ export class Reproductor {
         medidor.fftSize = 1024;
         general.connect(limitador).connect(medidor).connect(ctx.destination);
         const guardados = leerAjustesPistas(PISTAS.length);
+        const mesaGuardada = leerAjustesMesa();
         this.canales = PISTAS.map((_, i) => {
           const c = new Canal(ctx, false);
-          c.aplicar(paraPista(guardados[i]));
+          c.aplicar(paraPista(conMaestros(guardados[i], mesaGuardada.maestros)));
           nodo.connect(c.entrada, i);
           c.salida.connect(general);
           return c;
         });
-        general.gain.value = leerAjustesMesa().general;
+        general.gain.value = generalCancion(mesaGuardada);
         this.general = general;
         this.medidorGeneral = medidor;
         nodo.port.onmessage = (e: MessageEvent) => {

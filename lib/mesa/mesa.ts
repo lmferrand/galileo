@@ -5,7 +5,7 @@
 // Vive fuera de la pantalla (un único objeto) para que siga sonando con su hoja cerrada.
 
 import { pedirAudio } from "../entrada";
-import type { AjustesCanal, AjustesMesa } from "./ajustes";
+import { conMaestros, generalEntradas, type AjustesCanal, type AjustesMesa } from "./ajustes";
 
 export type EstadoMesa = "apagada" | "abriendo" | "encendida" | "denegada" | "error" | "sin-soporte";
 
@@ -355,8 +355,8 @@ export class Mesa {
 
   aplicar(a: AjustesMesa) {
     if (!this.ctx || !this.general) return;
-    this.canales.forEach((c, i) => c.aplicar(a.canales[i]));
-    poner(this.general.gain, a.general, this.ctx);
+    this.canales.forEach((c, i) => c.aplicar(conMaestros(a.canales[i], a.maestros)));
+    poner(this.general.gain, generalEntradas(a), this.ctx);
   }
 
   apagar() {

@@ -22,6 +22,45 @@ export interface AjustesMesa {
   canales: [AjustesCanal, AjustesCanal];
   /** Multiplicador: 1 = 0 dB */
   general: number;
+  maestros: Maestros;
+}
+
+/**
+ * Las ruedas de la sección general de la mesa, en dB (0 = tal cual): MASTER es el volumen de la
+ * canción (las pistas juntas), MONITOR el de lo que tocas (las entradas juntas) y REV y DELAY
+ * MASTER suben o bajan la reverb y el delay de todos los canales a la vez.
+ */
+export interface Maestros {
+  cancion: number;
+  monitor: number;
+  reverb: number;
+  delay: number;
+}
+
+export const MAESTROS_INICIALES: Maestros = { cancion: 0, monitor: 0, reverb: 0, delay: 0 };
+/** Lo que se pueden subir o bajar las ruedas de la sección general */
+export const MAESTRO_DB = 12;
+
+const veces = (db: number) => Math.pow(10, db / 20);
+
+/** Un canal con la reverb y el delay de la sección general (REV y DELAY MASTER) aplicados. */
+export function conMaestros(c: AjustesCanal, m: Maestros): AjustesCanal {
+  if (!m.reverb && !m.delay) return c;
+  return {
+    ...c,
+    reverb: { ...c.reverb, mezcla: Math.min(1, c.reverb.mezcla * veces(m.reverb)) },
+    delay: { ...c.delay, mezcla: Math.min(1, c.delay.mezcla * veces(m.delay)) },
+  };
+}
+/** El volumen de las entradas: el general por el MONITOR */
+export const generalEntradas = (a: AjustesMesa) => a.general * veces(a.maestros.monitor);
+/** El volumen de la canción: el general por el MASTER */
+export const generalCancion = (a: AjustesMesa) => a.general * veces(a.maestros.cancion);
+
+function leerMaestros(m: unknown): Maestros {
+  const o = (m && typeof m === "object" ? m : {}) as Partial<Record<keyof Maestros, unknown>>;
+  const uno = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.max(-MAESTRO_DB, Math.min(MAESTRO_DB, v)) : 0);
+  return { cancion: uno(o.cancion), monitor: uno(o.monitor), reverb: uno(o.reverb), delay: uno(o.delay) };
 }
 
 export type Efecto = "puerta" | "compresor" | "distorsion" | "ecualizador" | "chorus" | "delay" | "reverb";
@@ -44,6 +83,7 @@ const BASE: AjustesCanal = {
 export const AJUSTES_INICIALES: AjustesMesa = {
   canales: [structuredClone(BASE), { ...structuredClone(BASE), compresor: { activo: true, cantidad: 0.45 }, reverb: { activo: true, tamano: 0.45, mezcla: 0.18 } }],
   general: 1,
+  maestros: { ...MAESTROS_INICIALES },
 };
 
 type Sonido = Pick<AjustesCanal, Efecto>;
@@ -145,8 +185,9 @@ export function leerAjustesMesa(): AjustesMesa {
     if (p.v !== 2 && p.v !== 3 && general === GENERAL_ANTIGUO) general = AJUSTES_INICIALES.general;
     const canales: AjustesMesa["canales"] = [completar(p.canales[0], AJUSTES_INICIALES.canales[0]), completar(p.canales[1], AJUSTES_INICIALES.canales[1])];
     // Desde la versión 3 todo empieza en 0 dB: lo guardado antes se pone a 0 dB una vez (los efectos se quedan)
-    if ((p.v ?? 1) < 3) return { canales: canales.map(aCero) as AjustesMesa["canales"], general: 1 };
-    return { canales, general };
+    const maestros = leerMaestros(p.maestros);
+    if ((p.v ?? 1) < 3) return { canales: canales.map(aCero) as AjustesMesa["canales"], general: 1, maestros };
+    return { canales, general, maestros };
   } catch {
     return structuredClone(AJUSTES_INICIALES);
   }
