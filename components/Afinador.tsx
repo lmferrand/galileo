@@ -381,9 +381,9 @@ export default function Afinador() {
   const sonandoCuerda = tonoEn ?? (viva ? cuerda : null);
   const celebrandoAhora = celebrando && !cromatico;
 
-  // Móvil tumbado: la pantalla es más alta que el móvil y se desliza. Que se pare con el primer traste
-  // justo encima de los botones de abajo (el mástil dibujado sigue hasta el borde: no se ve el corte).
-  // Se mide dónde cae ese traste y la página acaba ahí; la pala se queda de su tamaño (--ancho-pala).
+  // Móvil tumbado: la pantalla es más alta que el móvil y se desliza. El límite lo marcó él: el borde
+  // de abajo un poco por debajo del primer traste (la cejuela queda bajo el Metrónomo y asoma el
+  // diapasón). Se mide dónde cae y la página acaba ahí; la pala se queda de su tamaño (--ancho-pala).
   const raiz = useRef<HTMLElement>(null);
   useEffect(() => {
     const app = raiz.current;
@@ -401,14 +401,13 @@ export default function Afinador() {
         ro.observe(marco);
       }
       if (!tumbado.matches || !marco || !pala) return;
-      // Dónde cae el primer traste dentro de la página, sin contar los movimientos (el giroscopio)
+      // Dónde cae ese punto del mástil dentro de la página, sin contar los movimientos (el giroscopio)
       let arriba = 0;
       for (let el: HTMLElement | null = pala; el && el !== app; el = el.offsetParent as HTMLElement | null) arriba += el.offsetTop;
       const g = instrumento.pala;
-      const traste = arriba + ((g.mastil.cejuela + g.mastil.paso) / g.imagen.alto) * pala.offsetHeight;
-      const botones = document.querySelector<HTMLElement>(".barra-abajo")?.offsetHeight ?? 76;
+      const limite = arriba + ((g.mastil.cejuela + 1.3 * g.mastil.paso) / g.imagen.alto) * pala.offsetHeight;
       app.style.setProperty("--ancho-pala", `${pala.offsetWidth}px`);
-      app.style.setProperty("--fin-pala", `${Math.round(Math.max(app.offsetHeight, traste + botones + 18))}px`);
+      app.style.setProperty("--fin-pala", `${Math.round(limite)}px`);
     };
     medir();
     tumbado.addEventListener("change", medir);
