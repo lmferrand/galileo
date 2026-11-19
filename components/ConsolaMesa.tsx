@@ -49,7 +49,12 @@ export interface PistasMesa {
   niveles: () => { pistas: number[]; general: number };
 }
 
-const panorama = (v: number) => (Math.abs(v) < 0.03 ? "Centro" : v < 0 ? `Izq. ${Math.round(-v * 100)}` : `Der. ${Math.round(v * 100)}`);
+const panorama = (v: number) =>
+  Math.abs(v) < 0.03
+    ? "Centro"
+    : v < 0
+      ? `Izq. ${Math.round(-v * 100)}`
+      : `Der. ${Math.round(v * 100)}`;
 const LECTURA_MS = 1400;
 
 type Abierta = { tipo: "entrada" | "pista"; i: number };
@@ -75,16 +80,47 @@ interface PropsTira {
   medidor: (el: HTMLSpanElement | null) => void;
 }
 
-function Tira({ nombre, titulo, pista, sinEntrada, c, ganancia, volumen, silencio, solo, nFx, onCanal, onVolumen, onSilencio, onSolo, onEfectos, leer, medidor }: PropsTira) {
+function Tira({
+  nombre,
+  titulo,
+  pista,
+  sinEntrada,
+  c,
+  ganancia,
+  volumen,
+  silencio,
+  solo,
+  nFx,
+  onCanal,
+  onVolumen,
+  onSilencio,
+  onSolo,
+  onEfectos,
+  leer,
+  medidor,
+}: PropsTira) {
   const ecualizar = (banda: "agudos" | "graves", v: number) => {
-    onCanal((x) => ({ ...x, ecualizador: { ...x.ecualizador, activo: true, [banda]: v } }));
+    onCanal((x) => ({
+      ...x,
+      ecualizador: { ...x.ecualizador, activo: true, [banda]: v },
+    }));
     leer(`${banda === "agudos" ? "Agudos" : "Graves"} ${dB(v)}`);
   };
   return (
-    <section className={`tira${pista ? " tira-pista" : ""}${sinEntrada ? " sin-entrada" : ""}`} aria-label={nombre}>
+    <section
+      className={`tira${pista ? " tira-pista" : ""}${sinEntrada ? " sin-entrada" : ""}`}
+      aria-label={nombre}
+    >
       <div className="tira-cabeza">
-        <span className="tira-nombre">{sinEntrada ? "Sin entrada 2" : nombre}</span>
-        <button type="button" className={`tira-fx${nFx ? " con" : ""}`} onClick={onEfectos} aria-label={`Efectos de ${titulo}: ${nFx} encendidos`}>
+        <span className="tira-nombre">
+          {sinEntrada ? "Sin entrada 2" : nombre}
+        </span>
+        <button
+          type="button"
+          className={`tira-fx${nFx ? " con" : ""}`}
+          onClick={onEfectos}
+          aria-label={`Efectos de ${titulo}: ${nFx} encendidos`}
+        >
           Efectos{nFx > 0 && <span className="tira-fx-n">{nFx}</span>}
         </button>
       </div>
@@ -104,8 +140,30 @@ function Tira({ nombre, titulo, pista, sinEntrada, c, ganancia, volumen, silenci
             leer(`Ganancia ${dB(ganancia)}`);
           }}
         />
-        <Perilla color="azul" nombre={`Agudos de ${titulo}`} etiqueta="Agudos" valor={c.ecualizador.agudos} min={-12} max={12} paso={1} porDefecto={0} ver={dB} onCambio={(v) => ecualizar("agudos", v)} />
-        <Perilla color="azul" nombre={`Graves de ${titulo}`} etiqueta="Graves" valor={c.ecualizador.graves} min={-12} max={12} paso={1} porDefecto={0} ver={dB} onCambio={(v) => ecualizar("graves", v)} />
+        <Perilla
+          color="azul"
+          nombre={`Agudos de ${titulo}`}
+          etiqueta="Agudos"
+          valor={c.ecualizador.agudos}
+          min={-12}
+          max={12}
+          paso={1}
+          porDefecto={0}
+          ver={dB}
+          onCambio={(v) => ecualizar("agudos", v)}
+        />
+        <Perilla
+          color="azul"
+          nombre={`Graves de ${titulo}`}
+          etiqueta="Graves"
+          valor={c.ecualizador.graves}
+          min={-12}
+          max={12}
+          paso={1}
+          porDefecto={0}
+          ver={dB}
+          onCambio={(v) => ecualizar("graves", v)}
+        />
         <Perilla
           color="amarillo"
           nombre={`Panorama de ${titulo}`}
@@ -174,20 +232,33 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   const estado = useEstadoMesa();
   const n = pistas?.nombres.length ?? 0;
   const [cambiados, setAjustes] = useState<AjustesMesa | null>(null);
-  const [pistasCambiadas, setAjustesPistas] = useState<AjustesCanal[] | null>(null);
+  const [pistasCambiadas, setAjustesPistas] = useState<AjustesCanal[] | null>(
+    null,
+  );
   const [retraso, setRetraso] = useState<number | null>(null);
   const [abierta, setAbierta] = useState<Abierta | null>(null);
   // «Solo» de las entradas (el de las pistas es el del reproductor). No se guarda: es para oír algo un momento.
-  const [soloEntradas, setSoloEntradas] = useState<[boolean, boolean]>([false, false]);
+  const [soloEntradas, setSoloEntradas] = useState<[boolean, boolean]>([
+    false,
+    false,
+  ]);
   const soloEnEntradas = soloEntradas[0] || soloEntradas[1];
   const algunSolo = soloEnEntradas || (pistas?.solo.some(Boolean) ?? false);
-  const [lectura, setLectura] = useState<{ donde: string; texto: string } | null>(null);
+  const [lectura, setLectura] = useState<{
+    donde: string;
+    texto: string;
+  } | null>(null);
   const tLectura = useRef<ReturnType<typeof setTimeout> | null>(null);
   const medidores = useRef<(HTMLSpanElement | null)[]>([]);
   const ledGeneral = useRef<HTMLSpanElement | null>(null);
   const ultimasPistas = useRef(pistas);
-  const ajustes = cambiados ?? (hidratado ? leerAjustesMesa() : AJUSTES_INICIALES);
-  const ajustesPistas = pistasCambiadas ?? (hidratado ? leerAjustesPistas(n) : Array.from({ length: n }, () => AJUSTES_PISTA));
+  const ajustes =
+    cambiados ?? (hidratado ? leerAjustesMesa() : AJUSTES_INICIALES);
+  const ajustesPistas =
+    pistasCambiadas ??
+    (hidratado
+      ? leerAjustesPistas(n)
+      : Array.from({ length: n }, () => AJUSTES_PISTA));
   const encendida = estado === "encendida";
 
   useEffect(() => {
@@ -197,7 +268,10 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   // A la Mesa le llega cada entrada callada si hay algún «Solo» y ella no lo tiene
   const conSolo = (a: AjustesMesa): AjustesMesa => ({
     ...a,
-    canales: a.canales.map((c, i) => ({ ...c, silencio: c.silencio || (algunSolo && !soloEntradas[i]) })) as AjustesMesa["canales"],
+    canales: a.canales.map((c, i) => ({
+      ...c,
+      silencio: c.silencio || (algunSolo && !soloEntradas[i]),
+    })) as AjustesMesa["canales"],
   });
   const cambiar = (nuevo: AjustesMesa) => {
     setAjustes(nuevo);
@@ -222,7 +296,10 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     if (tLectura.current) clearTimeout(tLectura.current);
     tLectura.current = setTimeout(() => setLectura(null), LECTURA_MS);
   };
-  useEffect(() => () => void (tLectura.current && clearTimeout(tLectura.current)), []);
+  useEffect(
+    () => () => void (tLectura.current && clearTimeout(tLectura.current)),
+    [],
+  );
 
   // Al cambiar un «Solo»: las entradas y las pistas, a la vez
   useEffect(() => {
@@ -272,7 +349,9 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", volver);
-      [...luces, general].forEach((el) => el?.style.setProperty("--nivel", "0%"));
+      [...luces, general].forEach((el) =>
+        el?.style.setProperty("--nivel", "0%"),
+      );
     };
   }, [encendida, conPistas]);
 
@@ -300,138 +379,192 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
             ? "Entradas apagadas"
             : "Apagada";
 
-  const tituloHoja = abierta ? (abierta.tipo === "entrada" ? `la entrada ${abierta.i + 1}` : (pistas?.conArticulo[abierta.i] ?? "")) : "";
+  const tituloHoja = abierta
+    ? abierta.tipo === "entrada"
+      ? `la entrada ${abierta.i + 1}`
+      : (pistas?.conArticulo[abierta.i] ?? "")
+    : "";
 
   return (
     <div className={`consola${pistas ? " con-transporte" : ""}`}>
       <div className="consola-chasis">
         <span className="consola-madera" aria-hidden="true" />
-        <div className="consola-desliza">
-          <div className="consola-panel" style={{ "--canales": 2 + n } as CSSProperties}>
-            {([0, 1] as const).map((i) => {
-              const c = ajustes.canales[i];
-              const nombre = `Entrada ${i + 1}`;
-              return (
+        <div className="consola-centro">
+          {/* Desde Pistas: la pantalla de la canción, en lo alto de la propia mesa */}
+          {pistas && <TransporteMesa t={pistas.transporte} />}
+          <div className="consola-desliza">
+            <div
+              className="consola-panel"
+              style={{ "--canales": 2 + n } as CSSProperties}
+            >
+              {([0, 1] as const).map((i) => {
+                const c = ajustes.canales[i];
+                const nombre = `Entrada ${i + 1}`;
+                return (
+                  <Tira
+                    key={`e${i}`}
+                    nombre={nombre}
+                    titulo={`la entrada ${i + 1}`}
+                    sinEntrada={encendida && mesa.entradas < 2 && i === 1}
+                    c={c}
+                    ganancia={{ min: -20, max: 20, porDefecto: 0 }}
+                    volumen={c.volumen}
+                    silencio={c.silencio}
+                    solo={soloEntradas[i]}
+                    nFx={efectosActivos(c)}
+                    onCanal={(f) => cambiarEntrada(i, f)}
+                    onVolumen={(volumen) =>
+                      cambiarEntrada(i, (x) => ({ ...x, volumen }))
+                    }
+                    onSilencio={() =>
+                      cambiarEntrada(i, (x) => ({
+                        ...x,
+                        silencio: !x.silencio,
+                      }))
+                    }
+                    onSolo={() =>
+                      setSoloEntradas((s) =>
+                        i === 0 ? [!s[0], s[1]] : [s[0], !s[1]],
+                      )
+                    }
+                    onEfectos={() => setAbierta({ tipo: "entrada", i })}
+                    leer={(t) => leer(nombre, t)}
+                    medidor={(el) => void (medidores.current[i] = el)}
+                  />
+                );
+              })}
+
+              {pistas?.nombres.map((nombre, i) => (
                 <Tira
-                  key={`e${i}`}
+                  key={`p${i}`}
                   nombre={nombre}
-                  titulo={`la entrada ${i + 1}`}
-                  sinEntrada={encendida && mesa.entradas < 2 && i === 1}
-                  c={c}
-                  ganancia={{ min: -20, max: 20, porDefecto: 0 }}
-                  volumen={c.volumen}
-                  silencio={c.silencio}
-                  solo={soloEntradas[i]}
-                  nFx={efectosActivos(c)}
-                  onCanal={(f) => cambiarEntrada(i, f)}
-                  onVolumen={(volumen) => cambiarEntrada(i, (x) => ({ ...x, volumen }))}
-                  onSilencio={() => cambiarEntrada(i, (x) => ({ ...x, silencio: !x.silencio }))}
-                  onSolo={() => setSoloEntradas((s) => (i === 0 ? [!s[0], s[1]] : [s[0], !s[1]]))}
-                  onEfectos={() => setAbierta({ tipo: "entrada", i })}
+                  titulo={pistas.conArticulo[i]}
+                  pista
+                  c={ajustesPistas[i]}
+                  ganancia={{ min: -12, max: 12, porDefecto: 0 }}
+                  volumen={pistas.volumen[i] * pistas.volumen[i]}
+                  silencio={pistas.silencio[i]}
+                  solo={pistas.solo[i]}
+                  nFx={efectosActivos(ajustesPistas[i], true)}
+                  onCanal={(f) => cambiarPista(i, f)}
+                  onVolumen={(a) => pistas.onVolumen(i, Math.sqrt(a))}
+                  onSilencio={() => pistas.onSilencio(i)}
+                  onSolo={() => pistas.onSolo(i)}
+                  onEfectos={() => setAbierta({ tipo: "pista", i })}
                   leer={(t) => leer(nombre, t)}
-                  medidor={(el) => void (medidores.current[i] = el)}
+                  medidor={(el) => void (medidores.current[2 + i] = el)}
                 />
-              );
-            })}
+              ))}
 
-            {pistas?.nombres.map((nombre, i) => (
-              <Tira
-                key={`p${i}`}
-                nombre={nombre}
-                titulo={pistas.conArticulo[i]}
-                pista
-                c={ajustesPistas[i]}
-                ganancia={{ min: -12, max: 12, porDefecto: 0 }}
-                volumen={pistas.volumen[i] * pistas.volumen[i]}
-                silencio={pistas.silencio[i]}
-                solo={pistas.solo[i]}
-                nFx={efectosActivos(ajustesPistas[i], true)}
-                onCanal={(f) => cambiarPista(i, f)}
-                onVolumen={(a) => pistas.onVolumen(i, Math.sqrt(a))}
-                onSilencio={() => pistas.onSilencio(i)}
-                onSolo={() => pistas.onSolo(i)}
-                onEfectos={() => setAbierta({ tipo: "pista", i })}
-                leer={(t) => leer(nombre, t)}
-                medidor={(el) => void (medidores.current[2 + i] = el)}
-              />
-            ))}
-
-            <section className="tira tira-general" aria-label="General">
-              <div className="general-arriba">
-                <div className="pantalla" role="status">
-                  {lectura ? (
-                    <>
-                      <span className="pantalla-donde">{lectura.donde}</span>
-                      <span className="pantalla-valor">{lectura.texto}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="pantalla-marca">
-                        <small>The</small> Clavija
-                      </span>
-                      <span className="pantalla-estado">{estadoTexto}</span>
-                      {encendida && retraso !== null && <span className="pantalla-estado">Retraso ≈ {retraso} ms</span>}
-                    </>
-                  )}
+              <section className="tira tira-general" aria-label="General">
+                <div className="general-arriba">
+                  <div className="pantalla" role="status">
+                    {lectura ? (
+                      <>
+                        <span className="pantalla-donde">{lectura.donde}</span>
+                        <span className="pantalla-valor">{lectura.texto}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="pantalla-marca">
+                          <small>The</small> Clavija
+                        </span>
+                        <span className="pantalla-estado">{estadoTexto}</span>
+                        {encendida && retraso !== null && (
+                          <span className="pantalla-estado">
+                            Retraso ≈ {retraso} ms
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <span
+                    className="led led-general"
+                    ref={ledGeneral}
+                    aria-hidden="true"
+                  />
                 </div>
-                <span className="led led-general" ref={ledGeneral} aria-hidden="true" />
-              </div>
-              <div className="tira-tecla">
-                <div className="tecla-con-nombre">
-                <button
-                  type="button"
-                  className={`tecla tecla-encender${encendida ? " on" : ""}`}
-                  aria-pressed={encendida}
-                  aria-label={encendida ? "Apagar las entradas de la Mesa" : "Encender las entradas de la Mesa"}
-                  disabled={estado === "abriendo"}
-                  onClick={() => void encender()}
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 3v8M7.1 6.3a7 7 0 1 0 9.8 0" />
-                  </svg>
-                </button>
-                <span className="mando-nombre" aria-hidden="true">
-                  {encendida ? "Apagar" : "Encender"}
-                </span>
+                <div className="tira-tecla">
+                  <div className="tecla-con-nombre">
+                    <button
+                      type="button"
+                      className={`tecla tecla-encender${encendida ? " on" : ""}`}
+                      aria-pressed={encendida}
+                      aria-label={
+                        encendida
+                          ? "Apagar las entradas de la Mesa"
+                          : "Encender las entradas de la Mesa"
+                      }
+                      disabled={estado === "abriendo"}
+                      onClick={() => void encender()}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 3v8M7.1 6.3a7 7 0 1 0 9.8 0" />
+                      </svg>
+                    </button>
+                    <span className="mando-nombre" aria-hidden="true">
+                      {encendida ? "Apagar" : "Encender"}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="tira-fader">
-                <Fader
-                  rojo
-                  nombre="Volumen general"
-                  valor={ajustes.general}
-                  onCambio={(general) => {
-                    cambiar({ ...ajustes, general });
-                    pistas?.volumenGeneral(general);
-                    leer("General", `Volumen ${verDb(general)}`);
-                  }}
-                />
-              </div>
-            </section>
+                <div className="tira-fader">
+                  <Fader
+                    rojo
+                    nombre="Volumen general"
+                    valor={ajustes.general}
+                    onCambio={(general) => {
+                      cambiar({ ...ajustes, general });
+                      pistas?.volumenGeneral(general);
+                      leer("General", `Volumen ${verDb(general)}`);
+                    }}
+                  />
+                </div>
+              </section>
+            </div>
           </div>
         </div>
         <span className="consola-madera" aria-hidden="true" />
       </div>
 
-      {pistas && <TransporteMesa t={pistas.transporte} />}
-
-      {!encendida && <p className="consola-nota">Con cascos en la interfaz: por el altavoz se acopla. La entrada se elige en Ajustes.</p>}
+      {!encendida && (
+        <p className="consola-nota">
+          Con cascos en la interfaz: por el altavoz se acopla. La entrada se
+          elige en Ajustes.
+        </p>
+      )}
 
       {abierta !== null && (
         <div className="hoja-fondo" onClick={() => setAbierta(null)}>
-          <div className="hoja" role="dialog" aria-modal="true" aria-label={`Efectos de ${tituloHoja}`} onClick={(e) => e.stopPropagation()}>
+          <div
+            className="hoja"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Efectos de ${tituloHoja}`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="hoja-asa" aria-hidden="true" />
             <header className="hoja-cabecera">
               <h2>Efectos de {tituloHoja}</h2>
-              <button type="button" className="boton-texto" onClick={() => setAbierta(null)}>
+              <button
+                type="button"
+                className="boton-texto"
+                onClick={() => setAbierta(null)}
+              >
                 Listo
               </button>
             </header>
             <div className="hoja-cuerpo mesa-hoja">
               {abierta.tipo === "entrada" ? (
-                <EfectosMesa canal={ajustes.canales[abierta.i]} onCambio={(f) => cambiarEntrada(abierta.i, f)} />
+                <EfectosMesa
+                  canal={ajustes.canales[abierta.i]}
+                  onCambio={(f) => cambiarEntrada(abierta.i, f)}
+                />
               ) : (
-                <EfectosMesa canal={ajustesPistas[abierta.i]} onCambio={(f) => cambiarPista(abierta.i, f)} sinPuerta />
+                <EfectosMesa
+                  canal={ajustesPistas[abierta.i]}
+                  onCambio={(f) => cambiarPista(abierta.i, f)}
+                  sinPuerta
+                />
               )}
             </div>
           </div>

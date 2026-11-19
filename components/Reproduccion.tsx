@@ -16,6 +16,7 @@ import { limpiarBajo } from "@/lib/pistas/limpiarBajo";
 import { separadaConRoformer } from "@/lib/pistas/importar";
 import { describirMezcla, guardarArchivo, mezclarCancion, nombreArchivo } from "@/lib/pistas/exportar";
 import { formatoTiempo, PISTAS, type Cancion, type Pista } from "@/lib/pistas/tipos";
+import { ondaDe } from "@/lib/pistas/onda";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
 const IDS = PISTAS.map((p) => p.id);
@@ -78,6 +79,8 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const [guardado, setGuardado] = useState<Guardado | null>(null);
   // La Mesa (estudio y consola) con las 6 pistas como canales 3 a 8
   const [verMesa, setVerMesa] = useState(false);
+  // La onda de la canción, para la pantalla de la Mesa
+  const [onda, setOnda] = useState<Float32Array | null>(null);
   // Un «Solo» en una entrada de la Mesa: las pistas sin «Solo» se callan
   const [soloFuera, setSoloFuera] = useState(false);
   const cerrarMesa = useCallback(() => {
@@ -141,6 +144,8 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
         const limpias = sinLimpiar ? datos : await limpiarBajo(datos);
         datos = limpias.some((p) => p.length === 0) ? await leer() : limpias;
         if (!datos || !vivo) return;
+        // Antes de cargar: al reproductor las pistas pasan al hilo de audio y dejan de valer aquí
+        setOnda(ondaDe(datos, cancion.frames));
         await r.cargar(datos, cancion.frames, gananciasIniciales.current);
         if (vivo) setCargando(false);
       } catch (e) {
@@ -291,6 +296,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
       cargando,
       segundo,
       duracion: cancion.duracion,
+      onda,
       desde,
       hasta,
       repetir,
