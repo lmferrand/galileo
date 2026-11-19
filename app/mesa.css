@@ -81,6 +81,11 @@
   pointer-events: none;
   transition: opacity 220ms ease;
 }
+/* En la foto vertical, arriba está el cartel del estudio: la ayuda va abajo, sobre la alfombra */
+.foto-vertical .estudio-pista {
+  top: auto;
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 16px);
+}
 .estudio-mesa:not(.fase-estudio) .estudio-pista {
   opacity: 0;
 }

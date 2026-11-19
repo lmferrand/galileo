@@ -7,6 +7,7 @@
 // acerca entera con una transformación CSS (fluida en el iPhone). Medidas en píxeles de la foto.
 
 import { useEffect, useRef, useState } from "react";
+import { useHorizontal } from "@/lib/horizontal";
 import ConsolaMesa, { type PistasMesa } from "./ConsolaMesa";
 
 interface Rect {
@@ -16,13 +17,17 @@ interface Rect {
   h: number;
 }
 
-const FOTO = {
-  src: "/mesa/estudio-h.webp",
-  ancho: 1536,
-  alto: 1024,
-  /** La mesa de mezclas, con su madera */
-  mesa: { x: 478, y: 752, w: 584, h: 258 } as Rect,
-};
+interface Foto {
+  src: string;
+  ancho: number;
+  alto: number;
+  /** La mesa de mezclas con la grabadora, con su madera */
+  mesa: Rect;
+}
+
+// Dos fotos: la apaisada (PC, iPad tumbado, móvil tumbado) y la vertical (móviles de pie)
+const HORIZONTAL: Foto = { src: "/mesa/estudio2-h.webp", ancho: 1536, alto: 1024, mesa: { x: 355, y: 404, w: 877, h: 596 } };
+const VERTICAL: Foto = { src: "/mesa/estudio2-v.webp", ancho: 1024, alto: 1536, mesa: { x: 190, y: 714, w: 676, h: 514 } };
 
 type Fase = "estudio" | "entrando" | "consola" | "volviendo";
 const ACERCARSE_MS = 820;
@@ -31,6 +36,9 @@ const IRSE_MS = 220;
 const sinMovimiento = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export default function EstudioMesa({ onCerrar, pistas }: { onCerrar: () => void; /** Desde Pistas: las 6 pistas de la canción */ pistas?: PistasMesa }) {
+  // Hasta saber si la pantalla es apaisada no se pinta ninguna foto (así no se descarga la que no toca)
+  const horizontal = useHorizontal();
+  const FOTO = horizontal ? HORIZONTAL : VERTICAL;
   const caja = useRef<HTMLDivElement>(null);
   const [tam, setTam] = useState<{ w: number; h: number } | null>(null);
   const [fase, setFase] = useState<Fase>("estudio");
@@ -64,14 +72,16 @@ export default function EstudioMesa({ onCerrar, pistas }: { onCerrar: () => void
   const entrar = () => fase === "estudio" && setFase("entrando");
   const cerca = fase === "entrando" || fase === "consola";
 
-  // La foto lo más grande posible sin cortarla de alto; en el móvil (vertical), al menos con la
-  // mesa de mezclas de lado a lado, y centrada en ella.
+  // La apaisada, lo más grande posible sin cortarla de alto (y al menos con la mesa de lado a lado).
+  // La vertical llena la pantalla, siempre que la mesa quepa a lo ancho. Centradas en la mesa.
   let marco = { left: 0, top: 0, width: 0, height: 0 };
   let transformacion = "none";
   let borde = "";
-  if (tam) {
+  if (tam && horizontal !== null) {
     const m = FOTO.mesa;
-    const e = Math.min(tam.h / FOTO.alto, Math.max(tam.w / FOTO.ancho, tam.w / (m.w * 1.08)));
+    const e = horizontal
+      ? Math.min(tam.h / FOTO.alto, Math.max(tam.w / FOTO.ancho, tam.w / (m.w * 1.08)))
+      : Math.min(Math.max(tam.h / FOTO.alto, tam.w / FOTO.ancho), tam.w / (m.w * 1.04));
     const W = FOTO.ancho * e;
     const H = FOTO.alto * e;
     const left = W <= tam.w ? (tam.w - W) / 2 : Math.min(0, Math.max(tam.w - W, tam.w / 2 - (m.x + m.w / 2) * e));
@@ -95,8 +105,8 @@ export default function EstudioMesa({ onCerrar, pistas }: { onCerrar: () => void
   }
 
   return (
-    <div ref={caja} className={`estudio-mesa fase-${fase}`} role="dialog" aria-modal="true" aria-label="Mesa" tabIndex={-1}>
-      {tam && (
+    <div ref={caja} className={`estudio-mesa fase-${fase}${horizontal === false ? " foto-vertical" : ""}`} role="dialog" aria-modal="true" aria-label="Mesa" tabIndex={-1}>
+      {tam && horizontal !== null && (
         <div className="estudio-escena" style={{ transform: transformacion }}>
           <div className="estudio-marco" style={marco}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -112,8 +122,8 @@ export default function EstudioMesa({ onCerrar, pistas }: { onCerrar: () => void
                 className="estudio-halo"
                 cx={FOTO.mesa.x + FOTO.mesa.w / 2}
                 cy={FOTO.mesa.y + FOTO.mesa.h / 2}
-                rx={FOTO.mesa.w * 0.72}
-                ry={FOTO.mesa.h * 0.9}
+                rx={FOTO.mesa.w * 0.62}
+                ry={FOTO.mesa.h * 0.66}
                 fill="url(#estudio-halo)"
               />
               <rect
