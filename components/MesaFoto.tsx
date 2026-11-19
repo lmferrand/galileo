@@ -63,6 +63,12 @@ const RUEDAS_MAESTRAS: { clave: keyof Maestros; x: number; y: number; d: number;
   { clave: "delay", x: 1596.7, y: 257.3, d: 41, color: "azul", nombre: "Delay de todos los canales (DELAY MASTER)", corto: "Delay general" },
 ];
 
+/** Los rótulos INPUT 1 e INPUT 2: encienden las entradas de la interfaz */
+const PLACAS: Caja[] = [
+  [158, 46, 132, 40],
+  [317, 46, 129, 40],
+];
+
 /** Las tiras, para taparlas cuando no tienen nada (sin entrada 2, sin canción) */
 const TIRA_2: Caja = [300, 40, 156, 745];
 const TIRAS_PISTAS: Caja = [458, 40, 951, 745];
@@ -244,10 +250,12 @@ interface Props {
   maestros: Maestros;
   onMaestros: (m: Maestros) => void;
   conCancion: boolean;
+  /** Encender o apagar las entradas (los rótulos INPUT se iluminan) */
+  entradas: { encendidas: boolean; ocupadas: boolean; onPulsar: () => void };
   leer: (donde: string, texto: string) => void;
 }
 
-export default function MesaFoto({ escala, canales, sinEntrada2, general, onGeneral, maestros, onMaestros, conCancion, leer }: Props) {
+export default function MesaFoto({ escala, canales, sinEntrada2, general, onGeneral, maestros, onMaestros, conCancion, entradas, leer }: Props) {
   return (
     <div className="mf-caja" style={{ width: ANCHO_MESA * escala, height: ALTO_MESA * escala }}>
       <div className="mf" style={{ width: ANCHO_MESA, height: ALTO_MESA, transform: `scale(${escala})` }}>
@@ -310,6 +318,19 @@ export default function MesaFoto({ escala, canales, sinEntrada2, general, onGene
             </div>
           );
         })}
+
+        {PLACAS.map((c, i) => (
+          <button
+            key={i}
+            type="button"
+            className={`mf-placa${entradas.encendidas ? " on" : ""}`}
+            style={enCaja(c)}
+            aria-label={entradas.encendidas ? "Apagar las entradas de la interfaz" : "Encender las entradas de la interfaz"}
+            aria-pressed={entradas.encendidas}
+            disabled={entradas.ocupadas}
+            onClick={entradas.onPulsar}
+          />
+        ))}
 
         {/* La sección general */}
         <div className="mf-canal" role="group" aria-label="General">

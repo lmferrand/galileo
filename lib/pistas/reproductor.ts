@@ -4,7 +4,7 @@
 // juntarse en el volumen general y un limitador.
 
 import { FRECUENCIA, PISTAS } from "./tipos";
-import { Canal, medidoresPorLado, picoDe } from "../mesa/mesa";
+import { Canal, medidoresPorLado, mesa, picoDe } from "../mesa/mesa";
 import { AJUSTES_PISTA, conMaestros, generalCancion, leerAjustesMesa, leerAjustesPistas, type AjustesCanal } from "../mesa/ajustes";
 
 type CtxAudio = typeof AudioContext;
@@ -97,8 +97,9 @@ export class Reproductor {
     await this.preparar();
     try {
       const sesion = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
-      // Que suene aunque el iPhone tenga el interruptor de silencio puesto.
-      if (sesion) sesion.type = "playback";
+      // Que suene aunque el iPhone tenga el interruptor de silencio puesto; con las entradas de la
+      // Mesa abiertas, sin cortarles el micro.
+      if (sesion) sesion.type = mesa.estado === "encendida" ? "play-and-record" : "playback";
     } catch {
       /* navegador sin audioSession */
     }
@@ -139,6 +140,47 @@ export class Reproductor {
     };
   }
 
+  // ---------- Escuchar una toma de la Mesa con la canción ----------
+  private toma: AudioBufferSourceNode | null = null;
+
+  /** Suena la toma (intercalada, ya recortada) por la salida de la canción, desde ahora. */
+  tocarToma(muestras: Float32Array, frecuencia: number) {
+    this.pararToma();
+    const ctx = this.ctx;
+    if (!ctx || !this.general || muestras.length < 4) return;
+    const n = muestras.length / 2;
+    const buffer = ctx.createBuffer(2, n, frecuencia);
+    const l = buffer.getChannelData(0);
+    const r = buffer.getChannelData(1);
+    for (let i = 0; i < n; i++) {
+      l[i] = muestras[i * 2];
+      r[i] = muestras[i * 2 + 1];
+    }
+    const fuente = ctx.createBufferSource();
+    fuente.buffer = buffer;
+    fuente.connect(this.general);
+    fuente.onended = () => {
+      if (this.toma === fuente) this.toma = null;
+    };
+    fuente.start();
+    this.toma = fuente;
+  }
+
+  pararToma() {
+    try {
+      this.toma?.stop();
+    } catch {
+      /* ya parada */
+    }
+    this.toma = null;
+  }
+
+  /** Lo que tarda la canción en salir por los cascos (segundos) */
+  retrasoSalida(): number {
+    const ctx = this.ctx as (AudioContext & { outputLatency?: number }) | null;
+    return ctx ? ctx.baseLatency + (ctx.outputLatency ?? 0) : 0;
+  }
+
   /** 0,5 = a la mitad de velocidad, sin cambiar el tono. */
   velocidad(valor: number) {
     this.nodo?.port.postMessage({ tipo: "velocidad", valor });
@@ -151,6 +193,7 @@ export class Reproductor {
   }
 
   async cerrar() {
+    this.pararToma();
     this.nodo?.port.postMessage({ tipo: "vaciar" });
     this.nodo?.disconnect();
     this.canales.forEach((c) => c.parar());

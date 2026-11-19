@@ -27,6 +27,10 @@ import {
   type AjustesMesa,
 } from "@/lib/mesa/ajustes";
 import { mesa } from "@/lib/mesa/mesa";
+import { duracionToma, wavDeToma, type Toma } from "@/lib/mesa/toma";
+import { guardarArchivo } from "@/lib/pistas/exportar";
+import { esMovil } from "@/lib/pistas/aparato";
+import { formatoTiempo } from "@/lib/pistas/tipos";
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
 import { useHidratado } from "@/lib/hidratado";
 
@@ -45,6 +49,13 @@ export interface PistasMesa {
   onSoloFuera: (activo: boolean) => void;
   /** El reproductor de la canción, para tocar, moverse y repetir un trozo desde la Mesa */
   transporte: Transporte;
+  /** Lo que tarda la canción en salir por los cascos (segundos), para poner la toma a tiempo */
+  retrasoSalida: () => number;
+  /** Escuchar la toma de REC con la canción, desde donde empezó */
+  escucharToma: (t: Toma) => void;
+  pararToma: () => void;
+  /** La canción entera (como suena ahora) con la toma encima, en WAV */
+  mezclaConToma: (t: Toma) => Promise<{ blob: Blob; nombre: string }>;
   /** Ecualizador, efectos y panorama de una pista */
   aplicar: (i: number, a: AjustesCanal) => void;
   volumenGeneral: (v: number) => void;
@@ -91,6 +102,7 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
       ? leerAjustesPistas(n)
       : Array.from({ length: n }, () => AJUSTES_PISTA));
   const encendida = estado === "encendida";
+  const conPistas = n > 0;
 
   useEffect(() => {
     ultimasPistas.current = pistas;
@@ -156,13 +168,136 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   );
 
   const encender = async () => {
+    if (mesa.grabando) await parar();
     if (encendida) return mesa.apagar();
     const r = await mesa.encender(conSolo(ajustes));
     if (r === "encendida") setRetraso(mesa.retrasoMs());
   };
 
+  // ---------- REC: grabar lo que tocas ----------
+  // La toma empieza donde esté la canción (y la pone a sonar); se para con REC, con la pausa o
+  // cuando la canción acaba. Sin canción, graba lo que toques hasta volver a pulsar REC.
+  const [grabando, setGrabando] = useState<{ desde: number | null } | null>(null);
+  const [transcurrido, setTranscurrido] = useState(0);
+  const [toma, setToma] = useState<Toma | null>(null);
+  const [verToma, setVerToma] = useState(false);
+  const [preparada, setPreparada] = useState<{ blob: Blob; nombre: string } | null>(null);
+  const [estadoToma, setEstadoToma] = useState<string | null>(null);
+  const sonoGrabando = useRef(false);
+  const sonandoSola = useRef<AudioContext | null>(null);
+  const tocandoCancion = pistas?.transporte.tocando ?? false;
+
+  const parar = async () => {
+    const g = grabando;
+    setGrabando(null);
+    sonoGrabando.current = false;
+    const datos = await mesa.pararToma();
+    const t = ultimasPistas.current?.transporte;
+    if (t?.tocando) t.onAlternar();
+    if (!g || !datos || datos.muestras.length < datos.frecuencia * 2 * 0.3) return;
+    // Lo que tardó la canción en salir y lo que tardó tu sonido en volver: eso sobra al principio
+    const retrasoTotal = g.desde === null ? 0 : (ultimasPistas.current?.retrasoSalida() ?? 0) + mesa.retrasoEntrada();
+    setToma({ ...datos, desde: g.desde, recorte: Math.round(retrasoTotal * datos.frecuencia) });
+    setPreparada(null);
+    setEstadoToma(null);
+    setVerToma(true);
+  };
+  const pulsarRec = async () => {
+    if (grabando) return parar();
+    if (mesa.estado !== "encendida") {
+      const r = await mesa.encender(conSolo(ajustes));
+      if (r !== "encendida") return;
+      setRetraso(mesa.retrasoMs());
+    }
+    if (!(await mesa.empezarToma())) return;
+    const t = ultimasPistas.current?.transporte;
+    setTranscurrido(0);
+    setGrabando({ desde: t ? t.segundo : null });
+    if (t && !t.tocando) t.onAlternar();
+  };
+  // Con canción: al pararse la canción (pausa, parar o se acaba) se para la toma
+  useEffect(() => {
+    if (!grabando || !conPistas) return;
+    if (tocandoCancion) sonoGrabando.current = true;
+    else if (sonoGrabando.current) void parar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grabando, tocandoCancion]);
+  // Sin canción, el contador cuenta lo que llevas grabado
+  useEffect(() => {
+    if (!grabando || conPistas) return;
+    const id = setInterval(() => setTranscurrido((x) => x + 0.1), 100);
+    return () => clearInterval(id);
+  }, [grabando, conPistas]);
+  // Al salir de la consola: deja de grabar y de sonar
+  useEffect(
+    () => () => {
+      if (mesa.grabando) void mesa.pararToma();
+      void sonandoSola.current?.close().catch(() => undefined);
+    },
+    [],
+  );
+
+  const pararEscucha = () => {
+    ultimasPistas.current?.pararToma();
+    void sonandoSola.current?.close().catch(() => undefined);
+    sonandoSola.current = null;
+  };
+  const escucharToma = () => {
+    if (!toma) return;
+    pararEscucha();
+    setVerToma(false);
+    if (pistas && toma.desde !== null) return pistas.escucharToma(toma);
+    // Sin canción: suena sola
+    const ctx = new AudioContext();
+    const n = toma.muestras.length / 2 - toma.recorte;
+    if (n <= 0) return;
+    const b = ctx.createBuffer(2, n, toma.frecuencia);
+    const l = b.getChannelData(0);
+    const d = b.getChannelData(1);
+    for (let i = 0; i < n; i++) {
+      l[i] = toma.muestras[(toma.recorte + i) * 2];
+      d[i] = toma.muestras[(toma.recorte + i) * 2 + 1];
+    }
+    const fuente = ctx.createBufferSource();
+    fuente.buffer = b;
+    fuente.connect(ctx.destination);
+    fuente.onended = () => void ctx.close().catch(() => undefined);
+    fuente.start();
+    sonandoSola.current = ctx;
+  };
+  const guardarToma = async (conCancion: boolean) => {
+    if (!toma) return;
+    setEstadoToma(conCancion ? "Preparando la canción con tu toma…" : "Preparando tu toma…");
+    try {
+      const archivo =
+        conCancion && pistas ? await pistas.mezclaConToma(toma) : { blob: wavDeToma(toma), nombre: "Mi toma.wav" };
+      if (esMovil()) {
+        // En el móvil el menú de compartir necesita un toque nuevo
+        setPreparada(archivo);
+        setEstadoToma(null);
+      } else {
+        const r = await guardarArchivo(archivo.blob, archivo.nombre);
+        setEstadoToma(r === "cancelado" ? null : `Descargado: ${archivo.nombre}`);
+      }
+    } catch (e) {
+      setEstadoToma((e as Error).message || "No se ha podido preparar el archivo.");
+    }
+  };
+  const entregarToma = async () => {
+    if (!preparada) return;
+    const r = await guardarArchivo(preparada.blob, preparada.nombre);
+    if (r !== "cancelado") {
+      setPreparada(null);
+      setEstadoToma(r === "compartido" ? "Guardado." : `Descargado: ${preparada.nombre}`);
+    }
+  };
+  const borrarToma = () => {
+    pararEscucha();
+    setToma(null);
+    setVerToma(false);
+  };
+
   // Los medidores, sin pasar por React: las entradas si la Mesa está encendida y las pistas siempre
-  const conPistas = n > 0;
   useEffect(() => {
     if (!encendida && !conPistas) return;
     // Las luces de nivel de la mesa (en la ranura de cada fader)
@@ -267,13 +402,15 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   // Lo que enseña la pantalla de la grabadora: el mando que se mueve o cómo están las entradas
   const aviso = lectura
     ? `${lectura.donde} · ${lectura.texto}`
-    : encendida
+    : grabando
+      ? "● Grabando lo que tocas (REC para parar)"
+      : encendida
       ? `${estadoTexto}${retraso !== null ? ` · retraso ≈ ${retraso} ms` : ""}`
       : estado !== "apagada"
         ? estadoTexto
         : conPistas
           ? null
-          : "Pulsa REC para encender las entradas (con cascos)";
+          : "Toca INPUT 1 para encender las entradas · REC graba lo que tocas";
 
   const tituloHoja = abierta
     ? abierta.tipo === "entrada"
@@ -328,7 +465,9 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
           escala={escalaCinta}
           t={pistas?.transporte ?? null}
           aviso={aviso}
-          entradas={{ encendidas: encendida, ocupadas: estado === "abriendo", onPulsar: () => void encender() }}
+          contador={grabando && !conPistas ? transcurrido : null}
+          rec={{ grabando: !!grabando, ocupado: estado === "abriendo", onPulsar: () => void pulsarRec() }}
+          toma={toma && !grabando ? () => setVerToma(true) : null}
         />
       </div>
 
@@ -343,6 +482,7 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
           maestros={ajustes.maestros}
           onMaestros={(maestros) => cambiarGeneral({ ...ajustes, maestros })}
           conCancion={conPistas}
+          entradas={{ encendidas: encendida, ocupadas: estado === "abriendo", onPulsar: () => void encender() }}
           leer={leer}
         />
       </div>
@@ -354,6 +494,46 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
         </svg>
         <p>Gira el móvil para usar la mesa</p>
       </div>
+
+      {verToma && toma && (
+        <div className="hoja-fondo" onClick={() => setVerToma(false)}>
+          <div className="hoja" role="dialog" aria-modal="true" aria-label="Tu toma" onClick={(e) => e.stopPropagation()}>
+            <div className="hoja-asa" aria-hidden="true" />
+            <header className="hoja-cabecera">
+              <h2>Tu toma · {formatoTiempo(duracionToma(toma))}</h2>
+              <button type="button" className="boton-texto" onClick={() => setVerToma(false)}>
+                Listo
+              </button>
+            </header>
+            <div className="hoja-cuerpo toma-hoja">
+              <button type="button" className="boton-principal ancho" onClick={escucharToma}>
+                {pistas && toma.desde !== null ? "Escucharla con la canción" : "Escucharla"}
+              </button>
+              {preparada ? (
+                <button type="button" className="boton-principal ancho" onClick={entregarToma}>
+                  Guardar o compartir el archivo
+                </button>
+              ) : (
+                <>
+                  {pistas && toma.desde !== null && (
+                    <button type="button" className="boton-secundario ancho" onClick={() => void guardarToma(true)} disabled={!!estadoToma?.startsWith("Preparando")}>
+                      Guardar la canción con tu toma
+                    </button>
+                  )}
+                  <button type="button" className="boton-secundario ancho" onClick={() => void guardarToma(false)} disabled={!!estadoToma?.startsWith("Preparando")}>
+                    Guardar solo tu toma
+                  </button>
+                </>
+              )}
+              {estadoToma && <p className="toma-estado">{estadoToma}</p>}
+              <p className="toma-ayuda">Se guarda en un archivo WAV. Si grabas otra, esta se sustituye.</p>
+              <button type="button" className="boton-texto peligro" onClick={borrarToma}>
+                Borrar la toma
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {abierta !== null && (
         <div className="hoja-fondo" onClick={() => setAbierta(null)}>

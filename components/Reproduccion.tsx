@@ -15,7 +15,8 @@ import { leerWav } from "@/lib/pistas/wav";
 import { limpiarBajo } from "@/lib/pistas/limpiarBajo";
 import { separadaConRoformer } from "@/lib/pistas/importar";
 import { describirMezcla, guardarArchivo, mezclarCancion, nombreArchivo } from "@/lib/pistas/exportar";
-import { formatoTiempo, PISTAS, type Cancion, type Pista } from "@/lib/pistas/tipos";
+import { formatoTiempo, FRECUENCIA, PISTAS, type Cancion, type Pista } from "@/lib/pistas/tipos";
+import { tomaA, type Toma } from "@/lib/mesa/toma";
 import { ondaDe } from "@/lib/pistas/onda";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
@@ -188,6 +189,11 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
     };
   }, [tocando]);
 
+  // Al parar la canción se para también la toma que estuvieras escuchando
+  useEffect(() => {
+    if (!tocando) rep.current?.pararToma();
+  }, [tocando]);
+
   // Si cambias la mezcla, el archivo preparado ya no vale.
   useEffect(() => {
     setGuardado((g) => (g && g.estado !== "preparando" ? null : g));
@@ -312,6 +318,19 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
       velocidadMin: VEL_MIN,
       velocidadMax: VEL_MAX,
       onVelocidad: (v) => setVelocidad(Math.round(Math.max(VEL_MIN, Math.min(VEL_MAX, v)) * 100) / 100),
+    },
+    retrasoSalida: () => rep.current?.retrasoSalida() ?? 0,
+    escucharToma: async (toma: Toma) => {
+      const r = rep.current;
+      if (!r || cargando || toma.desde === null) return;
+      ir(toma.desde);
+      if (!tocando) await r.tocar();
+      r.tocarToma(tomaA(toma, FRECUENCIA), FRECUENCIA);
+    },
+    pararToma: () => rep.current?.pararToma(),
+    mezclaConToma: async (toma: Toma) => {
+      const blob = await mezclarCancion(cancion, efectivas, { muestras: tomaA(toma, FRECUENCIA), desde: (toma.desde ?? 0) * FRECUENCIA });
+      return { blob, nombre: nombreArchivo({ ...cancion, nombre }, efectivas).replace(/.wav$/, " + mi toma.wav") };
     },
     aplicar: (i, a) => rep.current?.aplicarPista(i, a),
     volumenGeneral: (v) => rep.current?.volumenGeneral(v),

@@ -1012,7 +1012,7 @@
 }
 .gm-tocar:not(.on),
 .gm-grabar:not(.on) {
-  background: rgba(8, 14, 6, 0.6);
+  background: rgba(8, 14, 6, 0.74);
   box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
 }
 .gm-grabar:not(.on) {
@@ -1075,7 +1075,9 @@
   align-items: center;
   gap: 12px;
 }
-.en-cinta .pc-tecla {
+.en-cinta .pc-tecla,
+.gm-sin-cancion .pc-tecla {
+  align-self: center;
   width: 84px;
   height: 66px;
   border-radius: 7px;
@@ -1095,7 +1097,8 @@
 .en-cinta .pc-tecla:disabled {
   opacity: 0.55;
 }
-.en-cinta .pc-tecla svg {
+.en-cinta .pc-tecla svg,
+.gm-sin-cancion .pc-tecla svg {
   width: 38px;
   height: 38px;
   stroke-width: 2.6;
@@ -1182,7 +1185,69 @@
   font-weight: 700;
   text-align: center;
 }
-/* REC: las entradas de la interfaz; apagadas, la tecla roja se oscurece */
+/* REC: grabando, la tecla roja parpadea */
 .gm-grabar.on {
-  box-shadow: 0 0 22px 4px rgba(255, 50, 30, 0.55);
+  animation: gm-grabando 1.1s ease-in-out infinite;
+}
+@keyframes gm-grabando {
+  0%,
+  100% {
+    background: transparent;
+    box-shadow: 0 0 26px 6px rgba(255, 50, 30, 0.7);
+  }
+  50% {
+    background: rgba(40, 6, 2, 0.45);
+    box-shadow: 0 0 8px 1px rgba(255, 50, 30, 0.3);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gm-grabar.on {
+    animation: none;
+    box-shadow: 0 0 22px 4px rgba(255, 50, 30, 0.6);
+  }
+}
+/* Sin canción: la tecla de la toma y los avisos */
+.gm-sin-cancion {
+  flex: 1;
+  display: flex;
+  gap: 22px;
+  min-width: 0;
+}
+/* Los rótulos INPUT 1 e INPUT 2 de la mesa: encienden las entradas y se iluminan */
+.mf-placa {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+.mf-placa:focus-visible {
+  outline: 3px solid rgba(255, 210, 122, 0.9);
+  outline-offset: 2px;
+}
+.mf-placa.on {
+  background: rgba(255, 236, 190, 0.2);
+  box-shadow:
+    0 0 18px 3px rgba(255, 200, 110, 0.7),
+    inset 0 0 10px rgba(255, 225, 160, 0.6);
+}
+/* La hoja de la toma */
+.toma-hoja {
+  display: grid;
+  gap: 12px;
+}
+.toma-estado {
+  margin: 0;
+  font-size: 14px;
+  color: var(--laton-claro, #e8c99a);
+}
+.toma-ayuda {
+  margin: 0;
+  font-size: 13px;
+  color: #b9a58c;
 }

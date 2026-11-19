@@ -11,6 +11,7 @@ import {
   useState,
   type KeyboardEvent,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 import { formatoTiempo } from "@/lib/pistas/tipos";
 
@@ -57,10 +58,13 @@ export default function TransporteMesa({
   t,
   conCinta,
   aviso,
+  extra,
 }: {
   t: Transporte;
   conCinta?: boolean;
   aviso?: string | null;
+  /** Otra tecla al final (la de la toma de REC) */
+  extra?: ReactNode;
 }) {
   const barra = useRef<HTMLDivElement>(null);
   const arrastre = useRef<Arrastre | null>(null);
@@ -403,6 +407,7 @@ export default function TransporteMesa({
             </span>
           </div>
         )}
+        {extra}
       </div>
     </section>
   );

@@ -9,7 +9,11 @@ import { separadaConRoformer } from "./importar";
 
 const IDS = PISTAS.map((p) => p.id);
 
-export async function mezclarCancion(cancion: Cancion, ganancias: number[]): Promise<Blob> {
+/**
+ * `encima`: lo que grabaste en la Mesa (intercalado, −1 a 1, ya a FRECUENCIA), que se suma a la
+ * canción desde el fotograma `desde`.
+ */
+export async function mezclarCancion(cancion: Cancion, ganancias: number[], encima?: { muestras: Float32Array; desde: number }): Promise<Blob> {
   const audios = await leerAudios(cancion.id, IDS);
   const leer = async () => {
     const d: Int16Array[] = [];
@@ -26,6 +30,11 @@ export async function mezclarCancion(cancion: Cancion, ganancias: number[]): Pro
     const datos = pistas[s];
     const n = Math.min(datos.length, suma.length);
     for (let i = 0; i < n; i++) suma[i] += datos[i] * g;
+  }
+  if (encima) {
+    const ini = Math.max(0, Math.round(encima.desde)) * 2;
+    const n = Math.min(encima.muestras.length, suma.length - ini);
+    for (let i = 0; i < n; i++) suma[ini + i] += encima.muestras[i] * 32767;
   }
   const salida = new Int16Array(suma.length);
   for (let i = 0; i < suma.length; i++) {

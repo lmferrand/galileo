@@ -7,9 +7,9 @@
 // canción. Abajo, 10 VU: los 8 canales de la mesa y la salida (L y R); sus agujas las mueve
 // ConsolaMesa sin pasar por React (data-vu). De la foto se borraron las agujas pintadas y se alargó
 // por debajo de los VU: ahí va la pantalla de la canción (la onda, para elegir un trozo y repetirlo)
-// y los avisos (el mando que se mueve, las entradas). REC enciende las entradas de la interfaz.
+// y los avisos (el mando que se mueve, las entradas). REC graba lo que tocas (ConsolaMesa).
 
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { accesible, useArrastre, type PropsMando } from "./MandosMesa";
 import TransporteMesa, { type Transporte } from "./TransporteMesa";
 
@@ -158,11 +158,15 @@ interface Props {
   t: Transporte | null;
   /** Lo que enseña la pantalla en lugar de la ayuda (el mando que se mueve, las entradas…) */
   aviso: string | null;
-  /** REC: encender o apagar las entradas de la interfaz */
-  entradas: { encendidas: boolean; ocupadas: boolean; onPulsar: () => void };
+  /** REC: grabar lo que tocas (y pararlo) */
+  rec: { grabando: boolean; ocupado: boolean; onPulsar: () => void };
+  /** Sin canción, mientras se graba, el contador cuenta lo grabado */
+  contador: number | null;
+  /** Hay una toma: abrirla (escuchar, guardar, borrar) */
+  toma: (() => void) | null;
 }
 
-export default function GrabadoraMesa({ escala, t, aviso, entradas }: Props) {
+export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma }: Props) {
   // Al ir atrás o adelante, las bobinas corren un momento
   const [corriendo, setCorriendo] = useState<"atras" | "adelante" | null>(null);
   const [fin, setFin] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -174,6 +178,16 @@ export default function GrabadoraMesa({ escala, t, aviso, entradas }: Props) {
   const sin = !t || t.cargando;
   const D = Math.max(1, t?.duracion ?? 1);
   const segundo = t?.segundo ?? 0;
+  const teclaToma: ReactNode = toma ? (
+    <button type="button" className="tecla pc-tecla gm-tecla-toma" onClick={toma} aria-label="Tu toma: escucharla, guardarla o borrarla">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="6" width="18" height="12" rx="2" />
+        <circle cx="8.5" cy="12" r="2" />
+        <circle cx="15.5" cy="12" r="2" />
+        <path d="M8.5 14h7" />
+      </svg>
+    </button>
+  ) : null;
   const parada = !!t && !t.tocando && segundo > 0.05;
   const clase = `gm${t?.tocando ? " tocando" : ""}${corriendo ? ` corre-${corriendo}` : ""}`;
   const vuelta = `${2.6 / Math.max(0.5, t?.velocidad ?? 1)}s`;
@@ -198,7 +212,7 @@ export default function GrabadoraMesa({ escala, t, aviso, entradas }: Props) {
             <img src={b.src} alt="" width={b.lado} height={b.lado} draggable={false} />
           </span>
         ))}
-        <Contador segundo={segundo} />
+        <Contador segundo={contador ?? segundo} />
 
         {tecla("atras", "Atrás 10 segundos", false, () => {
           if (!t) return;
@@ -217,15 +231,15 @@ export default function GrabadoraMesa({ escala, t, aviso, entradas }: Props) {
         {tecla("pausa", "Pausa", parada, () => {
           if (t?.tocando) t.onAlternar();
         })}
-        {/* REC: las entradas de la interfaz (se enciende en rojo mientras están abiertas) */}
+        {/* REC: graba lo que tocas (parpadea en rojo mientras graba) */}
         <button
           type="button"
-          className={`gm-tecla gm-grabar${entradas.encendidas ? " on" : ""}`}
+          className={`gm-tecla gm-grabar${rec.grabando ? " on" : ""}`}
           style={enCaja(TECLAS.grabar)}
-          aria-label={entradas.encendidas ? "Apagar las entradas de la interfaz" : "Encender las entradas de la interfaz"}
-          aria-pressed={entradas.encendidas}
-          disabled={entradas.ocupadas}
-          onClick={entradas.onPulsar}
+          aria-label={rec.grabando ? "Parar de grabar" : "Grabar lo que tocas"}
+          aria-pressed={rec.grabando}
+          disabled={rec.ocupado}
+          onClick={rec.onPulsar}
         />
         {tecla("adelante", "Adelante 10 segundos", false, () => {
           if (!t) return;
@@ -266,10 +280,13 @@ export default function GrabadoraMesa({ escala, t, aviso, entradas }: Props) {
         {/* Debajo de los VU, la pantalla de la canción (o solo los avisos, sin canción) */}
         <div className="gm-pantalla" style={enCaja(PANTALLA)}>
           {t ? (
-            <TransporteMesa t={t} conCinta aviso={aviso} />
+            <TransporteMesa t={t} conCinta aviso={aviso} extra={teclaToma} />
           ) : (
-            <div className="pc-pantalla gm-solo-aviso" role="status">
-              <span>{aviso}</span>
+            <div className="gm-sin-cancion">
+              {teclaToma}
+              <div className="pc-pantalla gm-solo-aviso" role="status">
+                <span>{aviso}</span>
+              </div>
             </div>
           )}
         </div>

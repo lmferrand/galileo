@@ -294,6 +294,10 @@ export class Mesa {
   private general: GainNode | null = null;
   private medidorGeneral: AnalyserNode | null = null;
   private medidoresLado: [AnalyserNode, AnalyserNode] | null = null;
+  /** La salida de la Mesa (ya limitada): de aquí se graba la toma */
+  private salida: AudioNode | null = null;
+  private grabador: AudioWorkletNode | null = null;
+  private trozosToma: Float32Array[] = [];
   private oyentes = new Set<Oyente>();
   private datos = new Float32Array(1024);
 
@@ -317,6 +321,13 @@ export class Mesa {
     this.cambiar("abriendo");
     const ctx = new AudioContext({ latencyHint: "interactive" });
     const reanudar = ctx.resume();
+    try {
+      // En el iPhone: tocar y grabar a la vez (si no, al sonar la canción se corta el micro)
+      const sesion = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+      if (sesion) sesion.type = "play-and-record";
+    } catch {
+      /* navegador sin audioSession */
+    }
     try {
       const pedido = pedirAudio();
       const audio = typeof pedido.audio === "object" ? pedido.audio : {};
@@ -354,6 +365,7 @@ export class Mesa {
     this.medidorGeneral.fftSize = 1024;
     this.general.connect(limitador).connect(this.medidorGeneral).connect(ctx.destination);
     this.medidoresLado = medidoresPorLado(ctx, limitador);
+    this.salida = limitador;
 
     this.canales = [0, 1].map((i) => {
       const canal = new Canal(ctx, conPuerta);
@@ -373,7 +385,83 @@ export class Mesa {
     poner(this.general.gain, generalEntradas(a), this.ctx);
   }
 
+  // ---------- Grabar lo que tocas (REC) ----------
+  get grabando() {
+    return this.grabador !== null;
+  }
+
+  /** Empieza a grabar la salida de la Mesa (hace falta tenerla encendida). */
+  async empezarToma(): Promise<boolean> {
+    const ctx = this.ctx;
+    if (!ctx || !this.salida || this.grabador) return false;
+    try {
+      await ctx.audioWorklet.addModule("/toma.worklet.js");
+    } catch {
+      return false;
+    }
+    const nodo = new AudioWorkletNode(ctx, "clavija-toma", { numberOfInputs: 1, numberOfOutputs: 1, channelCount: 2, channelCountMode: "explicit" });
+    this.trozosToma = [];
+    nodo.port.onmessage = (e: MessageEvent) => {
+      if (e.data instanceof Float32Array) this.trozosToma.push(e.data);
+    };
+    this.salida.connect(nodo);
+    // Sin salida conectada algunos navegadores no lo hacen funcionar (no suena: no escribe nada)
+    nodo.connect(ctx.destination);
+    nodo.port.postMessage("empezar");
+    this.grabador = nodo;
+    return true;
+  }
+
+  /** Para de grabar y devuelve lo grabado (intercalado) y su frecuencia. */
+  pararToma(): Promise<{ muestras: Float32Array; frecuencia: number } | null> {
+    const nodo = this.grabador;
+    const ctx = this.ctx;
+    if (!nodo || !ctx) return Promise.resolve(null);
+    this.grabador = null;
+    return new Promise((listo) => {
+      const acabar = () => {
+        nodo.port.onmessage = null;
+        nodo.disconnect();
+        try {
+          this.salida?.disconnect(nodo);
+        } catch {
+          /* ya desconectada (la Mesa se apagó) */
+        }
+        const total = this.trozosToma.reduce((n, t) => n + t.length, 0);
+        const muestras = new Float32Array(total);
+        let i = 0;
+        for (const t of this.trozosToma) {
+          muestras.set(t, i);
+          i += t.length;
+        }
+        this.trozosToma = [];
+        listo({ muestras, frecuencia: ctx.sampleRate });
+      };
+      const antes = nodo.port.onmessage;
+      nodo.port.onmessage = (e: MessageEvent) => {
+        if (e.data === "parado") acabar();
+        else antes?.call(nodo.port, e);
+      };
+      nodo.port.postMessage("parar");
+      // Por si el hilo de audio ya no contesta
+      setTimeout(() => nodo.port.onmessage && acabar(), 600);
+    });
+  }
+
+  /** Lo que tarda el sonido de la interfaz en llegar a la Mesa (segundos) */
+  retrasoEntrada(): number {
+    if (!this.ctx) return 0;
+    const entrada = (this.flujo?.getAudioTracks()[0]?.getSettings() as MediaTrackSettings & { latency?: number })?.latency ?? 0;
+    return entrada + this.ctx.baseLatency;
+  }
+
   apagar() {
+    if (this.grabador) {
+      this.grabador.disconnect();
+      this.grabador = null;
+      this.trozosToma = [];
+    }
+    this.salida = null;
     this.canales.forEach((c) => c.parar());
     this.canales = [];
     this.flujo?.getTracks().forEach((p) => p.stop());
