@@ -1666,3 +1666,57 @@
   background: linear-gradient(90deg, #2fbf6a, #46e08a 55%, #ffd23c 80%, #ff5b3c) left / 100vw 100% no-repeat;
   transition: width 60ms linear;
 }
+
+/* «?» arriba a la derecha (donde estaba la ✕) y la ayuda de los mandos */
+.cf-ayuda {
+  position: fixed;
+  z-index: 6;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+  font-size: 19px;
+  font-weight: 800;
+}
+.ayuda-mesa {
+  display: grid;
+  gap: 18px;
+}
+.ayuda-mesa h3 {
+  margin: 0 0 8px;
+  font-family: var(--f-display);
+  font-size: 19px;
+  color: var(--laton-claro, #e8c99a);
+}
+.ayuda-mesa dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.ayuda-fila {
+  display: grid;
+  grid-template-columns: minmax(7.5em, 11em) 1fr;
+  gap: 4px 14px;
+}
+.ayuda-fila dt {
+  font-weight: 800;
+}
+.ayuda-fila dd {
+  margin: 0;
+  color: #d8ccb8;
+  line-height: 1.4;
+}
+.ayuda-mesa ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 1.2em;
+  color: #d8ccb8;
+  line-height: 1.4;
+}
+@media (max-width: 560px) {
+  .ayuda-fila {
+    grid-template-columns: 1fr;
+  }
+}

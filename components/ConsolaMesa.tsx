@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import EfectosMesa, { efectosActivos } from "./EfectosMesa";
 import MesaFoto, { ALTO_MESA, ANCHO_MESA, type CanalFoto } from "./MesaFoto";
 import CanalGrande from "./CanalGrande";
+import AyudaMesa from "./AyudaMesa";
 import GrabadoraMesa, { ALTO_CINTA, ANCHO_CINTA, anguloVu, VU_REPOSO, VUS } from "./GrabadoraMesa";
 import { type Transporte } from "./TransporteMesa";
 import {
@@ -356,6 +357,19 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     if (quedan.length === 0) setVerTomas(false);
   };
 
+  // «?»: qué hace cada mando
+  const [verAyuda, setVerAyuda] = useState(false);
+  useEffect(() => {
+    if (!verAyuda) return;
+    const tecla = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      setVerAyuda(false);
+    };
+    document.addEventListener("keydown", tecla, true);
+    return () => document.removeEventListener("keydown", tecla, true);
+  }, [verAyuda]);
+
   // ---------- Ajuste automático de la ganancia (TRIM) de una entrada ----------
   // Tocas fuerte 5 segundos; se mide el pico más alto de lo que entra (antes del TRIM) y se deja el
   // TRIM para que ese pico quede en PICO_OBJETIVO: margen para los efectos y sin saturar.
@@ -694,6 +708,26 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
         </svg>
         <p>Gira el móvil para usar la mesa</p>
       </div>
+
+      <button type="button" className="estudio-boton cf-ayuda" onClick={() => setVerAyuda(true)} aria-label="Qué hace cada mando">
+        ?
+      </button>
+      {verAyuda && (
+        <div className="hoja-fondo" onClick={() => setVerAyuda(false)}>
+          <div className="hoja" role="dialog" aria-modal="true" aria-label="Qué hace cada mando" onClick={(e) => e.stopPropagation()}>
+            <div className="hoja-asa" aria-hidden="true" />
+            <header className="hoja-cabecera">
+              <h2>Qué hace cada mando</h2>
+              <button type="button" className="boton-texto" onClick={() => setVerAyuda(false)}>
+                Listo
+              </button>
+            </header>
+            <div className="hoja-cuerpo">
+              <AyudaMesa />
+            </div>
+          </div>
+        </div>
+      )}
 
       {autoGanancia && (
         <div className="hoja-fondo" onClick={() => autoGanancia.error && setAutoGanancia(null)}>
