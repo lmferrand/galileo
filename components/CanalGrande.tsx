@@ -88,10 +88,12 @@ interface Props {
   siguiente: (() => void) | null;
   /** Solo en las entradas: encenderlas desde aquí (en la mesa lo hace su rótulo) */
   entradas: { encendidas: boolean; ocupadas: boolean; onPulsar: () => void } | null;
+  /** Solo en las entradas: ajustar el TRIM solo (tocas fuerte 5 segundos) */
+  alAjustarGanancia: (() => void) | null;
   leer: (donde: string, texto: string) => void;
 }
 
-export default function CanalGrande({ canal: k, indice, anterior, siguiente, entradas, leer }: Props) {
+export default function CanalGrande({ canal: k, indice, anterior, siguiente, entradas, alAjustarGanancia, leer }: Props) {
   const leerAqui = (texto: string) => leer(k.nombre, texto);
   return (
     <section className="cg" aria-label={`Mandos de ${k.titulo}`}>
@@ -121,6 +123,11 @@ export default function CanalGrande({ canal: k, indice, anterior, siguiente, ent
           {entradas && (
             <button type="button" className={`cg-tecla cg-entradas${entradas.encendidas ? " on" : ""}`} aria-pressed={entradas.encendidas} disabled={entradas.ocupadas} onClick={entradas.onPulsar}>
               {entradas.encendidas ? "Entradas" : "Encender"}
+            </button>
+          )}
+          {alAjustarGanancia && (
+            <button type="button" className="cg-tecla cg-entradas" onClick={alAjustarGanancia} aria-label="Ajustar la ganancia sola: tocas fuerte 5 segundos">
+              AUTO
             </button>
           )}
           <button

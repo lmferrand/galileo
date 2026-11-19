@@ -68,6 +68,8 @@ export interface PistasMesa {
 type Abierta = { tipo: "entrada" | "pista"; i: number };
 
 const LECTURA_MS = 1400;
+/** Dónde queda el pico más fuerte de lo que tocas tras el ajuste automático del TRIM (dBFS) */
+const PICO_OBJETIVO = -9;
 /** Las tomas que se guardan (en memoria: cada minuto en estéreo ocupa unos 20 MB) */
 const MAX_TOMAS = 6;
 
@@ -354,6 +356,49 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     if (quedan.length === 0) setVerTomas(false);
   };
 
+  // ---------- Ajuste automático de la ganancia (TRIM) de una entrada ----------
+  // Tocas fuerte 5 segundos; se mide el pico más alto de lo que entra (antes del TRIM) y se deja el
+  // TRIM para que ese pico quede en PICO_OBJETIVO: margen para los efectos y sin saturar.
+  const [autoGanancia, setAutoGanancia] = useState<{ canal: 0 | 1; quedan: number; nivel: number; error?: string } | null>(null);
+  const relojAuto = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pararAuto = () => {
+    if (relojAuto.current) clearInterval(relojAuto.current);
+    relojAuto.current = null;
+  };
+  const ajustarGanancia = async (canal: 0 | 1) => {
+    pararAuto();
+    setAbierta(null);
+    if (mesa.estado !== "encendida") {
+      const r = await mesa.encender(conSolo(ajustes));
+      if (r !== "encendida") return setAutoGanancia({ canal, quedan: 0, nivel: 0, error: "No se ha podido abrir la entrada: mira el permiso del micro." });
+      setRetraso(mesa.retrasoMs());
+    }
+    const ganancia = ajustes.canales[canal].ganancia;
+    let maximo = 0;
+    let pasos = 0;
+    const TOTAL = 100; // 5 s, cada 50 ms
+    setAutoGanancia({ canal, quedan: 5, nivel: 0 });
+    relojAuto.current = setInterval(() => {
+      // El medidor está tras el TRIM: se quita lo que suma ahora para tener lo que entra de verdad
+      const pico = (mesa.niveles().canales[canal] ?? 0) / Math.pow(10, ganancia / 20);
+      maximo = Math.max(maximo, pico);
+      pasos++;
+      setAutoGanancia({ canal, quedan: Math.ceil((TOTAL - pasos) / 20), nivel: Math.min(1, pico) });
+      if (pasos < TOTAL) return;
+      pararAuto();
+      const entra = 20 * Math.log10(Math.max(maximo, 1e-6));
+      if (entra < -60) {
+        setAutoGanancia({ canal, quedan: 0, nivel: 0, error: "No llega sonido por esta entrada: mira el cable, el volumen de la guitarra y la entrada elegida en Ajustes." });
+        return;
+      }
+      const nueva = Math.max(-20, Math.min(20, Math.round(PICO_OBJETIVO - entra)));
+      cambiarEntrada(canal, (x) => ({ ...x, ganancia: nueva }));
+      setAutoGanancia(null);
+      leer(`Entrada ${canal + 1}`, `Ganancia ajustada: ${nueva > 0 ? "+" : ""}${nueva} dB`);
+    }, 50);
+  };
+  useEffect(() => () => pararAuto(), []);
+
   // El tamaño de la consola, para escalar la grabadora y la mesa
   const raiz = useRef<HTMLDivElement>(null);
   const [tam, setTam] = useState<{ w: number; h: number; tactil: boolean } | null>(null);
@@ -618,6 +663,7 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
             anterior={vecino(-1)}
             siguiente={vecino(1)}
             entradas={canalAbierto < 2 ? propsMesa.entradas : null}
+            alAjustarGanancia={canalAbierto < 2 ? () => void ajustarGanancia(canalAbierto as 0 | 1) : null}
             leer={leer}
           />
         </div>
@@ -648,6 +694,42 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
         </svg>
         <p>Gira el móvil para usar la mesa</p>
       </div>
+
+      {autoGanancia && (
+        <div className="hoja-fondo" onClick={() => autoGanancia.error && setAutoGanancia(null)}>
+          <div className="hoja" role="dialog" aria-modal="true" aria-label="Ajustar la ganancia" onClick={(e) => e.stopPropagation()}>
+            <div className="hoja-asa" aria-hidden="true" />
+            <header className="hoja-cabecera">
+              <h2>Ganancia de la entrada {autoGanancia.canal + 1}</h2>
+              <button
+                type="button"
+                className="boton-texto"
+                onClick={() => {
+                  pararAuto();
+                  setAutoGanancia(null);
+                }}
+              >
+                {autoGanancia.error ? "Listo" : "Cancelar"}
+              </button>
+            </header>
+            <div className="hoja-cuerpo auto-hoja">
+              {autoGanancia.error ? (
+                <p className="toma-estado">{autoGanancia.error}</p>
+              ) : (
+                <>
+                  <p className="auto-texto">
+                    Toca <strong>fuerte</strong>, como en la parte más fuerte de la canción… <span className="auto-quedan">{autoGanancia.quedan}</span>
+                  </p>
+                  <span className="auto-barra" aria-hidden="true">
+                    <span style={{ width: `${Math.sqrt(autoGanancia.nivel) * 100}%` }} />
+                  </span>
+                  <p className="toma-ayuda">Al acabar, el TRIM se queda donde tu señal entra fuerte pero sin saturar.</p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {verTomas && tomas.length > 0 && (
         <div className="hoja-fondo" onClick={() => setVerTomas(false)}>
@@ -725,6 +807,11 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
               </button>
             </header>
             <div className="hoja-cuerpo mesa-hoja">
+              {abierta.tipo === "entrada" && (
+                <button type="button" className="boton-secundario ancho auto-ganancia" onClick={() => void ajustarGanancia(abierta.i as 0 | 1)}>
+                  Ajustar la ganancia sola (tocas fuerte 5 segundos)
+                </button>
+              )}
               {abierta.tipo === "entrada" ? (
                 <EfectosMesa
                   canal={ajustes.canales[abierta.i]}
