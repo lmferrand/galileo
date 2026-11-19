@@ -925,13 +925,6 @@
 }
 
 /* ---------- La grabadora de bobinas, arriba y fija (GrabadoraMesa) ---------- */
-.cf-cinta {
-  flex: none;
-  height: clamp(110px, 46%, 380px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 .gm-caja {
   position: relative;
   flex: none;
@@ -1734,4 +1727,15 @@
   color: #ffd79a;
   white-space: normal;
   text-align: center;
+}
+
+/* La grabadora sobre la mesa, una sola pieza (ConsolaMesa: Pieza) */
+.cf-pieza {
+  position: relative;
+  flex: none;
+  margin: auto;
+}
+.cf-pieza-cinta,
+.cf-pieza-mesa {
+  position: absolute;
 }

@@ -9,7 +9,7 @@
 // silencio son los del reproductor; sus efectos, los de su canal en lib/pistas/reproductor.
 // En el móvil de pie pide girarlo: la mesa necesita la pantalla tumbada.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
 import EfectosMesa, { efectosActivos } from "./EfectosMesa";
 import MesaFoto, { ALTO_MESA, ANCHO_MESA, type CanalFoto } from "./MesaFoto";
 import CanalGrande from "./CanalGrande";
@@ -69,6 +69,59 @@ export interface PistasMesa {
 }
 
 type Abierta = { tipo: "entrada" | "pista"; i: number };
+
+/**
+ * La grabadora sobre la mesa como una sola pieza, en píxeles de la foto de la mesa: la madera de
+ * la grabadora (1993 px de ancho, de x = 3 a 1996) mide lo mismo que la de arriba de la mesa
+ * (1641 px, de x = 56 a 1697), su borde izquierdo encima del de la mesa, y la mesa monta un poco
+ * sobre ella (tapa sus esquinas redondeadas de abajo): sin hueco.
+ */
+const K_CINTA = 1641 / 1993;
+const PIEZA = (() => {
+  const altoCinta = ALTO_CINTA * K_CINTA;
+  const yMesa = altoCinta - 9;
+  return { xCinta: 56 - 3 * K_CINTA, yMesa, alto: yMesa + 838 };
+})();
+
+function Pieza({
+  escala,
+  cinta,
+  abajo,
+  propsCinta,
+  propsMesa,
+  elegir,
+}: {
+  escala: number;
+  cinta: RefObject<HTMLDivElement | null>;
+  abajo: RefObject<HTMLDivElement | null>;
+  propsCinta: Omit<ComponentProps<typeof GrabadoraMesa>, "escala">;
+  propsMesa: Omit<ComponentProps<typeof MesaFoto>, "escala">;
+  /** En la vista de las dos (móvil): cada parte se toca para verla en grande */
+  elegir?: (p: "cinta" | "mesa") => Record<string, unknown>;
+}) {
+  return (
+    <div className="cf-pieza" style={{ width: ANCHO_MESA * escala, height: PIEZA.alto * escala }}>
+      <div
+        className={`cf-pieza-cinta${elegir ? " cf-parte" : ""}`}
+        style={{ left: PIEZA.xCinta * escala, top: 0 }}
+        {...(elegir ? { "aria-label": "Ver la grabadora en grande", ...elegir("cinta") } : {})}
+      >
+        <div ref={cinta} inert={!!elegir}>
+          <GrabadoraMesa escala={escala * K_CINTA} {...propsCinta} />
+        </div>
+      </div>
+      <div
+        className={`cf-pieza-mesa${elegir ? " cf-parte" : ""}`}
+        style={{ left: 0, top: PIEZA.yMesa * escala }}
+        {...(elegir ? { "aria-label": "Ver la mesa de mezclas en grande", ...elegir("mesa") } : {})}
+      >
+        <div ref={abajo} inert={!!elegir}>
+          <MesaFoto escala={escala} {...propsMesa} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const LECTURA_MS = 1400;
 /** Dónde queda el pico más fuerte de lo que tocas tras el ajuste automático del TRIM (dBFS) */
@@ -510,14 +563,13 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   const [canalAbierto, setCanalAbierto] = useState<number | null>(null);
   const vista = partido ? (parte === "mesa" && canalAbierto !== null ? "canal" : parte) : "juntas";
   const atras = () => (canalAbierto !== null ? setCanalAbierto(null) : setParte("las-dos"));
-  // Juntas: la grabadora arriba (sin tapar «Estudio» ni la ✕) y la mesa debajo, que se desliza si no cabe
-  const altoCinta = Math.max(110, Math.min(0.46 * H, 380));
-  const escalaCinta = Math.max(0.1, Math.min((W - 240) / ANCHO_CINTA, altoCinta / ALTO_CINTA, 1));
-  const escala = Math.min(1, Math.max(Math.min(W / ANCHO_MESA, (H - altoCinta - 8) / ALTO_MESA), tam?.tactil ? 0.5 : 0.42));
+  // Juntas: la grabadora sobre la mesa, como una sola pieza (PIEZA), lo más grande que quepa; si así
+  // queda demasiado pequeña, más grande y se desliza
+  const escala = Math.min(1, Math.max(Math.min(W / ANCHO_MESA, H / PIEZA.alto), tam?.tactil ? 0.5 : 0.42));
   // Por separado: cada una lo más grande que quepa; las dos juntas, en pequeño una encima de otra
   const escalaCintaGrande = Math.min((W - 16) / ANCHO_CINTA, (H - 8) / ALTO_CINTA);
   const escalaMesaGrande = Math.min((W - 8) / ANCHO_MESA, (H - 4) / ALTO_MESA);
-  const anchoResumen = Math.min(W * 0.92, (H - 34) / (ALTO_CINTA / ANCHO_CINTA + ALTO_MESA / ANCHO_MESA));
+  const escalaResumen = Math.min((W * 0.92) / ANCHO_MESA, (H - 34) / PIEZA.alto);
 
   // Los medidores, sin pasar por React: las entradas si la Mesa está encendida y las pistas siempre
   useEffect(() => {
@@ -707,30 +759,15 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   return (
     <div className={`consola-foto vista-${vista}`} ref={raiz}>
       {vista === "juntas" && (
-        <>
-          {/* Arriba, fija: la grabadora de bobinas (VU, teclas, la onda de la canción y REC) */}
-          <div className="cf-cinta" ref={cinta} style={{ height: altoCinta }}>
-            <GrabadoraMesa escala={escalaCinta} {...propsCinta} />
-          </div>
-          {/* Abajo: la mesa de mezclas, que se desliza con el dedo */}
-          <div className="cf-abajo" ref={abajo}>
-            <MesaFoto escala={escala} {...propsMesa} />
-          </div>
-        </>
+        // La grabadora sobre la mesa, una sola pieza (se desliza si no cabe)
+        <div className="cf-abajo">
+          <Pieza escala={escala} cinta={cinta} abajo={abajo} propsCinta={propsCinta} propsMesa={propsMesa} />
+        </div>
       )}
 
       {vista === "las-dos" && (
         <div className="cf-resumen">
-          <div className="cf-parte" aria-label="Ver la grabadora en grande" {...elegir("cinta")}>
-            <div inert ref={cinta}>
-              <GrabadoraMesa escala={anchoResumen / ANCHO_CINTA} {...propsCinta} />
-            </div>
-          </div>
-          <div className="cf-parte" aria-label="Ver la mesa de mezclas en grande" {...elegir("mesa")}>
-            <div inert ref={abajo}>
-              <MesaFoto escala={anchoResumen / ANCHO_MESA} {...propsMesa} />
-            </div>
-          </div>
+          <Pieza escala={escalaResumen} cinta={cinta} abajo={abajo} propsCinta={propsCinta} propsMesa={propsMesa} elegir={elegir} />
           <p className="cf-ayuda-partes">Toca la grabadora o la mesa para verla en grande</p>
         </div>
       )}
