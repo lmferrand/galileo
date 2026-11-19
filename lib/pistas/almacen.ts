@@ -101,6 +101,11 @@ export async function renombrarCancion(id: string, nombre: string) {
   await actualizarCancion(id, { nombre });
 }
 
+/** El grupo de la canción en el selector de pistas (null: el automático). */
+export async function cambiarGrupo(id: string, grupo: string | null) {
+  await actualizarCancion(id, { grupo: grupo ?? undefined });
+}
+
 export async function borrarCancion(id: string, pistas: Pista[]) {
   const db = await abrir();
   const tx = db.transaction(["canciones", "audios"], "readwrite");

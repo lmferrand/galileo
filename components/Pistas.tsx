@@ -47,6 +47,8 @@ const PESO_MODELO = "285 MB";
 export default function Pistas() {
   const [canciones, setCanciones] = useState<Cancion[] | null>(null);
   const [abierta, setAbierta] = useState<Cancion | null>(null);
+  // Elegida desde el selector de pistas de la Mesa: se abre ya en la Mesa
+  const [mesaAlEntrar, setMesaAlEntrar] = useState(false);
   const [sep, setSep] = useState<EstadoSeparacion>({ trabajo: null, error: null, terminada: null, enCola: [], tanda: { total: 0, hechas: 0 } });
   // Canciones elegidas que ya tenías separadas (no se repiten).
   const [repetidas, setRepetidas] = useState<string[]>([]);
@@ -285,9 +287,17 @@ export default function Pistas() {
         cancion={abierta}
         onVolver={() => {
           setAbierta(null);
+          setMesaAlEntrar(false);
           recargar();
         }}
         onRenombrada={recargar}
+        mesaAlEntrar={mesaAlEntrar}
+        canciones={canciones ?? []}
+        onAbrirOtra={(c) => {
+          setMesaAlEntrar(true);
+          setAbierta(c);
+        }}
+        onCambiadas={recargar}
       />
     );
   }

@@ -5,10 +5,22 @@
 // (ConsolaMesa). «Estudio» vuelve a alejarse; la ✕ cierra (la Mesa sigue sonando si está
 // encendida). Igual que al elegir instrumento: la foto y la zona para tocar van en UNA capa que se
 // acerca entera con una transformación CSS (fluida en el iPhone). Medidas en píxeles de la foto.
+// En el escritorio de la consola está el selector de pistas (SelectorPistas): elegir otra canción
+// la pone en la Mesa sin salir de ella.
 
 import { useEffect, useRef, useState } from "react";
 import { useHorizontal } from "@/lib/horizontal";
 import ConsolaMesa, { type PistasMesa } from "./ConsolaMesa";
+import SelectorPistas from "./SelectorPistas";
+import type { Cancion } from "@/lib/pistas/tipos";
+
+/** Para el selector de pistas del escritorio */
+export interface SelectorMesa {
+  canciones: Cancion[];
+  actual: string;
+  onElegir: (c: Cancion) => void;
+  onCambiadas: () => void;
+}
 
 interface Rect {
   x: number;
@@ -35,13 +47,26 @@ const IRSE_MS = 220;
 
 const sinMovimiento = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export default function EstudioMesa({ onCerrar, pistas }: { onCerrar: () => void; /** Desde Pistas: las 6 pistas de la canción */ pistas?: PistasMesa }) {
+export default function EstudioMesa({
+  onCerrar,
+  pistas,
+  enConsola = false,
+  selector,
+}: {
+  onCerrar: () => void;
+  /** Desde Pistas: las 6 pistas de la canción */
+  pistas?: PistasMesa;
+  /** Abrir ya en la consola (al cambiar de canción desde el selector) */
+  enConsola?: boolean;
+  selector?: SelectorMesa;
+}) {
   // Hasta saber si la pantalla es apaisada no se pinta ninguna foto (así no se descarga la que no toca)
   const horizontal = useHorizontal();
   const FOTO = horizontal ? HORIZONTAL : VERTICAL;
   const caja = useRef<HTMLDivElement>(null);
   const [tam, setTam] = useState<{ w: number; h: number } | null>(null);
-  const [fase, setFase] = useState<Fase>("estudio");
+  const [fase, setFase] = useState<Fase>(enConsola ? "consola" : "estudio");
+  const [verSelector, setVerSelector] = useState(false);
 
   useEffect(() => {
     const el = caja.current;
@@ -161,7 +186,19 @@ export default function EstudioMesa({ onCerrar, pistas }: { onCerrar: () => void
         <div className="estudio-consola">
           {/* Dentro de la consola no hay ✕: se sale hacia atrás (canal → mesa → las dos → estudio) */}
           <Arriba onEstudio={() => setFase("volviendo")} />
-          <ConsolaMesa pistas={pistas} />
+          <ConsolaMesa pistas={pistas} alAbrirSelector={selector ? () => setVerSelector(true) : undefined} />
+          {verSelector && selector && (
+            <SelectorPistas
+              canciones={selector.canciones}
+              actual={selector.actual}
+              onElegir={(c) => {
+                setVerSelector(false);
+                if (c.id !== selector.actual) selector.onElegir(c);
+              }}
+              onCerrar={() => setVerSelector(false)}
+              onCambiadas={selector.onCambiadas}
+            />
+          )}
         </div>
       ) : (
         <Arriba onCerrar={onCerrar} />

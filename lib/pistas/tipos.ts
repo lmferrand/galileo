@@ -29,6 +29,8 @@ export interface Cancion {
   credito?: string;
   /** Ya está subida a la nube (para tenerla en el móvil). */
   nube?: boolean;
+  /** Su grupo en el selector de pistas (artista, álbum, proyecto…); sin poner, uno automático (lib/pistas/grupos). */
+  grupo?: string;
 }
 
 export function formatoTiempo(segundos: number): string {

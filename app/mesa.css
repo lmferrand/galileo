@@ -1739,3 +1739,282 @@
 .cf-pieza-mesa {
   position: absolute;
 }
+
+/* ---------- El selector de pistas: el aparato del escritorio ---------- */
+.cf-aparato {
+  position: absolute;
+  z-index: 3;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.55));
+  transition: transform 180ms ease, filter 180ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.cf-aparato img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  -webkit-user-select: none;
+}
+@media (hover: hover) {
+  .cf-aparato:hover {
+    transform: translateY(-2px);
+    filter: drop-shadow(0 12px 14px rgba(0, 0, 0, 0.6)) brightness(1.08);
+  }
+}
+.cf-aparato:active {
+  transform: translateY(1px);
+}
+.cf-aparato:focus-visible {
+  outline: 2px solid #ffd27a;
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+.cf-aparato-rotulo {
+  display: block;
+  margin-top: 4px;
+  color: #f3e2c4;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+/* ---------- El selector de pistas en grande ---------- */
+.sp-pistas {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: rgba(12, 6, 2, 0.6);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  animation: estudio-aparece 240ms ease both;
+}
+.sp-arriba {
+  display: flex;
+  height: 42px;
+  flex: none;
+}
+/* Pantalla bajita (móvil tumbado): el botón flota en la esquina y el aparato gana sitio */
+@media (max-height: 520px) {
+  .sp-arriba {
+    position: absolute;
+    z-index: 1;
+    top: max(10px, env(safe-area-inset-top));
+    left: max(12px, env(safe-area-inset-left));
+  }
+  .sp-ayuda {
+    display: none;
+  }
+  .sp-acciones {
+    min-height: 40px;
+    padding-top: 2px;
+  }
+}
+.sp-caja {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sp-aparato {
+  position: relative;
+  flex: none;
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.6));
+}
+.sp-foto {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+.sp-foto > img {
+  display: block;
+  width: 1536px;
+  height: 1024px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sp-titulo {
+  position: absolute;
+  left: 440px;
+  top: 160px;
+  width: 656px;
+  height: 78px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #2a1c10;
+  font: 800 46px/1 var(--f-ui);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.sp-fila {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  padding: 0 28px 0 36px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #24180e;
+  font: 800 44px/1 var(--f-ui);
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sp-fila.on {
+  background: linear-gradient(rgba(250, 216, 128, 0.88), rgba(240, 186, 74, 0.88));
+  box-shadow:
+    0 0 0 4px #ffb43c,
+    0 0 26px 8px rgba(255, 170, 40, 0.65);
+}
+.sp-fila:focus-visible {
+  outline: 5px solid #ffd27a;
+  outline-offset: 4px;
+}
+.sp-fila.vacia {
+  cursor: default;
+  color: rgba(36, 24, 14, 0.45);
+  font-weight: 600;
+  font-style: italic;
+}
+.sp-num {
+  width: 76px;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.sp-raya {
+  width: 4px;
+  height: 50px;
+  flex: none;
+  margin: 0 30px 0 6px;
+  border-radius: 2px;
+  background: #2a1d12;
+}
+.sp-nombre {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sp-dato {
+  flex: none;
+  margin-left: 20px;
+  font-size: 30px;
+  font-weight: 700;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.sp-luz {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.sp-luz.on {
+  background: radial-gradient(circle at 45% 40%, #eaffd0 0 16%, #72ff6c 34%, #1fae3a 60%, rgba(20, 120, 40, 0) 72%);
+  box-shadow: 0 0 22px 6px rgba(90, 255, 110, 0.5);
+}
+.sp-luz.apagada {
+  background: radial-gradient(circle, #3a2410 0 52%, rgba(30, 15, 5, 0) 72%);
+}
+.sp-flecha {
+  position: absolute;
+  width: 100px;
+  height: 58px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+}
+.sp-flecha:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+.sp-rueda {
+  position: absolute;
+  border-radius: 50%;
+  background-image: url(/mesa/selector-pistas.webp);
+  background-size: 1536px 1024px;
+  cursor: grab;
+  touch-action: none;
+}
+.sp-rueda:active {
+  cursor: grabbing;
+}
+.sp-abrir {
+  position: absolute;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  cursor: pointer;
+}
+.sp-abrir:active {
+  background: rgba(0, 0, 0, 0.2);
+}
+.sp-acciones {
+  flex: none;
+  min-height: 44px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 6px;
+  color: #f3e8d6;
+}
+.sp-accion {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 99px;
+  border: 1px solid rgba(243, 232, 214, 0.22);
+  background: rgba(18, 10, 6, 0.65);
+  color: #f3e8d6;
+  font: 700 14px var(--f-ui);
+  cursor: pointer;
+}
+.sp-ayuda {
+  color: #d8c4a6;
+  font-size: 13px;
+}
+.sp-form,
+.sp-anadir {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.sp-anadir {
+  max-height: 28vh;
+  overflow-y: auto;
+}
+.sp-form input {
+  min-width: 14em;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(243, 232, 214, 0.3);
+  background: rgba(18, 10, 6, 0.7);
+  color: #f3e8d6;
+  font: inherit;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-pistas {
+    animation: none;
+  }
+}

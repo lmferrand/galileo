@@ -46,9 +46,15 @@ interface Props {
   cancion: Cancion;
   onVolver: () => void;
   onRenombrada: () => void;
+  /** Abrir con la Mesa ya en la consola (se ha elegido desde el selector de pistas) */
+  mesaAlEntrar?: boolean;
+  /** Para el selector de pistas de la Mesa: todas las canciones y abrir otra */
+  canciones?: Cancion[];
+  onAbrirOtra?: (c: Cancion) => void;
+  onCambiadas?: () => void;
 }
 
-export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props) {
+export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEntrar = false, canciones, onAbrirOtra, onCambiadas }: Props) {
   const rep = useRef<Reproductor | null>(null);
   const [cargando, setCargando] = useState(true);
   // Separada en el PC con BS-RoFormer: ya reparte bien los graves, no se limpia el bajo
@@ -85,13 +91,16 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   }, [verCredito]);
   const [guardado, setGuardado] = useState<Guardado | null>(null);
   // La Mesa (estudio y consola) con las 6 pistas como canales 3 a 8
-  const [verMesa, setVerMesa] = useState(false);
+  const [verMesa, setVerMesa] = useState(mesaAlEntrar);
+  // Venir del selector: la Mesa se abre ya en la consola (solo esa vez)
+  const [mesaDirecta, setMesaDirecta] = useState(mesaAlEntrar);
   // La onda de la canción, para la pantalla de la Mesa
   const [onda, setOnda] = useState<Float32Array | null>(null);
   // Un «Solo» en una entrada de la Mesa: las pistas sin «Solo» se callan
   const [soloFuera, setSoloFuera] = useState(false);
   const cerrarMesa = useCallback(() => {
     setVerMesa(false);
+    setMesaDirecta(false);
     setSoloFuera(false);
   }, [setVerMesa, setSoloFuera]);
   const ultimo = useRef({ segundo: -1, tocando: false });
@@ -749,7 +758,14 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
         )}
       </div>
 
-      {verMesa && <EstudioMesa onCerrar={cerrarMesa} pistas={pistasMesa} />}
+      {verMesa && (
+        <EstudioMesa
+          onCerrar={cerrarMesa}
+          pistas={pistasMesa}
+          enConsola={mesaDirecta}
+          selector={canciones && onAbrirOtra ? { canciones, actual: cancion.id, onElegir: onAbrirOtra, onCambiadas: onCambiadas ?? (() => undefined) } : undefined}
+        />
+      )}
     </main>
   );
 }
