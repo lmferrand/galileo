@@ -148,8 +148,9 @@ function tempo(o: Float32Array): number | null {
   const n = o.length;
   const min = Math.floor((FE * 60) / 220);
   const max = Math.ceil((FE * 60) / 50);
-  const r = new Float64Array(max + 2);
-  for (let l = min - 1; l <= max + 1; l++) {
+  const tope = 2 * max + 2; // también el doble de cada periodo
+  const r = new Float64Array(tope + 1);
+  for (let l = min - 1; l <= tope; l++) {
     let s = 0;
     for (let i = l; i < n; i++) s += o[i] * o[i - l];
     r[l] = s / (n - l);
@@ -160,7 +161,7 @@ function tempo(o: Float32Array): number | null {
   let valor = -Infinity;
   for (let l = min; l <= max; l++) {
     // Un pulso también refuerza el doble de su periodo
-    const doble = 2 * l + 1 <= max + 1 ? 0.5 * Math.max(r[2 * l - 1], r[2 * l], r[2 * l + 1]) : 0;
+    const doble = 0.5 * Math.max(r[2 * l - 1], r[2 * l], r[2 * l + 1]);
     const v = peso(l) * (r[l] + doble);
     if (v > valor && r[l] >= r[l - 1] && r[l] >= r[l + 1]) {
       valor = v;
@@ -191,7 +192,7 @@ function seguirGolpes(o: Float32Array, periodo: number): number[] {
     }
     local[i] = s;
   }
-  const APRIETE = 100;
+  const APRIETE = 680; // alto: que no se pase al contratiempo; sigue igual al batería que acelera poco a poco
   const desde = Math.round(periodo / 2);
   const hasta = Math.round(periodo * 2);
   const coste = new Float32Array(hasta + 1);
