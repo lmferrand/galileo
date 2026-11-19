@@ -381,8 +381,46 @@ export default function Afinador() {
   const sonandoCuerda = tonoEn ?? (viva ? cuerda : null);
   const celebrandoAhora = celebrando && !cromatico;
 
+  // Móvil tumbado: la pantalla es más alta que el móvil y se desliza. Que se pare justo donde acaba
+  // la pala (si no, al subir del todo se ve el final del mástil): se mide dónde acaba y la página
+  // se recorta ahí, con el marco de la pala del mismo tamaño para que la pala no cambie.
+  const raiz = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const app = raiz.current;
+    if (!app) return;
+    const tumbado = matchMedia("(orientation: landscape) and (max-height: 520px)");
+    let marcoVisto: HTMLElement | null = null;
+    const ro = new ResizeObserver(() => medir());
+    const medir = () => {
+      app.style.removeProperty("--fin-pala");
+      app.style.removeProperty("--alto-marco");
+      const marco = app.querySelector<HTMLElement>(".pala-marco");
+      const pala = marco?.querySelector<HTMLElement>(".pala");
+      if (marco && marco !== marcoVisto) {
+        marcoVisto = marco;
+        ro.observe(marco);
+      }
+      if (!tumbado.matches || !marco || !pala) return;
+      // Dónde acaba la pala dentro de la página, sin contar sus movimientos (el giroscopio)
+      let y = pala.offsetHeight;
+      for (let el: HTMLElement | null = pala; el && el !== app; el = el.offsetParent as HTMLElement | null) y += el.offsetTop;
+      app.style.setProperty("--alto-marco", `${marco.offsetHeight}px`);
+      app.style.setProperty("--fin-pala", `${Math.round(y)}px`);
+    };
+    medir();
+    tumbado.addEventListener("change", medir);
+    window.addEventListener("resize", medir);
+    return () => {
+      ro.disconnect();
+      tumbado.removeEventListener("change", medir);
+      window.removeEventListener("resize", medir);
+      app.style.removeProperty("--fin-pala");
+      app.style.removeProperty("--alto-marco");
+    };
+  }, [listo, instrumento.id, eleccion.fase]);
+
   return (
-    <main className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""}`}>
+    <main ref={raiz} className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""}`}>
       {listo && instrumento.fondo && <FondoEstudio key={instrumento.id} foto={instrumento.fondo} fotoHorizontal={instrumento.fondoHorizontal} vertical velo={false} />}
       {portada && (
         <Portada
