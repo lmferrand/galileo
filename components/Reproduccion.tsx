@@ -17,7 +17,7 @@ import { formatoTiempo, FRECUENCIA, PISTAS, type Cancion, type Pista } from "@/l
 import { tomaA, type Toma } from "@/lib/mesa/toma";
 import { ondaDe } from "@/lib/pistas/onda";
 import { leerPistasDeCancion, pulsoDeCancion } from "@/lib/pistas/cargar";
-import { ajustesPorDefecto, guardarAjustesCancion, leerAjustesCancion, nombreNuevo, NOMBRES_PARTES, type ClickCancion, type Marca } from "@/lib/pistas/ajustesCancion";
+import { ajustesPorDefecto, guardarAjustesCancion, leerAjustesCancion, nombreNuevo, NOMBRES_PARTES, pulsoDoble, pulsoMitad, type ClickCancion, type Marca } from "@/lib/pistas/ajustesCancion";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
 
@@ -666,6 +666,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
                     <button type="button" className="chip" onClick={cambiarCompas}>
                       Compás de {click.compas}
                     </button>
+                    <button type="button" className="chip" onClick={() => setClick(pulsoDoble(click))} disabled={click.bpm * 2 > 260} aria-label="Pulso al doble de rápido">
+                      Al doble
+                    </button>
+                    <button type="button" className="chip" onClick={() => setClick(pulsoMitad(click))} disabled={click.bpm / 2 < 40 || click.golpes.length < 8} aria-label="Pulso a la mitad">
+                      A la mitad
+                    </button>
                     <button type="button" className={`interruptor-mini ${oirClick ? "on" : ""}`} role="switch" aria-checked={oirClick} onClick={() => setOirClick((o) => !o)} disabled={cargando}>
                       <span className="interruptor-pista" aria-hidden="true">
                         <span className="interruptor-bola" />
@@ -691,7 +697,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
               </div>
               <p className="practica-ayuda">
                 {click
-                  ? "Suena en cada golpe de la batería; el agudo es el 1 del compás. Si el 1 no cae donde debe, «Mover el 1». En el directo puede ir solo a tus cascos."
+                  ? "Suena en cada golpe de la batería; el agudo es el 1 del compás. Si va el doble de rápido (o de lento) de lo que cuentas, «A la mitad» (o «Al doble»); si el 1 no cae donde debe, «Mover el 1». En el directo puede ir solo a tus cascos."
                   : buscandoPulso === "sin"
                     ? "No he encontrado un pulso claro en la batería de esta canción."
                     : "Para tocar en directo con click: lo saca de la batería y esta canción lo recuerda."}

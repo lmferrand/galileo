@@ -4,11 +4,14 @@
 //      charles, que en corcheas harían creer que va al doble; aparte, el de los graves del bombo).
 //   2) El tempo: la autocorrelación de esa fuerza, con preferencia por los 120 por minuto.
 //   3) Los golpes: programación dinámica (Ellis, 2007): cae en los ataques sin salirse del tempo.
-//   4) El 1 del compás: de cada grupo de golpes, el que más bombo lleva.
+//   4) Si la canción va a tempo fijo (grabada con click), una rejilla recta: así no se corre nunca.
+//   5) El 1 del compás: de cada grupo de golpes, el que más bombo lleva.
 
 export interface Pulso {
   /** Segundo de cada golpe, en orden */
   golpes: number[];
+  /** La canción va a tempo fijo: los golpes son una rejilla recta */
+  fijo?: boolean;
   /** Índice del primer golpe que es un 1 de compás */
   uno: number;
   compas: number;
@@ -36,9 +39,12 @@ export function sacarPulso(estereo: Int16Array, frecuencia: number, compas = 4):
   if (!o) return null;
   const periodo = tempo(o);
   if (!periodo) return null;
-  let golpes = seguirGolpes(o, periodo);
+  const local = fuerzaLocal(o, periodo);
+  let golpes = seguirGolpes(local, periodo);
   golpes = recortarBordes(golpes, o, periodo);
   if (golpes.length < 8) return null;
+  const recta = rejillaFija(golpes, local);
+  if (recta) golpes = recta;
 
   const segundo = (f: number) => Math.round(((f * SALTO + ADELANTO) / SR) * 1000) / 1000;
   const tiempos = golpes.map(segundo);
@@ -51,7 +57,7 @@ export function sacarPulso(estereo: Int16Array, frecuencia: number, compas = 4):
   const antes: number[] = [];
   for (let t = tiempos[0] - arranque; t >= 0.05; t -= arranque) antes.unshift(Math.round(t * 1000) / 1000);
   const uno = (elUno(golpes, graves, compas) + antes.length) % compas;
-  return { golpes: [...antes, ...tiempos], uno, compas, bpm: Math.round(600 / mediana(tiempos)) / 10 };
+  return { golpes: [...antes, ...tiempos], uno, compas, bpm: Math.round(600 / mediana(tiempos)) / 10, fijo: !!recta };
 }
 
 /** El 1 de un compás de `compas` golpes: el grupo (por posición) con más bombo. */
@@ -59,7 +65,8 @@ export function elUno(golpes: number[], graves: Float32Array, compas: number): n
   const suma = new Float64Array(compas);
   for (let i = 0; i < golpes.length; i++) {
     let m = 0;
-    for (let f = golpes[i] - 2; f <= golpes[i] + 2; f++) if (f >= 0 && f < graves.length) m = Math.max(m, graves[f]);
+    const g = Math.round(golpes[i]);
+    for (let f = g - 2; f <= g + 2; f++) if (f >= 0 && f < graves.length) m = Math.max(m, graves[f]);
     suma[i % compas] += m;
   }
   let mejor = 0;
@@ -177,10 +184,9 @@ function tempo(o: Float32Array): number | null {
   return mejor + (den < 0 ? (0.5 * (a - c)) / den : 0);
 }
 
-/** Programación dinámica: cada golpe suma su fuerza y paga por alejarse del periodo. */
-function seguirGolpes(o: Float32Array, periodo: number): number[] {
+/** La fuerza, suavizada un poco alrededor de cada punto. */
+function fuerzaLocal(o: Float32Array, periodo: number): Float32Array {
   const n = o.length;
-  // La fuerza, suavizada un poco alrededor de cada punto
   const sigma = Math.max(1, periodo / 32);
   const radio = Math.ceil(3 * sigma);
   const local = new Float32Array(n);
@@ -192,6 +198,40 @@ function seguirGolpes(o: Float32Array, periodo: number): number[] {
     }
     local[i] = s;
   }
+  return local;
+}
+
+/** Si una rejilla recta (un tempo fijo) cae en los ataques casi tan bien como los golpes que se
+ *  siguieron uno a uno, la canción va a tempo fijo: mejor la rejilla, que no se corre. Si el batería
+ *  acelera o frena, la recta se va saliendo de los ataques y se quedan los seguidos. */
+function rejillaFija(golpes: number[], local: Float32Array): number[] | null {
+  const n = golpes.length;
+  if (n < 16) return null;
+  const valor = (f: number) => {
+    const i = Math.round(f);
+    return i >= 0 && i < local.length ? local[i] : 0;
+  };
+  let seguidos = 0;
+  for (const g of golpes) seguidos += valor(g);
+  if (!(seguidos > 0)) return null;
+  const a = golpes[0];
+  const p0 = (golpes[n - 1] - a) / (n - 1);
+  let mejor = { suma: -Infinity, p: p0, f0: a };
+  for (let d = -0.006; d <= 0.0061; d += 0.0005) {
+    const p = p0 * (1 + d);
+    for (let f0 = a - p / 2; f0 < a + p / 2; f0 += 0.5) {
+      let suma = 0;
+      for (let k = 0; k < n; k++) suma += valor(f0 + k * p);
+      if (suma > mejor.suma) mejor = { suma, p, f0 };
+    }
+  }
+  if (mejor.suma < 0.93 * seguidos) return null;
+  return Array.from({ length: n }, (_, k) => mejor.f0 + k * mejor.p);
+}
+
+/** Programación dinámica: cada golpe suma su fuerza y paga por alejarse del periodo. */
+function seguirGolpes(local: Float32Array, periodo: number): number[] {
+  const n = local.length;
   const APRIETE = 680; // alto: que no se pase al contratiempo; sigue igual al batería que acelera poco a poco
   const desde = Math.round(periodo / 2);
   const hasta = Math.round(periodo * 2);

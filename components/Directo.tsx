@@ -7,6 +7,8 @@
 //   izquierda (Re Pág, ←, espacio, Intro): tocar o pausa · derecha (Av Pág, →): siguiente · ↑: anterior
 // El click (el pulso de cada canción, sacado de su batería en Pistas) puede ir con la canción o solo
 // a los cascos: la canción en mono por la izquierda y el click por la derecha (cable en Y).
+// «Afinar» abre un afinador rápido (AfinadorRapido) con la canción en pausa: no suena nada; el pedal
+// lo cierra.
 
 import { useEffect, useRef, useState } from "react";
 import { Reproductor } from "@/lib/pistas/reproductor";
@@ -15,6 +17,10 @@ import { leerAjustesCancion, type ClickCancion, type Marca } from "@/lib/pistas/
 import { formatoTiempo, PISTAS, type Cancion } from "@/lib/pistas/tipos";
 import { guardarAjustesDirecto, leerAjustesDirecto, type AjustesDirecto, type Repertorio } from "@/lib/pistas/repertorio";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
+import { Motor, type EstadoMicro } from "@/lib/motor";
+import { leerPreferencias } from "@/lib/preferencias";
+import { instrumentoDe } from "@/lib/instrumentos";
+import AfinadorRapido from "./AfinadorRapido";
 
 interface Props {
   repertorio: Repertorio;
@@ -34,6 +40,11 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
   const [pulso, setPulso] = useState<ClickCancion | null>(null);
   const [ajustes, setAjustes] = useState<AjustesDirecto>(() => (typeof window === "undefined" ? { ruta: "no", volumen: 0.8, cuenta: true } : leerAjustesDirecto()));
   const [verClick, setVerClick] = useState(false);
+  // El afinador rápido: el micro se abre con el toque del botón (el iPhone solo lo deja así)
+  const motor = useRef<Motor | null>(null);
+  const [afinando, setAfinando] = useState(false);
+  const [oido, setOido] = useState<number | null>(null);
+  const [micro, setMicro] = useState<EstadoMicro>("parado");
   const rep = useRef<Reproductor | null>(null);
   const antes = useRef({ tocando: false });
   const cancion = lista[indice];
@@ -128,15 +139,58 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
   };
   const pasar = (paso: 1 | -1) => setIndice((i) => Math.max(0, Math.min(lista.length - 1, i + paso)));
 
-  // El pedal (y el teclado)
-  const ultimas = useRef({ alternar, pasar });
+  const pararMotor = () => {
+    const m = motor.current;
+    motor.current = null;
+    m?.parar();
+    void m?.contexto?.close().catch(() => undefined);
+  };
+  const abrirAfinador = () => {
+    rep.current?.pausar();
+    pararMotor();
+    setAfinando(true);
+    setOido(null);
+    const m = new Motor((l) => setOido(l ? l.frecuencia : null));
+    m.frecuenciaMin = instrumentoDe(leerPreferencias().instrumento).frecuenciaMin;
+    motor.current = m;
+    setMicro("pidiendo");
+    void m.empezar().then((e) => {
+      if (motor.current === m) setMicro(e);
+    });
+  };
+  const cerrarAfinador = () => {
+    pararMotor();
+    setAfinando(false);
+    setOido(null);
+  };
+  // Al salir del directo, el micro se cierra
+  useEffect(
+    () => () => {
+      const m = motor.current;
+      motor.current = null;
+      m?.parar();
+      void m?.contexto?.close().catch(() => undefined);
+    },
+    [],
+  );
+
+  // El pedal (y el teclado); con el afinador abierto, cualquier pedal lo cierra
+  const ultimas = useRef({ alternar, pasar, afinando, cerrarAfinador });
   useEffect(() => {
-    ultimas.current = { alternar, pasar };
+    ultimas.current = { alternar, pasar, afinando, cerrarAfinador };
   });
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest?.("input, textarea")) return;
-      const { alternar: a, pasar: p } = ultimas.current;
+      const { alternar: a, pasar: p, afinando: af, cerrarAfinador: cerrar } = ultimas.current;
+      if (af) {
+        if ([" ", "Enter", "PageUp", "PageDown", "ArrowLeft", "ArrowRight", "ArrowUp", "Escape", "MediaPlayPause"].includes(e.key)) {
+          cerrar();
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        return;
+      }
       if ([" ", "Enter", "PageUp", "ArrowLeft", "MediaPlayPause"].includes(e.key)) a();
       else if (["PageDown", "ArrowRight", "MediaTrackNext"].includes(e.key)) p(1);
       else if (["ArrowUp", "MediaTrackPrevious"].includes(e.key)) p(-1);
@@ -227,6 +281,9 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
           </div>
         )}
         <p className="directo-siguiente">{siguiente ? `Después: ${siguiente.nombre}` : "Es la última"}</p>
+        <button type="button" className="directo-afinar" onClick={abrirAfinador} disabled={bloqueado}>
+          Afinar en silencio
+        </button>
       </main>
 
       <footer className="directo-mandos">
@@ -241,6 +298,8 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
         </button>
       </footer>
       <p className="directo-pedal">Pedal: izquierda = tocar o pausa · derecha = siguiente canción</p>
+
+      {afinando && <AfinadorRapido frecuencia={oido} estado={micro} onCerrar={cerrarAfinador} />}
 
       {verClick && (
         <div className="directo-panel" role="dialog" aria-modal="true" aria-label="El click" onClick={(e) => e.target === e.currentTarget && setVerClick(false)}>

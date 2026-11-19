@@ -62,6 +62,24 @@ export function leerAjustesCancion(id: string, n: number): AjustesCancion {
   }
 }
 
+/** El pulso al doble: un golpe más en medio de cada dos (el 1 sigue cayendo en los mismos sitios). */
+export function pulsoDoble(c: ClickCancion): ClickCancion {
+  const golpes: number[] = [];
+  c.golpes.forEach((g, i) => {
+    golpes.push(g);
+    const sig = c.golpes[i + 1];
+    if (sig !== undefined) golpes.push(Math.round(((g + sig) / 2) * 1000) / 1000);
+  });
+  return { ...c, golpes, uno: (2 * c.uno) % c.compas, bpm: Math.round(c.bpm * 20) / 10 };
+}
+
+/** El pulso a la mitad: uno de cada dos, quedándose con los que caen en el 1. */
+export function pulsoMitad(c: ClickCancion): ClickCancion {
+  const par = c.uno % 2;
+  const golpes = c.golpes.filter((_, i) => i % 2 === par);
+  return { ...c, golpes, uno: ((c.uno - par) / 2) % c.compas, bpm: Math.round(c.bpm * 5) / 10 };
+}
+
 function leerClick(c: unknown): ClickCancion | null {
   if (!c || typeof c !== "object") return null;
   const p = c as Partial<ClickCancion>;
