@@ -4,7 +4,8 @@
 // desplaza y la pala se mueve un poco al revés: así parece que hay profundidad.
 // En el iPhone hace falta permiso para leer la inclinación; se pide en un toque
 // (ver pedirPermisoMovimiento). En pantallas apaisadas (PC, iPad tumbado) usa la
-// foto horizontal si la hay. Los desplazamientos van en --gx y --gy de <html>.
+// foto horizontal si la hay. Los desplazamientos van en --gx y --gy del propio fondo, y la pala
+// se mueve con su transform (nunca en <html>: recalcularía toda la página en cada fotograma).
 
 import { useEffect, useRef, type CSSProperties } from "react";
 
@@ -75,13 +76,24 @@ export default function FondoEstudio({
       if (!raf) raf = requestAnimationFrame(paso);
     };
 
+    // Lo que se escribe va SOLO en las capas que se mueven: en <html> obligaba a recalcular la
+    // página entera en cada fotograma y en Android (giroscopio siempre activo) todo iba a tirones.
+    let escrito = "";
     const paso = () => {
       raf = 0;
       actual.x += (objetivo.x - actual.x) * 0.12;
       actual.y += (objetivo.y - actual.y) * 0.12;
-      const raiz = document.documentElement.style;
-      raiz.setProperty("--gx", `${(-actual.x * MAX_X).toFixed(1)}px`);
-      raiz.setProperty("--gy", `${(-actual.y * MAX_Y).toFixed(1)}px`);
+      const gx = Math.round(-actual.x * MAX_X * 10) / 10;
+      const gy = Math.round(-actual.y * MAX_Y * 10) / 10;
+      const clave = `${gx} ${gy}`;
+      if (clave !== escrito) {
+        escrito = clave;
+        el.style.setProperty("--gx", `${gx}px`);
+        el.style.setProperty("--gy", `${gy}px`);
+        // La pala, un poco al revés (profundidad), con su transform directo: nada más se recalcula.
+        const marco = document.querySelector<HTMLElement>(".app.con-estudio .pala-marco");
+        if (marco) marco.style.transform = `translate3d(${(gx * -0.22).toFixed(1)}px, ${(gy * -0.22).toFixed(1)}px, 0)`;
+      }
       if (Math.abs(objetivo.x - actual.x) > 0.002 || Math.abs(objetivo.y - actual.y) > 0.002) raf = requestAnimationFrame(paso);
     };
 
@@ -96,8 +108,8 @@ export default function FondoEstudio({
       window.removeEventListener("deviceorientation", alGirar);
       window.removeEventListener("clavija:movimiento", escuchar);
       cancelAnimationFrame(raf);
-      document.documentElement.style.removeProperty("--gx");
-      document.documentElement.style.removeProperty("--gy");
+      const marco = document.querySelector<HTMLElement>(".app.con-estudio .pala-marco");
+      if (marco) marco.style.transform = "";
     };
   }, []);
 

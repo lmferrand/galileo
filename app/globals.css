@@ -735,9 +735,10 @@ p {
     background-position: 50% 50%;
   }
 }
-/* La pala se mueve un poco al revés que el fondo: profundidad */
+/* La pala se mueve un poco al revés que el fondo (profundidad): FondoEstudio le pone el transform
+   directamente. Aquí solo se deja en su propia capa para que moverla no repinte nada. */
 .app.con-estudio .pala-marco {
-  transform: translate3d(calc(var(--gx, 0px) * -0.22), calc(var(--gy, 0px) * -0.22), 0);
+  transform: translate3d(0, 0, 0);
 }
 /* Lista de Pistas: velo suave para que se vea el estudio (los bloques y la lista llevan su cristal). */
 .fondo-estudio.vertical .fondo-velo {
