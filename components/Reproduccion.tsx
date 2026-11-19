@@ -308,6 +308,10 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
         if (d === null || h === null) setRepetir(false);
       },
       onRepetir: setRepetir,
+      velocidad,
+      velocidadMin: VEL_MIN,
+      velocidadMax: VEL_MAX,
+      onVelocidad: (v) => setVelocidad(Math.round(Math.max(VEL_MIN, Math.min(VEL_MAX, v)) * 100) / 100),
     },
     aplicar: (i, a) => rep.current?.aplicarPista(i, a),
     volumenGeneral: (v) => rep.current?.volumenGeneral(v),

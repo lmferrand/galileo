@@ -138,8 +138,10 @@
   display: flex;
   overflow: hidden;
   overscroll-behavior: contain;
-  padding: calc(max(12px, env(safe-area-inset-top)) + 54px) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
-  background: radial-gradient(ellipse at 50% 62%, rgba(18, 10, 6, 0.5), rgba(18, 10, 6, 0.88));
+  /* Arriba, la grabadora llega hasta el borde: «Estudio» y la ✕ quedan a sus lados */
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  /* Casi opaco: detrás está la foto del estudio, con su propia mesa */
+  background: radial-gradient(ellipse at 50% 40%, rgba(30, 18, 11, 0.94), rgba(10, 6, 4, 0.98));
   animation: estudio-aparece 300ms ease both;
 }
 .fase-volviendo .estudio-consola {
@@ -641,43 +643,6 @@
   flex-direction: column;
   gap: 8px;
 }
-.cf-arriba {
-  flex: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 8px 10px;
-}
-.cf-estado {
-  flex: 0 1 auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
-    linear-gradient(180deg, #2c2825, #201d1a);
-}
-.cf-pantalla {
-  width: 168px;
-  min-height: 62px;
-  padding: 6px 8px;
-}
-.cf-nota {
-  max-width: 24ch;
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.35;
-  color: #c9b196;
-}
-.cf-arriba .pantalla-cancion {
-  flex: 1 1 420px;
-  min-width: 0;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
 .cf-abajo {
   flex: 1;
   min-height: 0;
@@ -943,39 +908,281 @@
     transform: rotate(-90deg);
   }
 }
-/* Tumbado y bajito (móvil): la barra de arriba va a los lados de la pantalla y el reproductor en una fila */
-@media (max-height: 500px) and (min-width: 600px) {
-  .cf-arriba .pantalla-cancion {
-    grid-template-areas: "teclas pantalla";
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 12px;
-    padding: 8px 10px;
-  }
-  .cf-arriba .pc-pantalla {
-    height: 64px;
-  }
-  .cf-arriba .pc-bucle {
-    margin-left: 4px;
-  }
-}
+
 @media (max-height: 500px) {
-  .estudio-consola {
-    padding-top: max(8px, env(safe-area-inset-top));
+  .consola-foto {
+    --perilla: 32px;
+    gap: 6px;
   }
-  .cf-arriba {
-    margin: 0 52px 0 118px;
-  }
-  .cf-nota {
-    display: none;
-  }
-  .cf-pantalla {
-    width: 140px;
-    min-height: 48px;
+  /* Tumbado: media pantalla para la grabadora */
+  .consola-foto .cf-cinta {
+    height: 48%;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   .cf-girar svg {
     animation: none;
   }
+}
+
+/* ---------- La grabadora de bobinas, arriba y fija (GrabadoraMesa) ---------- */
+.cf-cinta {
+  flex: none;
+  height: clamp(110px, 46%, 380px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gm-caja {
+  position: relative;
+  flex: none;
+}
+.gm {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+/* Las bobinas: giran mientras suena (más despacio si va más lenta) y corren al saltar */
+.gm-bobina {
+  position: absolute;
+  pointer-events: none;
+}
+.gm-bobina img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  animation: gm-gira var(--vuelta, 2.6s) linear infinite;
+  animation-play-state: paused;
+}
+.gm.tocando .gm-bobina img {
+  animation-play-state: running;
+}
+.gm.corre-adelante .gm-bobina img {
+  animation-duration: 0.45s;
+  animation-play-state: running;
+}
+.gm.corre-atras .gm-bobina img {
+  animation-duration: 0.45s;
+  animation-direction: reverse;
+  animation-play-state: running;
+}
+@keyframes gm-gira {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* El contador: siete segmentos rojos sobre su cristal oscuro */
+.gm-contador {
+  position: absolute;
+  border-radius: 4px;
+  background: radial-gradient(120% 140% at 50% 0%, #240806, #0c0302 70%);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.9);
+}
+.gm-seg {
+  fill: rgba(255, 40, 20, 0.07);
+}
+.gm-seg.on {
+  fill: #ff2b16;
+  filter: drop-shadow(0 0 3px rgba(255, 40, 20, 0.85));
+}
+/* Las teclas de la foto: tocar se enciende en verde mientras suena; las demás, al pulsarlas */
+.gm-tecla {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease;
+}
+.gm-tecla:focus-visible {
+  outline: 4px solid rgba(255, 210, 122, 0.9);
+  outline-offset: 3px;
+}
+.gm-tecla:active:not(:disabled) {
+  transform: translateY(2px);
+  background: rgba(0, 0, 0, 0.18);
+}
+.gm-tecla:disabled {
+  cursor: default;
+}
+.gm-tocar:not(.on),
+.gm-grabar:not(.on) {
+  background: rgba(8, 14, 6, 0.6);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.6);
+}
+.gm-grabar:not(.on) {
+  background: rgba(20, 4, 2, 0.66);
+}
+.gm-tocar.on {
+  box-shadow: 0 0 22px 4px rgba(70, 240, 90, 0.5);
+}
+.gm-pausa.on {
+  background: rgba(255, 200, 90, 0.2);
+  box-shadow: 0 0 18px 3px rgba(255, 190, 60, 0.45);
+}
+/* Sin canción, las teclas de la cinta se apagan (tocar sigue oscura, como siempre que no suena) */
+.gm-tecla:disabled:not(.gm-tocar) {
+  background: rgba(10, 8, 6, 0.42);
+}
+/* Las ruedas naranjas (velocidad y mover la canción) */
+.mf-oro {
+  --c1: #ffe39a;
+  --c2: #b8640a;
+  --c3: #ffc24a;
+  --c4: #9a4f05;
+}
+/* Las agujas de los VU */
+.gm-aguja {
+  stroke: #1f150c;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+.gm-aguja-sombra {
+  stroke: rgba(60, 30, 0, 0.28);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gm.corre-adelante .gm-bobina img,
+  .gm.corre-atras .gm-bobina img {
+    animation-play-state: paused;
+  }
+}
+
+/* La pantalla de la canción dentro de la grabadora (debajo de los VU): roja como el contador */
+.gm-pantalla {
+  position: absolute;
+  display: flex;
+}
+.pantalla-cancion.en-cinta {
+  flex: 1;
+  min-width: 0;
+  grid-template-areas: "teclas pantalla";
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 22px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.en-cinta .pc-teclas {
+  align-items: center;
+  gap: 12px;
+}
+.en-cinta .pc-tecla {
+  width: 84px;
+  height: 66px;
+  border-radius: 7px;
+  border: 1px solid rgba(0, 0, 0, 0.65);
+  background: linear-gradient(#f4ecda, #d8ccb2);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.6),
+    0 4px 6px rgba(0, 0, 0, 0.6);
+  color: #1d1712;
+}
+.en-cinta .pc-tecla.on {
+  background: linear-gradient(#ffe0a0, #f2a23a);
+  box-shadow:
+    0 0 22px rgba(255, 170, 50, 0.6),
+    inset 0 2px 0 rgba(255, 255, 255, 0.5);
+}
+.en-cinta .pc-tecla:disabled {
+  opacity: 0.55;
+}
+.en-cinta .pc-tecla svg {
+  width: 38px;
+  height: 38px;
+  stroke-width: 2.6;
+}
+.en-cinta .mando-nombre {
+  display: none;
+}
+.en-cinta .pc-pantalla,
+.gm-solo-aviso {
+  flex: 1;
+  height: 100%;
+  gap: 6px;
+  padding: 8px 18px 10px;
+  border-radius: 8px;
+  border: 4px solid #0b0a09;
+  background: radial-gradient(120% 140% at 50% 0%, #240806, #0c0302 70%);
+  box-shadow:
+    inset 0 0 18px rgba(0, 0, 0, 0.9),
+    0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #ff7a5c;
+}
+.en-cinta .pc-pantalla:focus-visible {
+  border-color: #ffd27a;
+}
+.en-cinta .pc-tiempos {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ff7a5c;
+}
+.en-cinta .pc-ayuda {
+  color: rgba(255, 120, 90, 0.7);
+}
+.en-cinta .pc-aviso {
+  color: #ffd2a8;
+}
+.en-cinta .pc-trozo-texto {
+  color: #ffc561;
+}
+.en-cinta .pc-onda-fondo {
+  fill: rgba(255, 60, 30, 0.26);
+}
+.en-cinta .pc-onda-hecha {
+  fill: #ff3b1f;
+}
+.en-cinta .pc-sin-onda {
+  background: rgba(255, 60, 30, 0.3);
+}
+.en-cinta .pc-cabezal {
+  width: 4px;
+  margin-left: -2px;
+  background: #fff;
+  box-shadow: 0 0 10px #ff8a6a;
+}
+.en-cinta .pc-trozo {
+  top: -4px;
+  bottom: -4px;
+  border: 2px solid rgba(255, 190, 90, 0.75);
+  border-radius: 6px;
+  background: rgba(255, 170, 60, 0.12);
+}
+.en-cinta .pc-trozo.on {
+  border-color: #ffb43c;
+  background: rgba(255, 170, 50, 0.22);
+}
+.en-cinta .pc-borde {
+  top: -10px;
+  bottom: -10px;
+  width: 56px;
+}
+.en-cinta .pc-borde::after {
+  width: 10px;
+  margin-left: -5px;
+}
+.en-cinta .pc-borde-desde {
+  left: -28px;
+}
+.en-cinta .pc-borde-hasta {
+  right: -28px;
+}
+.gm-solo-aviso {
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  font-weight: 700;
+  text-align: center;
+}
+/* REC: las entradas de la interfaz; apagadas, la tecla roja se oscurece */
+.gm-grabar.on {
+  box-shadow: 0 0 22px 4px rgba(255, 50, 30, 0.55);
 }

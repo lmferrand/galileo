@@ -1,8 +1,9 @@
 "use client";
 
-// La consola de la Mesa: arriba, fija, la pantalla (encender las entradas y el mando que mueves)
-// y, desde Pistas, el reproductor de la canción; abajo, la mesa de mezclas de la foto (MesaFoto),
-// que se desliza con el dedo si no cabe. SELECT abre los efectos del canal en una hoja.
+// La consola de la Mesa: arriba, fija, la grabadora de bobinas (GrabadoraMesa: teclas, contador,
+// los VU de cada canal, la onda de la canción para elegir un trozo, los avisos y REC, que enciende
+// las entradas); abajo, la mesa de mezclas de la foto (MesaFoto), que se desliza con el dedo si no
+// cabe. SELECT abre los efectos del canal en una hoja.
 // Canales 1 y 2: las entradas de la interfaz (lib/mesa/mesa, sigue sonando con la consola
 // cerrada). Desde Pistas, además, las 6 pistas de la canción (canales 3 a 8): su volumen y su
 // silencio son los del reproductor; sus efectos, los de su canal en lib/pistas/reproductor.
@@ -11,7 +12,8 @@
 import { useEffect, useRef, useState } from "react";
 import EfectosMesa, { efectosActivos } from "./EfectosMesa";
 import MesaFoto, { ALTO_MESA, ANCHO_MESA, type CanalFoto } from "./MesaFoto";
-import TransporteMesa, { type Transporte } from "./TransporteMesa";
+import GrabadoraMesa, { ALTO_CINTA, ANCHO_CINTA, anguloVu, VU_REPOSO, VUS } from "./GrabadoraMesa";
+import { type Transporte } from "./TransporteMesa";
 import {
   AJUSTES_INICIALES,
   AJUSTES_PISTA,
@@ -46,7 +48,8 @@ export interface PistasMesa {
   /** Ecualizador, efectos y panorama de una pista */
   aplicar: (i: number, a: AjustesCanal) => void;
   volumenGeneral: (v: number) => void;
-  niveles: () => { pistas: number[]; general: number };
+  /** Picos (0–1) de cada pista y de la salida (también por lado: izq y der) */
+  niveles: () => { pistas: number[]; general: number; izq?: number; der?: number };
 }
 
 type Abierta = { tipo: "entrada" | "pista"; i: number };
@@ -78,6 +81,7 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   } | null>(null);
   const tLectura = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abajo = useRef<HTMLDivElement>(null);
+  const cinta = useRef<HTMLDivElement>(null);
   const ultimasPistas = useRef(pistas);
   const ajustes =
     cambiados ?? (hidratado ? leerAjustesMesa() : AJUSTES_INICIALES);
@@ -165,6 +169,16 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     const luz = (id: string) => abajo.current?.querySelector<HTMLSpanElement>(`[data-medidor="${id}"]`) ?? null;
     const luces = Array.from({ length: 8 }, (_, i) => luz(String(i)));
     const general = luz("general");
+    // Las agujas de los VU de la grabadora, con su inercia (suben deprisa y bajan despacio)
+    const agujas = VUS.map((_, i) => cinta.current?.querySelector<SVGGElement>(`[data-vu="${i}"]`) ?? null);
+    const angulos = VUS.map(() => VU_REPOSO);
+    const aguja = (i: number, pico: number) => {
+      const el = agujas[i];
+      if (!el) return;
+      const objetivo = anguloVu(pico);
+      angulos[i] += (objetivo - angulos[i]) * (objetivo > angulos[i] ? 0.35 : 0.1);
+      el.setAttribute("transform", `rotate(${angulos[i].toFixed(2)} ${VUS[i].eje[0]} ${VUS[i].eje[1]})`);
+    };
     let raf = 0;
     const pintar = (el: HTMLSpanElement | null | undefined, v: number) => {
       if (!el) return;
@@ -179,6 +193,11 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
       pintar(luces[1], e?.canales[1] ?? 0);
       p?.pistas.forEach((v, i) => pintar(luces[2 + i], v));
       pintar(general, Math.max(e?.general ?? 0, p?.general ?? 0));
+      aguja(0, e?.canales[0] ?? 0);
+      aguja(1, e?.canales[1] ?? 0);
+      PISTA_DE_CANAL.forEach((j, k) => aguja(2 + k, p?.pistas[j] ?? 0));
+      aguja(8, Math.max(e?.izq ?? 0, p?.izq ?? 0));
+      aguja(9, Math.max(e?.der ?? 0, p?.der ?? 0));
     };
     bucle();
     const volver = () => void mesa.reanudar();
@@ -189,6 +208,7 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
       [...luces, general].forEach((el) =>
         el?.style.setProperty("--nivel", "0%"),
       );
+      agujas.forEach((el, i) => el?.setAttribute("transform", `rotate(${VU_REPOSO} ${VUS[i].eje[0]} ${VUS[i].eje[1]})`));
     };
   }, [encendida, conPistas]);
 
@@ -202,6 +222,18 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
       const minimo = matchMedia("(pointer: coarse)").matches ? 0.5 : 0.42;
       setEscala(Math.min(1, Math.max(cabe, minimo)));
     };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // La grabadora, arriba y fija: lo que quepa, dejando sitio a los lados para «Estudio» y la ✕
+  const [escalaCinta, setEscalaCinta] = useState(0.3);
+  useEffect(() => {
+    const el = cinta.current;
+    if (!el) return;
+    const medir = () => setEscalaCinta(Math.max(0.1, Math.min((el.clientWidth - 240) / ANCHO_CINTA, el.clientHeight / ALTO_CINTA, 1)));
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
@@ -231,6 +263,17 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
           : conPistas
             ? "Entradas apagadas"
             : "Apagada";
+
+  // Lo que enseña la pantalla de la grabadora: el mando que se mueve o cómo están las entradas
+  const aviso = lectura
+    ? `${lectura.donde} · ${lectura.texto}`
+    : encendida
+      ? `${estadoTexto}${retraso !== null ? ` · retraso ≈ ${retraso} ms` : ""}`
+      : estado !== "apagada"
+        ? estadoTexto
+        : conPistas
+          ? null
+          : "Pulsa REC para encender las entradas (con cascos)";
 
   const tituloHoja = abierta
     ? abierta.tipo === "entrada"
@@ -279,45 +322,14 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
 
   return (
     <div className="consola-foto">
-      {/* Arriba, fija: la pantalla y, desde Pistas, el reproductor de la canción */}
-      <div className="cf-arriba">
-        <div className="cf-estado">
-          <div className="pantalla cf-pantalla" role="status">
-            {lectura ? (
-              <>
-                <span className="pantalla-donde">{lectura.donde}</span>
-                <span className="pantalla-valor">{lectura.texto}</span>
-              </>
-            ) : (
-              <>
-                <span className="pantalla-marca">
-                  <small>The</small> Clavija
-                </span>
-                <span className="pantalla-estado">{estadoTexto}</span>
-                {encendida && retraso !== null && <span className="pantalla-estado">Retraso ≈ {retraso} ms</span>}
-              </>
-            )}
-          </div>
-          <div className="tecla-con-nombre">
-            <button
-              type="button"
-              className={`tecla tecla-encender${encendida ? " on" : ""}`}
-              aria-pressed={encendida}
-              aria-label={encendida ? "Apagar las entradas de la Mesa" : "Encender las entradas de la Mesa"}
-              disabled={estado === "abriendo"}
-              onClick={() => void encender()}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 3v8M7.1 6.3a7 7 0 1 0 9.8 0" />
-              </svg>
-            </button>
-            <span className="mando-nombre" aria-hidden="true">
-              {encendida ? "Apagar" : "Entradas"}
-            </span>
-          </div>
-          {!encendida && <p className="cf-nota">Con cascos en la interfaz: por el altavoz se acopla. La entrada se elige en Ajustes.</p>}
-        </div>
-        {pistas && <TransporteMesa t={pistas.transporte} />}
+      {/* Arriba, fija: la grabadora de bobinas (VU, teclas, la onda de la canción y REC = entradas) */}
+      <div className="cf-cinta" ref={cinta}>
+        <GrabadoraMesa
+          escala={escalaCinta}
+          t={pistas?.transporte ?? null}
+          aviso={aviso}
+          entradas={{ encendidas: encendida, ocupadas: estado === "abriendo", onPulsar: () => void encender() }}
+        />
       </div>
 
       {/* Abajo: la mesa de mezclas, que se desliza con el dedo */}

@@ -1,0 +1,298 @@
+"use client";
+
+// La grabadora de bobinas de lo alto de la Mesa (la foto public/mesa/grabadora.webp, 2000×787):
+// las bobinas giran mientras suena la canción, el contador enseña por dónde va (minutos, segundos
+// y fotogramas), las teclas mandan sobre el reproductor de Pistas (atrás y adelante 10 s, parar,
+// tocar y pausa), la rueda naranja de la izquierda es la velocidad y la de la derecha mueve la
+// canción. Abajo, 10 VU: los 8 canales de la mesa y la salida (L y R); sus agujas las mueve
+// ConsolaMesa sin pasar por React (data-vu). De la foto se borraron las agujas pintadas y se alargó
+// por debajo de los VU: ahí va la pantalla de la canción (la onda, para elegir un trozo y repetirlo)
+// y los avisos (el mando que se mueve, las entradas). REC enciende las entradas de la interfaz.
+
+import { useState, type CSSProperties } from "react";
+import { accesible, useArrastre, type PropsMando } from "./MandosMesa";
+import TransporteMesa, { type Transporte } from "./TransporteMesa";
+
+export const ANCHO_CINTA = 2000;
+export const ALTO_CINTA = 787;
+/** La franja que se añadió debajo de los VU, con la pantalla de la canción */
+const PANTALLA: [number, number, number, number] = [128, 644, 1744, 100];
+
+const BOBINAS = [
+  { cx: 405.8, cy: 236.2, rx: 253, ry: 232, src: "/mesa/bobina-0.webp", lado: 510 },
+  { cx: 1586.1, cy: 237.9, rx: 251.5, ry: 230, src: "/mesa/bobina-1.webp", lado: 507 },
+];
+/** La ventana del contador (los dígitos rojos se dibujan aquí) */
+const CONTADOR = { x: 836, y: 54, w: 330, h: 70 };
+type Caja = [number, number, number, number];
+const TECLAS: Record<"atras" | "parar" | "tocar" | "pausa" | "grabar" | "adelante", Caja> = {
+  atras: [708, 181, 85, 69],
+  parar: [809, 181, 85, 69],
+  tocar: [909, 181, 84, 69],
+  pausa: [1008, 181, 85, 69],
+  grabar: [1107, 181, 85, 69],
+  adelante: [1206, 181, 85, 69],
+};
+const RUEDA_VELOCIDAD = { x: 735.8, y: 89.2, d: 60 };
+const RUEDA_BUSCAR = { x: 1260.8, y: 88.6, d: 60 };
+
+/** Los VU: cara (para recortar la aguja) y eje. 0–7 los canales de la mesa, 8 y 9 la salida L y R. */
+export const VUS: { cara: Caja; eje: [number, number] }[] = [
+  { cara: [128, 498, 159, 88], eje: [209, 598] },
+  { cara: [313, 503, 155, 83], eje: [392, 598] },
+  { cara: [493, 501, 151, 85], eje: [570, 598] },
+  { cara: [669, 502, 150, 84], eje: [745.5, 598] },
+  { cara: [844, 502, 150, 84], eje: [920.5, 598] },
+  { cara: [1019, 502, 150, 84], eje: [1095.5, 598] },
+  { cara: [1195, 503, 150, 83], eje: [1271.5, 598] },
+  { cara: [1369, 502, 149, 84], eje: [1445, 598] },
+  { cara: [1544, 502, 151, 84], eje: [1621, 598] },
+  { cara: [1719, 500, 153, 86], eje: [1797, 598] },
+];
+/** Dónde está cada marca de la escala del VU (grados desde la vertical) */
+const ESCALA_VU: [number, number][] = [
+  [-22, -46],
+  [-20, -40.2],
+  [-10, -26.4],
+  [-5, -13.3],
+  [-3, 0.2],
+  [-1, 12.3],
+  [0, 17.8],
+  [1, 28.7],
+  [3, 42.8],
+  [4, 47],
+];
+export const VU_REPOSO = ESCALA_VU[0][1];
+/**
+ * El ángulo de la aguja para un pico (0–1). 0 VU = −3 dBFS: lo rojo (de 0 a +3) es que está a
+ * punto de saturar; arriba del todo, satura.
+ */
+export function anguloVu(pico: number): number {
+  const vu = 20 * Math.log10(Math.max(pico, 1e-5)) + 3;
+  if (vu <= ESCALA_VU[0][0]) return ESCALA_VU[0][1];
+  for (let i = 1; i < ESCALA_VU.length; i++) {
+    const [v1, a1] = ESCALA_VU[i];
+    if (vu <= v1) {
+      const [v0, a0] = ESCALA_VU[i - 1];
+      return a0 + ((vu - v0) / (v1 - v0)) * (a1 - a0);
+    }
+  }
+  return ESCALA_VU[ESCALA_VU.length - 1][1];
+}
+
+// ---------- El contador: dígitos de siete segmentos ----------
+const SEGMENTOS: Record<string, [number, number, number, number]> = {
+  // [x1, y1, x2, y2]: horizontales (y1 = y2) o verticales (x1 = x2), en una celda de 24×44
+  a: [3, 2, 21, 2],
+  g: [3, 22, 21, 22],
+  d: [3, 42, 21, 42],
+  f: [2, 3, 2, 21],
+  b: [22, 3, 22, 21],
+  e: [2, 23, 2, 41],
+  c: [22, 23, 22, 41],
+};
+const DIGITOS = ["abcdef", "bc", "abged", "abgcd", "fgbc", "afgcd", "afgedc", "abc", "abcdefg", "abcdfg"];
+const G = 4.6; // grosor
+function segmento([x1, y1, x2, y2]: [number, number, number, number]) {
+  const h = G / 2;
+  return y1 === y2
+    ? `${x1},${y1} ${x1 + h},${y1 - h} ${x2 - h},${y1 - h} ${x2},${y1} ${x2 - h},${y1 + h} ${x1 + h},${y1 + h}`
+    : `${x1},${y1} ${x1 + h},${y1 + h} ${x1 + h},${y2 - h} ${x1},${y2} ${x1 - h},${y2 - h} ${x1 - h},${y1 + h}`;
+}
+const POLIGONOS = Object.fromEntries(Object.entries(SEGMENTOS).map(([k, s]) => [k, segmento(s)]));
+/** x de cada dígito dentro del contador (MM:SS:FF) y de los dos puntos */
+const X_DIGITOS = [32, 70, 120, 158, 208, 246];
+const X_PUNTOS = [104, 192];
+
+function Contador({ segundo }: { segundo: number }) {
+  const s = Math.max(0, segundo);
+  const mm = Math.min(99, Math.floor(s / 60));
+  const ss = Math.floor(s % 60);
+  const ff = Math.floor((s % 1) * 30);
+  const texto = `${String(mm).padStart(2, "0")}${String(ss).padStart(2, "0")}${String(ff).padStart(2, "0")}`;
+  return (
+    <svg className="gm-contador" viewBox={`0 0 ${CONTADOR.w} ${CONTADOR.h}`} style={enCaja([CONTADOR.x, CONTADOR.y, CONTADOR.w, CONTADOR.h])} aria-hidden="true">
+      <g transform="translate(0 12) skewX(-7)">
+        {X_DIGITOS.map((x, i) => {
+          const encendidos = DIGITOS[Number(texto[i])];
+          return (
+            <g key={i} transform={`translate(${x} 0) scale(1.05)`}>
+              {Object.entries(POLIGONOS).map(([k, p]) => (
+                <polygon key={k} points={p} className={encendidos.includes(k) ? "gm-seg on" : "gm-seg"} />
+              ))}
+            </g>
+          );
+        })}
+        {X_PUNTOS.map((x) => (
+          <g key={x} className="gm-seg on">
+            <rect x={x} y={13} width={4.5} height={4.5} rx={1} />
+            <rect x={x - 2} y={30} width={4.5} height={4.5} rx={1} />
+          </g>
+        ))}
+      </g>
+    </svg>
+  );
+}
+
+function RuedaNaranja({ r, p, giro }: { r: typeof RUEDA_VELOCIDAD; p: PropsMando; giro?: number }) {
+  const manejo = useArrastre(p, () => (giro === undefined ? 150 : 600));
+  const caja = r.d + 28;
+  const frac = (p.valor - p.min) / (p.max - p.min);
+  const grados = giro ?? -135 + 270 * frac;
+  return (
+    <div className="mf-mando gm-rueda" style={{ left: r.x - caja / 2, top: r.y - caja / 2, width: caja, height: caja }} {...accesible(p)} {...manejo}>
+      <span className="mf-rueda mf-oro" style={{ left: caja / 2, top: caja / 2, "--d": `${r.d}px`, "--giro": `${grados}deg` } as CSSProperties} aria-hidden="true">
+        <span className="mf-tapa">
+          <span className="mf-raya" />
+        </span>
+      </span>
+    </div>
+  );
+}
+
+const enCaja = ([x, y, w, h]: Caja): CSSProperties => ({ left: x, top: y, width: w, height: h });
+
+interface Props {
+  escala: number;
+  /** El reproductor de la canción; sin él (desde el afinador) la grabadora está parada */
+  t: Transporte | null;
+  /** Lo que enseña la pantalla en lugar de la ayuda (el mando que se mueve, las entradas…) */
+  aviso: string | null;
+  /** REC: encender o apagar las entradas de la interfaz */
+  entradas: { encendidas: boolean; ocupadas: boolean; onPulsar: () => void };
+}
+
+export default function GrabadoraMesa({ escala, t, aviso, entradas }: Props) {
+  // Al ir atrás o adelante, las bobinas corren un momento
+  const [corriendo, setCorriendo] = useState<"atras" | "adelante" | null>(null);
+  const [fin, setFin] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const correr = (hacia: "atras" | "adelante") => {
+    if (fin) clearTimeout(fin);
+    setCorriendo(hacia);
+    setFin(setTimeout(() => setCorriendo(null), 650));
+  };
+  const sin = !t || t.cargando;
+  const D = Math.max(1, t?.duracion ?? 1);
+  const segundo = t?.segundo ?? 0;
+  const parada = !!t && !t.tocando && segundo > 0.05;
+  const clase = `gm${t?.tocando ? " tocando" : ""}${corriendo ? ` corre-${corriendo}` : ""}`;
+  const vuelta = `${2.6 / Math.max(0.5, t?.velocidad ?? 1)}s`;
+
+  const tecla = (k: keyof typeof TECLAS, etiqueta: string, on: boolean, accion: () => void) => (
+    <button type="button" className={`gm-tecla gm-${k}${on ? " on" : ""}`} style={enCaja(TECLAS[k])} aria-label={etiqueta} aria-pressed={k === "tocar" || k === "pausa" ? on : undefined} disabled={sin} onClick={accion} />
+  );
+
+  return (
+    <div className="gm-caja" style={{ width: ANCHO_CINTA * escala, height: ALTO_CINTA * escala }}>
+      <div className={clase} style={{ width: ANCHO_CINTA, height: ALTO_CINTA, transform: `scale(${escala})`, "--vuelta": vuelta } as CSSProperties}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="mf-foto" src="/mesa/grabadora.webp" alt="" width={ANCHO_CINTA} height={ALTO_CINTA} draggable={false} />
+        {BOBINAS.map((b) => (
+          <span
+            key={b.src}
+            className="gm-bobina"
+            style={{ left: b.cx - b.lado / 2, top: b.cy - b.lado / 2, width: b.lado, height: b.lado, transform: `scaleY(${b.ry / b.rx})` }}
+            aria-hidden="true"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={b.src} alt="" width={b.lado} height={b.lado} draggable={false} />
+          </span>
+        ))}
+        <Contador segundo={segundo} />
+
+        {tecla("atras", "Atrás 10 segundos", false, () => {
+          if (!t) return;
+          t.onIr(Math.max(0, t.segundo - 10));
+          correr("atras");
+        })}
+        {tecla("parar", "Parar y volver al principio", false, () => {
+          if (!t) return;
+          if (t.tocando) t.onAlternar();
+          t.onIr(t.repetir && t.desde !== null ? t.desde : 0);
+          correr("atras");
+        })}
+        {tecla("tocar", "Tocar", !!t?.tocando, () => {
+          if (t && !t.tocando) t.onAlternar();
+        })}
+        {tecla("pausa", "Pausa", parada, () => {
+          if (t?.tocando) t.onAlternar();
+        })}
+        {/* REC: las entradas de la interfaz (se enciende en rojo mientras están abiertas) */}
+        <button
+          type="button"
+          className={`gm-tecla gm-grabar${entradas.encendidas ? " on" : ""}`}
+          style={enCaja(TECLAS.grabar)}
+          aria-label={entradas.encendidas ? "Apagar las entradas de la interfaz" : "Encender las entradas de la interfaz"}
+          aria-pressed={entradas.encendidas}
+          disabled={entradas.ocupadas}
+          onClick={entradas.onPulsar}
+        />
+        {tecla("adelante", "Adelante 10 segundos", false, () => {
+          if (!t) return;
+          t.onIr(Math.min(D, t.segundo + 10));
+          correr("adelante");
+        })}
+
+        <RuedaNaranja
+          r={RUEDA_VELOCIDAD}
+          p={{
+            nombre: "Velocidad de la canción (sin cambiar el tono)",
+            valor: t?.velocidad ?? 1,
+            min: t?.velocidadMin ?? 0.5,
+            max: t?.velocidadMax ?? 1,
+            paso: 0.05,
+            porDefecto: 1,
+            ver: (v) => `${Math.round(v * 100)} %`,
+            onCambio: (v) => t?.onVelocidad(v),
+            desactivado: sin,
+          }}
+        />
+        <RuedaNaranja
+          r={RUEDA_BUSCAR}
+          giro={segundo * 6}
+          p={{
+            nombre: "Mover la canción",
+            valor: Math.round(segundo * 2) / 2,
+            min: 0,
+            max: D,
+            paso: 0.5,
+            porDefecto: 0,
+            ver: (v) => `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, "0")}`,
+            onCambio: (v) => t?.onIr(v),
+            desactivado: sin,
+          }}
+        />
+
+        {/* Debajo de los VU, la pantalla de la canción (o solo los avisos, sin canción) */}
+        <div className="gm-pantalla" style={enCaja(PANTALLA)}>
+          {t ? (
+            <TransporteMesa t={t} conCinta aviso={aviso} />
+          ) : (
+            <div className="pc-pantalla gm-solo-aviso" role="status">
+              <span>{aviso}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Las agujas de los VU (las mueve ConsolaMesa) */}
+        <svg className="mf-dibujo" viewBox={`0 0 ${ANCHO_CINTA} ${ALTO_CINTA}`} aria-hidden="true">
+          <defs>
+            {VUS.map((v, i) => (
+              <clipPath key={i} id={`gm-vu-${i}`}>
+                <rect x={v.cara[0]} y={v.cara[1]} width={v.cara[2]} height={v.eje[1] - 13 - v.cara[1]} />
+              </clipPath>
+            ))}
+          </defs>
+          {VUS.map((v, i) => (
+            <g key={i} clipPath={`url(#gm-vu-${i})`}>
+              <g data-vu={i} transform={`rotate(${VU_REPOSO} ${v.eje[0]} ${v.eje[1]})`}>
+                <line x1={v.eje[0] + 1.6} y1={v.eje[1] - 14} x2={v.eje[0] + 1.6} y2={v.eje[1] - 84} className="gm-aguja-sombra" />
+                <line x1={v.eje[0]} y1={v.eje[1] - 14} x2={v.eje[0]} y2={v.eje[1] - 86} className="gm-aguja" />
+              </g>
+            </g>
+          ))}
+        </svg>
+      </div>
+    </div>
+  );
+}

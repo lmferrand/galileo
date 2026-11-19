@@ -72,6 +72,18 @@ class Bloque {
 }
 
 /** Pico (0–1) de lo que pasa por un medidor. */
+/** Dos medidores (izquierda y derecha) colgados de un nodo estéreo, para los VU L y R */
+export function medidoresPorLado(ctx: BaseAudioContext, de: AudioNode): [AnalyserNode, AnalyserNode] {
+  const separa = ctx.createChannelSplitter(2);
+  de.connect(separa);
+  const lados = [ctx.createAnalyser(), ctx.createAnalyser()] as [AnalyserNode, AnalyserNode];
+  lados.forEach((a, i) => {
+    a.fftSize = 1024;
+    separa.connect(a, i);
+  });
+  return lados;
+}
+
 export function picoDe(a: AnalyserNode | null, datos: Float32Array<ArrayBuffer>): number {
   if (!a) return 0;
   a.getFloatTimeDomainData(datos);
@@ -281,6 +293,7 @@ export class Mesa {
   private canales: Canal[] = [];
   private general: GainNode | null = null;
   private medidorGeneral: AnalyserNode | null = null;
+  private medidoresLado: [AnalyserNode, AnalyserNode] | null = null;
   private oyentes = new Set<Oyente>();
   private datos = new Float32Array(1024);
 
@@ -340,6 +353,7 @@ export class Mesa {
     this.medidorGeneral = ctx.createAnalyser();
     this.medidorGeneral.fftSize = 1024;
     this.general.connect(limitador).connect(this.medidorGeneral).connect(ctx.destination);
+    this.medidoresLado = medidoresPorLado(ctx, limitador);
 
     this.canales = [0, 1].map((i) => {
       const canal = new Canal(ctx, conPuerta);
@@ -367,6 +381,7 @@ export class Mesa {
     this.fuente = null;
     this.general = null;
     this.medidorGeneral = null;
+    this.medidoresLado = null;
     this.ctx?.close().catch(() => undefined);
     this.ctx = null;
     this.entradas = 0;
@@ -379,8 +394,14 @@ export class Mesa {
   }
 
   /** Picos (0–1) de cada entrada (ya con su ganancia) y de la salida. */
-  niveles(): { canales: number[]; general: number } {
-    return { canales: this.canales.map((c) => picoDe(c.medidor, this.datos)), general: picoDe(this.medidorGeneral, this.datos) };
+  niveles(): { canales: number[]; general: number; izq: number; der: number } {
+    const [l, r] = this.medidoresLado ?? [null, null];
+    return {
+      canales: this.canales.map((c) => picoDe(c.medidor, this.datos)),
+      general: picoDe(this.medidorGeneral, this.datos),
+      izq: picoDe(l, this.datos),
+      der: picoDe(r, this.datos),
+    };
   }
 
   /** Lo que tarda en oírse lo que tocas, en ms (lo que el navegador sabe). */

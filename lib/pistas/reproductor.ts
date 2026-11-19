@@ -4,7 +4,7 @@
 // juntarse en el volumen general y un limitador.
 
 import { FRECUENCIA, PISTAS } from "./tipos";
-import { Canal, picoDe } from "../mesa/mesa";
+import { Canal, medidoresPorLado, picoDe } from "../mesa/mesa";
 import { AJUSTES_PISTA, conMaestros, generalCancion, leerAjustesMesa, leerAjustesPistas, type AjustesCanal } from "../mesa/ajustes";
 
 type CtxAudio = typeof AudioContext;
@@ -20,6 +20,7 @@ export class Reproductor {
   private canales: Canal[] = [];
   private general: GainNode | null = null;
   private medidorGeneral: AnalyserNode | null = null;
+  private medidoresLado: [AnalyserNode, AnalyserNode] | null = null;
   private datos = new Float32Array(1024);
   private preparando: Promise<void> | null = null;
   private frames = 0;
@@ -52,6 +53,7 @@ export class Reproductor {
         const medidor = ctx.createAnalyser();
         medidor.fftSize = 1024;
         general.connect(limitador).connect(medidor).connect(ctx.destination);
+        this.medidoresLado = medidoresPorLado(ctx, limitador);
         const guardados = leerAjustesPistas(PISTAS.length);
         const mesaGuardada = leerAjustesMesa();
         this.canales = PISTAS.map((_, i) => {
@@ -127,8 +129,14 @@ export class Reproductor {
   }
 
   /** Picos (0–1) de cada pista (ya con su volumen) y de la salida. */
-  niveles(): { pistas: number[]; general: number } {
-    return { pistas: this.canales.map((c) => picoDe(c.medidor, this.datos)), general: picoDe(this.medidorGeneral, this.datos) };
+  niveles(): { pistas: number[]; general: number; izq: number; der: number } {
+    const [l, r] = this.medidoresLado ?? [null, null];
+    return {
+      pistas: this.canales.map((c) => picoDe(c.medidor, this.datos)),
+      general: picoDe(this.medidorGeneral, this.datos),
+      izq: picoDe(l, this.datos),
+      der: picoDe(r, this.datos),
+    };
   }
 
   /** 0,5 = a la mitad de velocidad, sin cambiar el tono. */
@@ -149,6 +157,7 @@ export class Reproductor {
     this.canales = [];
     this.general = null;
     this.medidorGeneral = null;
+    this.medidoresLado = null;
     const ctx = this.ctx;
     this.ctx = null;
     this.nodo = null;

@@ -29,6 +29,11 @@ export interface Transporte {
   /** Elegir el trozo (o quitarlo con null, null) */
   onTrozo: (desde: number | null, hasta: number | null) => void;
   onRepetir: (r: boolean) => void;
+  /** Más lenta sin cambiar el tono (la rueda naranja de la grabadora) */
+  velocidad: number;
+  velocidadMin: number;
+  velocidadMax: number;
+  onVelocidad: (v: number) => void;
 }
 
 /** Lo más corto que puede ser un trozo, en segundos */
@@ -43,7 +48,20 @@ type Arrastre = {
   movido: boolean;
 };
 
-export default function TransporteMesa({ t }: { t: Transporte }) {
+/**
+ * Dentro de la grabadora (`conCinta`): las teclas de tocar y saltar son las suyas, aquí solo el
+ * bucle, y la pantalla es roja como su contador. `aviso` (el mando que se mueve, las entradas…)
+ * se enseña en lugar de la ayuda.
+ */
+export default function TransporteMesa({
+  t,
+  conCinta,
+  aviso,
+}: {
+  t: Transporte;
+  conCinta?: boolean;
+  aviso?: string | null;
+}) {
   const barra = useRef<HTMLDivElement>(null);
   const arrastre = useRef<Arrastre | null>(null);
   // Mientras se arrastra, el trozo que se va eligiendo (aún sin mandar)
@@ -184,7 +202,7 @@ export default function TransporteMesa({ t }: { t: Transporte }) {
 
   return (
     <section
-      className="pantalla-cancion"
+      className={`pantalla-cancion${conCinta ? " en-cinta" : ""}`}
       aria-label="Reproductor de la canción"
     >
       <div
@@ -205,7 +223,9 @@ export default function TransporteMesa({ t }: { t: Transporte }) {
       >
         <div className="pc-tiempos" aria-hidden="true">
           <span>{formatoTiempo(t.segundo)}</span>
-          {trozo ? (
+          {aviso ? (
+            <span className="pc-ayuda pc-aviso">{aviso}</span>
+          ) : trozo ? (
             <span className={`pc-trozo-texto${t.repetir ? " on" : ""}`}>
               {formatoTiempo(trozo.desde)} – {formatoTiempo(trozo.hasta)}
             </span>
@@ -286,57 +306,69 @@ export default function TransporteMesa({ t }: { t: Transporte }) {
 
       {/* Las teclas, como las de la mesa */}
       <div className="pc-teclas">
-        <div className="tecla-con-nombre">
-          <button
-            type="button"
-            className="tecla pc-tecla"
-            onClick={() => t.onIr(Math.max(0, t.segundo - 10))}
-            disabled={t.cargando}
-            aria-label="Atrás 10 segundos"
-          >
-            <IconoSalto atras />
-          </button>
-          <span className="mando-nombre" aria-hidden="true">
-            −10 s
-          </span>
-        </div>
-        <div className="tecla-con-nombre">
-          <button
-            type="button"
-            className={`tecla pc-tecla pc-tocar${t.tocando ? " on" : ""}`}
-            onClick={t.onAlternar}
-            disabled={t.cargando}
-            aria-label={t.tocando ? "Pausa" : "Tocar"}
-          >
-            {t.tocando ? (
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="relleno">
-                <rect x="6.5" y="5.5" width="4" height="13" rx="1" />
-                <rect x="13.5" y="5.5" width="4" height="13" rx="1" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="relleno">
-                <path d="M8 5.5v13l10.5-6.5z" />
-              </svg>
-            )}
-          </button>
-          <span className="mando-nombre" aria-hidden="true">
-            {t.tocando ? "Pausa" : "Tocar"}
-          </span>
-        </div>
-        <div className="tecla-con-nombre">
-          <button
-            type="button"
-            className="tecla pc-tecla"
-            onClick={() => t.onIr(Math.min(D, t.segundo + 10))}
-            disabled={t.cargando}
-            aria-label="Adelante 10 segundos"
-          >
-            <IconoSalto />
-          </button>
-          <span className="mando-nombre" aria-hidden="true">
-            +10 s
-          </span>
-        </div>
+        {!conCinta && (
+          <>
+            <div className="tecla-con-nombre">
+              <button
+                type="button"
+                className="tecla pc-tecla"
+                onClick={() => t.onIr(Math.max(0, t.segundo - 10))}
+                disabled={t.cargando}
+                aria-label="Atrás 10 segundos"
+              >
+                <IconoSalto atras />
+              </button>
+              <span className="mando-nombre" aria-hidden="true">
+                −10 s
+              </span>
+            </div>
+            <div className="tecla-con-nombre">
+              <button
+                type="button"
+                className={`tecla pc-tecla pc-tocar${t.tocando ? " on" : ""}`}
+                onClick={t.onAlternar}
+                disabled={t.cargando}
+                aria-label={t.tocando ? "Pausa" : "Tocar"}
+              >
+                {t.tocando ? (
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="relleno"
+                  >
+                    <rect x="6.5" y="5.5" width="4" height="13" rx="1" />
+                    <rect x="13.5" y="5.5" width="4" height="13" rx="1" />
+                  </svg>
+                ) : (
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="relleno"
+                  >
+                    <path d="M8 5.5v13l10.5-6.5z" />
+                  </svg>
+                )}
+              </button>
+              <span className="mando-nombre" aria-hidden="true">
+                {t.tocando ? "Pausa" : "Tocar"}
+              </span>
+            </div>
+            <div className="tecla-con-nombre">
+              <button
+                type="button"
+                className="tecla pc-tecla"
+                onClick={() => t.onIr(Math.min(D, t.segundo + 10))}
+                disabled={t.cargando}
+                aria-label="Adelante 10 segundos"
+              >
+                <IconoSalto />
+              </button>
+              <span className="mando-nombre" aria-hidden="true">
+                +10 s
+              </span>
+            </div>
+          </>
+        )}
         <div className="tecla-con-nombre pc-bucle">
           <button
             type="button"
