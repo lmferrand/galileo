@@ -5,13 +5,15 @@
 // la siguiente. Pantalla siempre encendida, bloqueo contra toques sin querer (se quita
 // manteniendo pulsado) y pedal: los pedales Bluetooth de pasar páginas mandan teclas.
 //   izquierda (Re Pág, ←, espacio, Intro): tocar o pausa · derecha (Av Pág, →): siguiente · ↑: anterior
+// El click (el pulso de cada canción, sacado de su batería en Pistas) puede ir con la canción o solo
+// a los cascos: la canción en mono por la izquierda y el click por la derecha (cable en Y).
 
 import { useEffect, useRef, useState } from "react";
 import { Reproductor } from "@/lib/pistas/reproductor";
 import { leerPistasDeCancion } from "@/lib/pistas/cargar";
-import { leerAjustesCancion, type Marca } from "@/lib/pistas/ajustesCancion";
+import { leerAjustesCancion, type ClickCancion, type Marca } from "@/lib/pistas/ajustesCancion";
 import { formatoTiempo, PISTAS, type Cancion } from "@/lib/pistas/tipos";
-import type { Repertorio } from "@/lib/pistas/repertorio";
+import { guardarAjustesDirecto, leerAjustesDirecto, type AjustesDirecto, type Repertorio } from "@/lib/pistas/repertorio";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
 interface Props {
@@ -29,6 +31,9 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
   const [segundo, setSegundo] = useState(0);
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [bloqueado, setBloqueado] = useState(false);
+  const [pulso, setPulso] = useState<ClickCancion | null>(null);
+  const [ajustes, setAjustes] = useState<AjustesDirecto>(() => (typeof window === "undefined" ? { ruta: "no", volumen: 0.8, cuenta: true } : leerAjustesDirecto()));
+  const [verClick, setVerClick] = useState(false);
   const rep = useRef<Reproductor | null>(null);
   const antes = useRef({ tocando: false });
   const cancion = lista[indice];
@@ -57,6 +62,7 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
     antes.current.tocando = false;
     const a = leerAjustesCancion(cancion.id, PISTAS.length);
     setMarcas(a.marcas);
+    setPulso(a.click);
     r.alCambiar = ({ tocando: t, segundo: s }) => {
       if (!vivo) return;
       setTocando(t);
@@ -76,6 +82,7 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
         );
         r.velocidad(a.velocidad);
         r.tono(a.tono);
+        r.tempoClick(a.click);
         if (vivo) setCargando(false);
       } catch (e) {
         if (vivo) setError((e as Error).message || "No se ha podido abrir esta canción.");
@@ -86,6 +93,14 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cancion?.id]);
+
+  // El click: por dónde sale y su volumen (lo recuerda el aparato)
+  useEffect(() => {
+    rep.current?.rutaClick(ajustes.ruta);
+    rep.current?.volumenClick(ajustes.volumen);
+    guardarAjustesDirecto(ajustes);
+  }, [ajustes]);
+  const cambiarAjustes = (c: Partial<AjustesDirecto>) => setAjustes((a) => ({ ...a, ...c }));
 
   // La pantalla no se apaga mientras estás en el escenario
   useEffect(() => {
@@ -105,7 +120,7 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
     const r = rep.current;
     if (!r || cargando) return;
     if (tocando) r.pausar();
-    else void r.tocar();
+    else void r.tocar({ cuenta: ajustes.cuenta });
   };
   const ir = (s: number) => {
     rep.current?.ir(s);
@@ -164,6 +179,9 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
         <span className="directo-titulo">
           {repertorio.nombre} · {indice + 1} / {lista.length}
         </span>
+        <button type="button" className={`estudio-boton directo-click${ajustes.ruta !== "no" ? " on" : ""}`} onClick={() => setVerClick(true)} disabled={bloqueado}>
+          {ajustes.ruta === "no" ? "Click" : ajustes.ruta === "cascos" ? "Click: cascos" : "Click: sí"}
+        </button>
         {bloqueado ? (
           <button
             type="button"
@@ -188,6 +206,11 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
           {cargando ? "Cargando…" : error ? error : `${formatoTiempo(segundo)} / ${formatoTiempo(cancion.duracion)}`}
           {parteActual && !cargando && <span className="directo-parte"> · {parteActual.nombre}</span>}
         </p>
+        {ajustes.ruta !== "no" && (
+          <p className={`directo-pulso${pulso ? "" : " falta"}`}>
+            {pulso ? `${Math.round(pulso.bpm)} BPM${ajustes.ruta === "cascos" ? ", click en tus cascos" : ""}` : "Sin click: saca su pulso en Pistas"}
+          </p>
+        )}
         <div className="directo-barra" aria-hidden="true">
           <span style={{ width: `${Math.min(100, (segundo / Math.max(1, cancion.duracion)) * 100)}%` }} />
           {marcas.map((m) => (
@@ -218,6 +241,51 @@ export default function Directo({ repertorio, canciones, onSalir }: Props) {
         </button>
       </footer>
       <p className="directo-pedal">Pedal: izquierda = tocar o pausa · derecha = siguiente canción</p>
+
+      {verClick && (
+        <div className="directo-panel" role="dialog" aria-modal="true" aria-label="El click" onClick={(e) => e.target === e.currentTarget && setVerClick(false)}>
+          <div className="directo-panel-caja">
+            <h2>El click</h2>
+            <div className="directo-opciones" role="radiogroup" aria-label="Por dónde sale el click">
+              {(
+                [
+                  ["no", "Sin click"],
+                  ["juntos", "Con la canción (para ensayar)"],
+                  ["cascos", "Solo en tus cascos"],
+                ] as const
+              ).map(([v, texto]) => (
+                <button key={v} type="button" role="radio" aria-checked={ajustes.ruta === v} className={`directo-opcion${ajustes.ruta === v ? " on" : ""}`} onClick={() => cambiarAjustes({ ruta: v })}>
+                  {texto}
+                </button>
+              ))}
+            </div>
+            {ajustes.ruta === "cascos" && (
+              <p className="directo-ayuda">
+                La canción sale en mono por la izquierda y el click por la derecha. Con un cable en Y (de minijack estéreo a dos), la izquierda va a la mesa o a los altavoces y la
+                derecha a tus cascos: el público no oye el click.
+              </p>
+            )}
+            {ajustes.ruta !== "no" && (
+              <>
+                <label className="directo-volumen">
+                  <span>Volumen del click</span>
+                  <input type="range" min={0} max={1.5} step={0.05} value={ajustes.volumen} onChange={(e) => cambiarAjustes({ volumen: Number(e.target.value) })} />
+                </label>
+                <button type="button" className={`interruptor-mini ${ajustes.cuenta ? "on" : ""}`} role="switch" aria-checked={ajustes.cuenta} onClick={() => cambiarAjustes({ cuenta: !ajustes.cuenta })}>
+                  <span className="interruptor-pista" aria-hidden="true">
+                    <span className="interruptor-bola" />
+                  </span>
+                  <span>Cuenta de entrada: un compás de click antes de que entre la canción</span>
+                </button>
+                {!pulso && <p className="directo-ayuda">Esta canción aún no tiene su pulso: en Pistas, ábrela y toca «Sacar el pulso de la batería».</p>}
+              </>
+            )}
+            <button type="button" className="boton-principal" onClick={() => setVerClick(false)}>
+              Listo
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,9 +2,13 @@
 // (public/mezclador.worklet.js), así nunca se desfasan entre sí. Cada pista sale por su lado y
 // pasa por su canal de la Mesa (ecualizador, efectos, panorama; lib/mesa/mesa) antes de
 // juntarse en el volumen general y un limitador.
+// El click del directo sale del mismo worklet (va clavado con la canción) y puede ir con ella por
+// los dos lados o solo por la derecha, con la canción en mono por la izquierda: con un cable en Y,
+// la izquierda a los altavoces y la derecha a los cascos del músico.
 
 import { FRECUENCIA, PISTAS } from "./tipos";
 import { Canal, medidoresPorLado, mesa, picoDe } from "../mesa/mesa";
+import type { ClickCancion } from "./ajustesCancion";
 import { AJUSTES_PISTA, conMaestros, generalCancion, leerAjustesMesa, leerAjustesPistas, type AjustesCanal } from "../mesa/ajustes";
 
 type CtxAudio = typeof AudioContext;
@@ -13,6 +17,9 @@ export interface EstadoReproductor {
   tocando: boolean;
   segundo: number;
 }
+
+/** Por dónde sale el click: no suena, junto a la canción o solo en los cascos (por la derecha) */
+export type RutaClick = "no" | "juntos" | "cascos";
 
 export class Reproductor {
   private ctx: AudioContext | null = null;
@@ -24,6 +31,13 @@ export class Reproductor {
   private datos = new Float32Array(1024);
   private preparando: Promise<void> | null = null;
   private frames = 0;
+  private medidor: AnalyserNode | null = null;
+  private mono: GainNode | null = null;
+  private union: ChannelMergerNode | null = null;
+  private clickVolumen: GainNode | null = null;
+  private ruta: RutaClick = "no";
+  private tempo: ClickCancion | null = null;
+  private volClick = 0.8;
   alCambiar: (e: EstadoReproductor) => void = () => undefined;
 
   private preparar(): Promise<void> {
@@ -39,8 +53,9 @@ export class Reproductor {
         await ctx.audioWorklet.addModule("/mezclador.worklet.js");
         const nodo = new AudioWorkletNode(ctx, "mezclador-pistas", {
           numberOfInputs: 0,
-          numberOfOutputs: PISTAS.length,
-          outputChannelCount: PISTAS.map(() => 2),
+          numberOfOutputs: PISTAS.length + 1,
+          outputChannelCount: [...PISTAS.map(() => 2), 1],
+          processorOptions: { conClick: true },
         });
         // Cada pista a su canal; todas al general y al limitador (nunca satura)
         const general = ctx.createGain();
@@ -52,7 +67,22 @@ export class Reproductor {
         limitador.release.value = 0.12;
         const medidor = ctx.createAnalyser();
         medidor.fftSize = 1024;
-        general.connect(limitador).connect(medidor).connect(ctx.destination);
+        general.connect(limitador).connect(medidor);
+        // Para los cascos: la canción en mono a la izquierda y el click a la derecha
+        const mono = ctx.createGain();
+        mono.channelCount = 1;
+        mono.channelCountMode = "explicit";
+        mono.channelInterpretation = "speakers";
+        const union = ctx.createChannelMerger(2);
+        mono.connect(union, 0, 0);
+        union.connect(ctx.destination);
+        const clickVolumen = ctx.createGain();
+        clickVolumen.gain.value = this.volClick;
+        nodo.connect(clickVolumen, PISTAS.length);
+        this.medidor = medidor;
+        this.mono = mono;
+        this.union = union;
+        this.clickVolumen = clickVolumen;
         this.medidoresLado = medidoresPorLado(ctx, limitador);
         const guardados = leerAjustesPistas(PISTAS.length);
         const mesaGuardada = leerAjustesMesa();
@@ -73,6 +103,8 @@ export class Reproductor {
         };
         this.ctx = ctx;
         this.nodo = nodo;
+        this.enrutar();
+        this.mandarClick();
       })().catch((e) => {
         this.preparando = null;
         throw e;
@@ -92,8 +124,9 @@ export class Reproductor {
     );
   }
 
-  /** Llamar desde un toque: el iPhone solo deja sonar después de uno. */
-  async tocar() {
+  /** Llamar desde un toque: el iPhone solo deja sonar después de uno. Con `cuenta` y el click
+   *  puesto, suena un compás de click antes de que entre la canción. */
+  async tocar(opciones?: { cuenta?: boolean }) {
     await this.preparar();
     try {
       const sesion = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
@@ -104,7 +137,7 @@ export class Reproductor {
       /* navegador sin audioSession */
     }
     await this.ctx!.resume().catch(() => undefined);
-    this.nodo!.port.postMessage({ tipo: "tocar" });
+    this.nodo!.port.postMessage({ tipo: "tocar", cuenta: !!opciones?.cuenta });
   }
 
   pausar() {
@@ -190,6 +223,43 @@ export class Reproductor {
     return { datos: this.espectrosDatos, hz: this.ctx.sampleRate / (2 * this.espectrosDatos[0].length) };
   }
 
+  /** El pulso de la canción para el click (null: no tiene). */
+  tempoClick(t: ClickCancion | null) {
+    this.tempo = t;
+    this.mandarClick();
+  }
+
+  /** Por dónde sale el click. */
+  rutaClick(r: RutaClick) {
+    this.ruta = r;
+    this.enrutar();
+    this.mandarClick();
+  }
+
+  volumenClick(v: number) {
+    this.volClick = v;
+    if (this.clickVolumen && this.ctx) this.clickVolumen.gain.setTargetAtTime(v, this.ctx.currentTime, 0.03);
+  }
+
+  private mandarClick() {
+    const t = this.tempo;
+    this.nodo?.port.postMessage({ tipo: "click", activo: this.ruta !== "no" && !!t, golpes: t?.golpes ?? [], uno: t?.uno ?? 0, compas: t?.compas ?? 4 });
+  }
+
+  private enrutar() {
+    const { ctx, medidor, mono, union, clickVolumen } = this;
+    if (!ctx || !medidor || !mono || !union || !clickVolumen) return;
+    medidor.disconnect();
+    clickVolumen.disconnect();
+    if (this.ruta === "cascos") {
+      medidor.connect(mono);
+      clickVolumen.connect(union, 0, 1);
+    } else {
+      medidor.connect(ctx.destination);
+      if (this.ruta === "juntos") clickVolumen.connect(ctx.destination);
+    }
+  }
+
   /** Sube o baja el tono (semitonos, de −6 a +6) sin cambiar la velocidad. */
   tono(semitonos: number) {
     this.nodo?.port.postMessage({ tipo: "tono", semitonos });
@@ -215,6 +285,10 @@ export class Reproductor {
     this.general = null;
     this.medidorGeneral = null;
     this.medidoresLado = null;
+    this.medidor = null;
+    this.mono = null;
+    this.union = null;
+    this.clickVolumen = null;
     const ctx = this.ctx;
     this.ctx = null;
     this.nodo = null;

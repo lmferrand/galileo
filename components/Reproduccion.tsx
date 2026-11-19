@@ -16,8 +16,8 @@ import { describirMezcla, guardarArchivo, mezclarCancion, nombreArchivo } from "
 import { formatoTiempo, FRECUENCIA, PISTAS, type Cancion, type Pista } from "@/lib/pistas/tipos";
 import { tomaA, type Toma } from "@/lib/mesa/toma";
 import { ondaDe } from "@/lib/pistas/onda";
-import { leerPistasDeCancion } from "@/lib/pistas/cargar";
-import { ajustesPorDefecto, guardarAjustesCancion, leerAjustesCancion, nombreNuevo, NOMBRES_PARTES, type Marca } from "@/lib/pistas/ajustesCancion";
+import { leerPistasDeCancion, pulsoDeCancion } from "@/lib/pistas/cargar";
+import { ajustesPorDefecto, guardarAjustesCancion, leerAjustesCancion, nombreNuevo, NOMBRES_PARTES, type ClickCancion, type Marca } from "@/lib/pistas/ajustesCancion";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
 
@@ -64,6 +64,9 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const [velocidad, setVelocidad] = useState(inicial.velocidad);
   const [tono, setTono] = useState(inicial.tono);
   const [marcas, setMarcas] = useState<Marca[]>(inicial.marcas);
+  const [click, setClick] = useState<ClickCancion | null>(inicial.click);
+  const [oirClick, setOirClick] = useState(false);
+  const [buscandoPulso, setBuscandoPulso] = useState<"no" | "buscando" | "sin">("no");
   const [desde, setDesde] = useState<number | null>(null);
   const [hasta, setHasta] = useState<number | null>(null);
   const [repetir, setRepetir] = useState(false);
@@ -163,6 +166,14 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   }, [tono, cargando]);
 
   useEffect(() => {
+    if (!cargando) rep.current?.tempoClick(click);
+  }, [click, cargando]);
+
+  useEffect(() => {
+    if (!cargando) rep.current?.rutaClick(oirClick && click ? "juntos" : "no");
+  }, [oirClick, click, cargando]);
+
+  useEffect(() => {
     if (cargando) return;
     if (repetir && trozoValido) rep.current?.bucle(desde, hasta as number);
     else rep.current?.bucle(null);
@@ -190,8 +201,31 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
 
   // Se guarda lo de esta canción (para la próxima vez y para el repertorio)
   useEffect(() => {
-    guardarAjustesCancion(cancion.id, { volumen, silencio, velocidad, tono, marcas });
-  }, [cancion.id, volumen, silencio, velocidad, tono, marcas]);
+    guardarAjustesCancion(cancion.id, { volumen, silencio, velocidad, tono, marcas, click });
+  }, [cancion.id, volumen, silencio, velocidad, tono, marcas, click]);
+
+  // ---- El click: el pulso sale de la batería ----
+  const sacarElPulso = async () => {
+    setBuscandoPulso("buscando");
+    await new Promise((r) => setTimeout(r, 40)); // que se vea «Buscando…» antes de la cuenta
+    try {
+      const p = await pulsoDeCancion(cancion);
+      if (p) {
+        setClick(p);
+        setOirClick(true);
+        setBuscandoPulso("no");
+      } else setBuscandoPulso("sin");
+    } catch {
+      setBuscandoPulso("sin");
+    }
+  };
+  const SIGUIENTE_COMPAS: Record<number, number> = { 4: 3, 3: 2, 2: 6, 6: 4 };
+  const cambiarCompas = () =>
+    setClick((c) => {
+      if (!c) return c;
+      const compas = SIGUIENTE_COMPAS[c.compas] ?? 4;
+      return { ...c, compas, uno: c.uno % compas };
+    });
 
   // ---- Partes de la canción (marcas) ----
   const marcar = (nombre: string) => {
@@ -611,6 +645,48 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
                 ))}
               </div>
               <p className="practica-ayuda">Pon la canción donde empieza cada parte y toca su nombre. Luego, tocar la parte va a ella y ↻ la repite. Esta canción lo recuerda, igual que su mezcla y su velocidad.</p>
+
+              <div className="practica-fila click-cancion">
+                <span className="practica-titulo">Click</span>
+                {click ? (
+                  <div className="click-botones">
+                    <output className="click-tempo">{Math.round(click.bpm)} BPM</output>
+                    <button type="button" className="chip" onClick={() => setClick({ ...click, uno: (click.uno + 1) % click.compas })}>
+                      Mover el 1
+                    </button>
+                    <button type="button" className="chip" onClick={cambiarCompas}>
+                      Compás de {click.compas}
+                    </button>
+                    <button type="button" className={`interruptor-mini ${oirClick ? "on" : ""}`} role="switch" aria-checked={oirClick} onClick={() => setOirClick((o) => !o)} disabled={cargando}>
+                      <span className="interruptor-pista" aria-hidden="true">
+                        <span className="interruptor-bola" />
+                      </span>
+                      <span>Oírlo</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="boton-texto suave"
+                      onClick={() => {
+                        setClick(null);
+                        setOirClick(false);
+                      }}
+                    >
+                      Quitar
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" className="chip" onClick={sacarElPulso} disabled={cargando || buscandoPulso === "buscando"}>
+                    {buscandoPulso === "buscando" ? "Buscando el pulso…" : "Sacar el pulso de la batería"}
+                  </button>
+                )}
+              </div>
+              <p className="practica-ayuda">
+                {click
+                  ? "Suena en cada golpe de la batería; el agudo es el 1 del compás. Si el 1 no cae donde debe, «Mover el 1». En el directo puede ir solo a tus cascos."
+                  : buscandoPulso === "sin"
+                    ? "No he encontrado un pulso claro en la batería de esta canción."
+                    : "Para tocar en directo con click: lo saca de la batería y esta canción lo recuerda."}
+              </p>
 
               <div className="practica-fila trozo">
                 <span className="practica-titulo">Repetir un trozo</span>

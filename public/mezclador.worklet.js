@@ -11,6 +11,9 @@
 // El tono: cada trozo se lee r veces más deprisa (r = 2^(semitonos/12)), así sube o
 // baja el tono, y los trozos se siguen colocando al ritmo de la velocidad: el tempo
 // no cambia.
+// El click (para el directo): sale por una salida más, la última. Suena en cada golpe de la lista
+// que se sacó de la batería (lib/pistas/pulso), mirando el segundo de la canción que suena en cada
+// muestra: así va clavado con cualquier velocidad y sigue al batería si acelera o frena.
 
 const N = 2048; // tamaño de cada trozo (~46 ms)
 const HS = N / 2; // salto de salida (solape del 50 %)
@@ -25,9 +28,18 @@ for (let i = 0; i < N; i++) VENTANA[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) 
 class MezcladorPistas extends AudioWorkletProcessor {
   constructor(opciones) {
     super();
-    // Una salida por pista
-    const NS = Math.max(1, (opciones && opciones.numberOfOutputs) || 1);
+    // Una salida por pista (y, si se pide, una más para el click)
+    const conClick = !!(opciones && opciones.processorOptions && opciones.processorOptions.conClick);
+    const NS = Math.max(1, ((opciones && opciones.numberOfOutputs) || 1) - (conClick ? 1 : 0));
     this.ns = NS;
+    this.salidaClick = conClick ? NS : -1;
+    this.segFifo = new Float32Array(FIFO); // el segundo de la canción de cada muestra que sale
+    this.click = { activo: false, golpes: new Float64Array(0), uno: 0, compas: 4 };
+    this.golpe = null; // cuántos golpes de la lista han pasado ya
+    this.sonando = -1; // muestras desde que empezó el click que suena
+    this.acento = false;
+    this.previa = null; // la cuenta de entrada: { t, hasta, golpes } en segundos de la canción
+    this.segBloque = new Float32Array(4096);
     const varias = (largo) => Array.from({ length: NS }, () => new Float32Array(largo));
     this.pistas = [];
     this.frames = 0;
@@ -67,6 +79,9 @@ class MezcladorPistas extends AudioWorkletProcessor {
     }
     this.fHay = 0;
     this.fLeer = 0;
+    this.golpe = null;
+    this.sonando = -1;
+    this.previa = null;
   }
 
   mensaje(m) {
@@ -88,10 +103,12 @@ class MezcladorPistas extends AudioWorkletProcessor {
       case "tocar":
         if (this.analisis >= this.total() - 1) this.reiniciar(this.bucle ? this.bucle.a : 0);
         this.tocando = true;
+        if (m.cuenta && this.click.activo) this.empezarCuenta();
         this.avisar();
         break;
       case "pausar":
         this.tocando = false;
+        this.previa = null;
         this.avisar();
         break;
       case "ir":
@@ -104,6 +121,15 @@ class MezcladorPistas extends AudioWorkletProcessor {
         break;
       case "velocidad":
         this.velocidad = Math.max(0.5, Math.min(1.25, m.valor));
+        break;
+      case "click":
+        this.click = {
+          activo: !!m.activo && !!m.golpes && m.golpes.length > 1,
+          golpes: Float64Array.from(m.golpes || []),
+          uno: m.uno || 0,
+          compas: Math.max(1, m.compas || 4),
+        };
+        this.golpe = null;
         break;
       case "tono":
         this.r = Math.pow(2, Math.max(-6, Math.min(6, m.semitonos)) / 12);
@@ -120,6 +146,21 @@ class MezcladorPistas extends AudioWorkletProcessor {
         }
         break;
     }
+  }
+
+  /** Un compás de click antes de que entre la canción, al tempo del golpe siguiente. */
+  empezarCuenta() {
+    const g = this.click.golpes;
+    const pos = this.analisis / sampleRate;
+    const k = contar(g, pos - 0.002);
+    if (k >= g.length) return; // ya no quedan golpes
+    const spb = k + 1 < g.length ? g[k + 1] - g[k] : g[k] - g[k - 1];
+    if (!(spb > 0.15 && spb < 2.5)) return;
+    const n = this.click.compas;
+    const golpes = new Float64Array(n);
+    for (let j = 0; j < n; j++) golpes[j] = g[k] - (n - j) * spb;
+    this.previa = { t: golpes[0], hasta: pos, golpes };
+    this.golpe = 0; // que suene ya el primero
   }
 
   avisar() {
@@ -255,6 +296,8 @@ class MezcladorPistas extends AudioWorkletProcessor {
 
     this.leer(inicio, N);
     const w0 = (this.fLeer + this.fHay) & MASCARA;
+    // El segundo de la canción de cada muestra de este trozo (para el click)
+    for (let i = 0, w = w0; i < HS; i++, w = (w + 1) & MASCARA) this.segFifo[w] = (this.analisis + i * this.velocidad) / sampleRate;
     for (let s = 0; s < this.ns; s++) {
       const fL = this.fL[s];
       const fR = this.fR[s];
@@ -284,6 +327,23 @@ class MezcladorPistas extends AudioWorkletProcessor {
     if (!this.tocando || this.pistas.length === 0) return true;
 
     const n = salidas[0][0].length;
+    if (this.previa) {
+      // La cuenta de entrada: solo suena el click; la canción espera
+      const p = this.previa;
+      const avance = this.velocidad / sampleRate;
+      for (let i = 0; i < n; i++) {
+        this.segBloque[i] = p.t;
+        p.t += avance;
+      }
+      for (let s = 0; s < this.ns && s < salidas.length; s++) for (const canal of salidas[s]) canal.fill(0);
+      if (this.salidaClick >= 0 && salidas[this.salidaClick]) this.escribirClick(salidas[this.salidaClick], n, true);
+      if (p.t > p.hasta + 0.003) {
+        this.previa = null;
+        this.golpe = contar(this.click.golpes, p.hasta - 0.002); // que suene el golpe en que entra
+      }
+      if (++this.bloques % 6 === 0) this.avisar();
+      return true;
+    }
     while (this.fHay < n && this.tocando) this.generar();
     const cuantos = Math.min(n, this.fHay);
     // Sin recortar: lo que pase de 1 lo frena el limitador del final, ya mezclado
@@ -298,11 +358,64 @@ class MezcladorPistas extends AudioWorkletProcessor {
         R[i] = fR[k];
       }
     }
+    if (this.salidaClick >= 0 && salidas[this.salidaClick]) {
+      for (let i = 0; i < cuantos; i++) this.segBloque[i] = this.segFifo[(this.fLeer + i) & MASCARA];
+      this.escribirClick(salidas[this.salidaClick], cuantos, false);
+    }
     this.fLeer = (this.fLeer + cuantos) & MASCARA;
     this.fHay -= cuantos;
     if (++this.bloques % 6 === 0) this.avisar();
     return true;
   }
 }
+
+/** Cuántos golpes de la lista (en orden) caen en `seg` o antes. */
+function contar(lista, seg) {
+  let a = 0;
+  let b = lista.length;
+  while (a < b) {
+    const m = (a + b) >> 1;
+    if (lista[m] <= seg) a = m + 1;
+    else b = m;
+  }
+  return a;
+}
+
+/** El click: un golpe corto en cada pulso (más agudo el primero del compás). */
+MezcladorPistas.prototype.escribirClick = function (salida, cuantos, enCuenta) {
+  const L = salida[0];
+  const R = salida[1] || L;
+  const c = this.click;
+  const lista = enCuenta ? this.previa.golpes : c.golpes;
+  const DURA = Math.round(0.035 * sampleRate);
+  for (let i = 0; i < cuantos; i++) {
+    let v = 0;
+    if (c.activo) {
+      const seg = this.segBloque[i];
+      const k = this.golpe;
+      if (k === null || (k > 0 && lista[k - 1] > seg + 0.05)) {
+        // Al empezar, tras moverse o al dar la vuelta un bucle: no suena de golpe
+        this.golpe = contar(lista, seg);
+      } else if (k < lista.length && lista[k] <= seg) {
+        let j = k;
+        while (j < lista.length && lista[j] <= seg) j++;
+        this.golpe = j;
+        // Solo si se acaba de pasar un golpe (no al saltar)
+        if (j - k === 1 && seg - lista[k] < 0.05) {
+          this.sonando = 0;
+          this.acento = enCuenta ? k === 0 : (((k - c.uno) % c.compas) + c.compas) % c.compas === 0;
+        }
+      }
+      if (this.sonando >= 0 && this.sonando < DURA) {
+        const t = this.sonando / sampleRate;
+        const f = this.acento ? 1760 : 1175;
+        v = 0.6 * Math.exp(-t * 90) * Math.sin(2 * Math.PI * f * t);
+        this.sonando++;
+      }
+    }
+    L[i] = v;
+    if (R !== L) R[i] = v;
+  }
+};
 
 registerProcessor("mezclador-pistas", MezcladorPistas);

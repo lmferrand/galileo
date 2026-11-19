@@ -2,9 +2,11 @@
 // estéreo intercalado). Lo usan Pistas (Reproduccion) y el modo escenario del repertorio.
 
 import { leerAudios } from "./almacen";
+import type { ClickCancion } from "./ajustesCancion";
+import { sacarPulso } from "./pulso";
 import { separadaConRoformer } from "./importar";
 import { limpiarBajo } from "./limpiarBajo";
-import { PISTAS, type Cancion } from "./tipos";
+import { FRECUENCIA, PISTAS, type Cancion } from "./tipos";
 import { leerWav } from "./wav";
 
 const IDS = PISTAS.map((p) => p.id);
@@ -28,4 +30,12 @@ export async function leerPistasDeCancion(cancion: Cancion, vivo: () => boolean 
   if (separadaConRoformer(cancion)) return datos;
   const limpias = await limpiarBajo(datos);
   return limpias.some((p) => p.length === 0) ? leer() : limpias;
+}
+
+/** El pulso de la canción, sacado de su pista de batería (para el click del directo). */
+export async function pulsoDeCancion(cancion: Cancion): Promise<ClickCancion | null> {
+  const audios = await leerAudios(cancion.id, ["bateria"]);
+  if (!audios.bateria) return null;
+  const datos = await leerWav(audios.bateria, cancion.frames);
+  return sacarPulso(datos, FRECUENCIA);
 }

@@ -30,6 +30,38 @@ export function guardarRepertorios(rs: Repertorio[]) {
   }
 }
 
+/** El click en el directo: por dónde sale, su volumen y si hay cuenta de entrada. */
+export interface AjustesDirecto {
+  ruta: "no" | "juntos" | "cascos";
+  volumen: number;
+  cuenta: boolean;
+}
+
+const CLAVE_DIRECTO = "clavija:directo";
+
+export function leerAjustesDirecto(): AjustesDirecto {
+  const base: AjustesDirecto = { ruta: "no", volumen: 0.8, cuenta: true };
+  try {
+    const p = JSON.parse(localStorage.getItem(CLAVE_DIRECTO) ?? "null") as Partial<AjustesDirecto> | null;
+    if (!p) return base;
+    return {
+      ruta: p.ruta === "juntos" || p.ruta === "cascos" ? p.ruta : "no",
+      volumen: typeof p.volumen === "number" && Number.isFinite(p.volumen) ? Math.max(0, Math.min(1.5, p.volumen)) : base.volumen,
+      cuenta: typeof p.cuenta === "boolean" ? p.cuenta : base.cuenta,
+    };
+  } catch {
+    return base;
+  }
+}
+
+export function guardarAjustesDirecto(a: AjustesDirecto) {
+  try {
+    localStorage.setItem(CLAVE_DIRECTO, JSON.stringify(a));
+  } catch {
+    /* sin almacenamiento */
+  }
+}
+
 export function nuevoRepertorio(nombre: string): Repertorio {
   return { id: `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, nombre, canciones: [] };
 }
