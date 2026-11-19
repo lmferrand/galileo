@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 import EfectosMesa, { efectosActivos } from "./EfectosMesa";
 import MesaFoto, { ALTO_MESA, ANCHO_MESA, type CanalFoto } from "./MesaFoto";
+import CanalGrande from "./CanalGrande";
 import GrabadoraMesa, { ALTO_CINTA, ANCHO_CINTA, anguloVu, VU_REPOSO, VUS } from "./GrabadoraMesa";
 import { type Transporte } from "./TransporteMesa";
 import {
@@ -315,7 +316,10 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   // una, esa a toda pantalla («Volver» regresa a las dos)
   const partido = H < 520;
   const [parte, setParte] = useState<"las-dos" | "cinta" | "mesa">("las-dos");
-  const vista = partido ? parte : "juntas";
+  // En la mesa en grande, tocar un canal lo abre a toda pantalla (CanalGrande)
+  const [canalAbierto, setCanalAbierto] = useState<number | null>(null);
+  const vista = partido ? (parte === "mesa" && canalAbierto !== null ? "canal" : parte) : "juntas";
+  const atras = () => (canalAbierto !== null ? setCanalAbierto(null) : setParte("las-dos"));
   // Juntas: la grabadora arriba (sin tapar «Estudio» ni la ✕) y la mesa debajo, que se desliza si no cabe
   const altoCinta = Math.max(110, Math.min(0.46 * H, 380));
   const escalaCinta = Math.max(0.1, Math.min((W - 240) / ANCHO_CINTA, altoCinta / ALTO_CINTA, 1));
@@ -377,11 +381,12 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
 
   // Escape: en una parte en grande, vuelve a las dos (antes de que lo oiga el estudio)
   useEffect(() => {
-    if (vista !== "cinta" && vista !== "mesa") return;
+    if (vista !== "cinta" && vista !== "mesa" && vista !== "canal") return;
     const tecla = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || document.querySelector(".hoja")) return;
       e.stopImmediatePropagation();
-      setParte("las-dos");
+      if (vista === "canal") setCanalAbierto(null);
+      else setParte("las-dos");
     };
     document.addEventListener("keydown", tecla, true);
     return () => document.removeEventListener("keydown", tecla, true);
@@ -487,6 +492,12 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     entradas: { encendidas: encendida, ocupadas: estado === "abriendo", onPulsar: () => void encender() },
     leer,
   };
+  // El canal de al lado (saltando los que no tienen nada, sin canción)
+  const vecino = (paso: 1 | -1) => {
+    if (canalAbierto === null) return null;
+    for (let i = canalAbierto + paso; i >= 0 && i < 8; i += paso) if (propsMesa.canales[i]) return () => setCanalAbierto(i);
+    return null;
+  };
   const elegir = (p: "cinta" | "mesa") => ({
     role: "button" as const,
     tabIndex: 0,
@@ -537,11 +548,29 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
       )}
       {vista === "mesa" && (
         <div className="cf-grande" ref={abajo}>
-          <MesaFoto escala={escalaMesaGrande} {...propsMesa} />
+          <MesaFoto escala={escalaMesaGrande} {...propsMesa} alTocarCanal={setCanalAbierto} />
         </div>
       )}
-      {(vista === "cinta" || vista === "mesa") && (
-        <button type="button" className="estudio-boton cf-volver" onClick={() => setParte("las-dos")} aria-label="Volver a ver la grabadora y la mesa">
+      {vista === "canal" && canalAbierto !== null && propsMesa.canales[canalAbierto] && (
+        <div className="cf-grande" ref={abajo}>
+          <CanalGrande
+            key={canalAbierto}
+            canal={propsMesa.canales[canalAbierto]!}
+            indice={canalAbierto}
+            anterior={vecino(-1)}
+            siguiente={vecino(1)}
+            entradas={canalAbierto < 2 ? propsMesa.entradas : null}
+            leer={leer}
+          />
+        </div>
+      )}
+      {(vista === "cinta" || vista === "mesa" || vista === "canal") && (
+        <button
+          type="button"
+          className="estudio-boton cf-volver"
+          onClick={atras}
+          aria-label={vista === "canal" ? "Volver a la mesa con todos los canales" : "Volver a ver la grabadora y la mesa"}
+        >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M15 5l-7 7 7 7" />
           </svg>

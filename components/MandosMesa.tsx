@@ -21,8 +21,10 @@ export interface PropsMando {
 
 const DOS_TOQUES_MS = 320;
 
-export function useArrastre(p: PropsMando, recorrido: (el: HTMLElement) => number) {
+/** `eje`: "y" (arriba sube) o "x" (a la derecha sube, para los faders tumbados) */
+export function useArrastre(p: PropsMando, recorrido: (el: HTMLElement) => number, eje: "x" | "y" = "y") {
   const inicio = useRef<{ y: number; v: number; alto: number; movido: boolean } | null>(null);
+  const donde = (e: PointerEvent<HTMLElement>) => (eje === "x" ? -e.clientX : e.clientY);
   // Cuándo acabó el último toque sin arrastrar (dos seguidos = valor de serie)
   const ultimoToque = useRef(0);
   const rango = p.max - p.min;
@@ -42,16 +44,16 @@ export function useArrastre(p: PropsMando, recorrido: (el: HTMLElement) => numbe
       e.preventDefault();
       e.currentTarget.focus({ preventScroll: true });
       e.currentTarget.setPointerCapture(e.pointerId);
-      inicio.current = { y: e.clientY, v: p.valor, alto: recorrido(e.currentTarget), movido: false };
+      inicio.current = { y: donde(e), v: p.valor, alto: recorrido(e.currentTarget), movido: false };
     },
     onPointerMove(e: PointerEvent<HTMLElement>) {
       const i = inicio.current;
       if (!i) return;
-      if (!i.movido && Math.abs(i.y - e.clientY) < 4) return;
+      if (!i.movido && Math.abs(i.y - donde(e)) < 4) return;
       i.movido = true;
       // Con mayúsculas, cuatro veces más fino
       const fino = e.shiftKey ? 0.25 : 1;
-      poner(i.v + ((i.y - e.clientY) / i.alto) * rango * fino);
+      poner(i.v + ((i.y - donde(e)) / i.alto) * rango * fino);
     },
     onPointerUp() {
       const i = inicio.current;

@@ -69,6 +69,12 @@ const PLACAS: Caja[] = [
   [317, 46, 129, 40],
 ];
 
+/** Cada tira, de su rótulo a sus ruedas: en el móvil, tocarla abre el canal en grande */
+const TIRAS: Caja[] = [
+  [76, 40, 222, 420], [300, 40, 156, 420], [458, 40, 155, 420], [615, 40, 158, 420],
+  [775, 40, 154, 420], [931, 40, 158, 420], [1091, 40, 158, 420], [1251, 40, 157, 420],
+];
+
 /** Las tiras, para taparlas cuando no tienen nada (sin entrada 2, sin canción) */
 const TIRA_2: Caja = [300, 40, 156, 745];
 const TIRAS_PISTAS: Caja = [458, 40, 951, 745];
@@ -203,8 +209,8 @@ export interface CanalFoto {
 const panorama = (v: number) => (Math.abs(v) < 0.03 ? "Centro" : v < 0 ? `Izq. ${Math.round(-v * 100)}` : `Der. ${Math.round(v * 100)}`);
 const conCero = (texto: string) => (v: number) => (v <= 0 ? texto : pct(v));
 
-/** Las 7 ruedas de un canal, de arriba abajo, con lo que mueven */
-function ruedasDe(k: CanalFoto, leer: (texto: string) => void): { color: Color; p: PropsMando }[] {
+/** Las 7 ruedas de un canal, de arriba abajo, con lo que mueven (también las usa CanalGrande) */
+export function ruedasDe(k: CanalFoto, leer: (texto: string) => void): { color: Color; p: PropsMando }[] {
   const c = k.c;
   const mando = (nombre: string, valor: number, min: number, max: number, paso: number, ver: (v: number) => string, poner: (x: AjustesCanal, v: number) => AjustesCanal): PropsMando => ({
     nombre: `${nombre} de ${k.titulo}`,
@@ -252,10 +258,12 @@ interface Props {
   conCancion: boolean;
   /** Encender o apagar las entradas (los rótulos INPUT se iluminan) */
   entradas: { encendidas: boolean; ocupadas: boolean; onPulsar: () => void };
+  /** En el móvil: tocar un canal (su rótulo o sus ruedas) lo abre en grande */
+  alTocarCanal?: (i: number) => void;
   leer: (donde: string, texto: string) => void;
 }
 
-export default function MesaFoto({ escala, canales, sinEntrada2, general, onGeneral, maestros, onMaestros, conCancion, entradas, leer }: Props) {
+export default function MesaFoto({ escala, canales, sinEntrada2, general, onGeneral, maestros, onMaestros, conCancion, entradas, alTocarCanal, leer }: Props) {
   return (
     <div className="mf-caja" style={{ width: ANCHO_MESA * escala, height: ALTO_MESA * escala }}>
       <div className="mf" style={{ width: ANCHO_MESA, height: ALTO_MESA, transform: `scale(${escala})` }}>
@@ -369,6 +377,13 @@ export default function MesaFoto({ escala, canales, sinEntrada2, general, onGene
             }}
           />
         </div>
+
+        {alTocarCanal &&
+          canales.map((k, i) =>
+            k ? (
+              <button key={i} type="button" className="mf-zona-canal" style={enCaja(TIRAS[i])} aria-label={`Abrir los mandos de ${k.titulo} en grande`} onClick={() => alTocarCanal(i)} />
+            ) : null,
+          )}
 
         {sinEntrada2 && (
           <div className="mf-tapado" style={enCaja(TIRA_2)}>

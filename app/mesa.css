@@ -1332,3 +1332,260 @@
     animation: none;
   }
 }
+
+/* En el móvil, en la mesa en grande: tocar un canal (rótulo o ruedas) lo abre */
+.mf-zona-canal {
+  position: absolute;
+  z-index: 20;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+.mf-zona-canal:active {
+  background: rgba(255, 220, 160, 0.12);
+  box-shadow: inset 0 0 0 3px rgba(255, 210, 122, 0.6);
+}
+.mf-zona-canal:focus-visible {
+  outline: 4px solid rgba(255, 210, 122, 0.9);
+  outline-offset: -4px;
+}
+
+/* ---------- Un canal en grande (CanalGrande): ruedas en fila y fader tumbado ---------- */
+.cg {
+  --dg: clamp(36px, min(6.4vw, 13dvh), 60px);
+  width: min(100%, 980px);
+  height: 100%;
+  max-height: 420px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 6px;
+  padding: 10px clamp(12px, 2.5vw, 26px) 12px;
+  border-radius: 14px;
+  /* La madera alrededor y el panel negro, como la mesa */
+  border: 10px solid #7a3f17;
+  border-image: linear-gradient(90deg, #5a2a0c, #9a5422 30%, #7a3f17 60%, #b0652a 85%, #5a2a0c) 1;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #2a2a2c, #1a1a1c);
+  box-shadow:
+    inset 0 0 22px rgba(0, 0, 0, 0.7),
+    0 10px 30px rgba(0, 0, 0, 0.6);
+  animation: cf-acerca 240ms ease both;
+}
+.cg-cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.cg-flecha {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  justify-content: center;
+}
+.cg-flecha:disabled {
+  opacity: 0.3;
+}
+.cg-placa {
+  padding: 5px 16px;
+  border-radius: 4px;
+  background: linear-gradient(#ede2d2, #cbb9a0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 4px rgba(0, 0, 0, 0.6);
+  color: #1b1410;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.cg-nombre {
+  min-width: 5em;
+  color: #d8ccb8;
+  font-size: 14px;
+}
+.cg-ruedas {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: center;
+  min-height: 0;
+}
+.cg-mando {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 4px 0;
+  border-radius: 10px;
+  touch-action: none;
+  cursor: ns-resize;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.cg-mando:focus-visible {
+  box-shadow: 0 0 0 3px rgba(255, 210, 122, 0.85);
+}
+.cg-etiqueta {
+  color: #f0ebe2;
+  font-family: "Arial Narrow", "Roboto Condensed", var(--f-ui), Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+}
+.cg-rueda-caja {
+  position: relative;
+  width: calc(var(--dg) * 1.9);
+  height: calc(var(--dg) * 1.9);
+}
+.cg-marcas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: #e9e4da;
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: 0.8;
+}
+.cg-valor {
+  display: grid;
+  justify-items: center;
+  color: #ffd9a8;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.cg-valor small {
+  color: #b8ab98;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.cg-abajo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.cg-teclas {
+  display: flex;
+  gap: 8px;
+}
+.cg-tecla {
+  min-width: 58px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.7);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cg-tecla:active {
+  transform: translateY(1px);
+}
+.cg-roja {
+  min-width: 44px;
+  background: linear-gradient(#5a1410, #3a0806);
+}
+.cg-roja.on {
+  background: radial-gradient(circle at 50% 40%, #ffd0c0, #ff3b28 45%, #b01208);
+  box-shadow: 0 0 16px 3px rgba(255, 50, 30, 0.55);
+}
+.cg-ambar {
+  background: linear-gradient(#7a5a28, #5a3e16);
+  color: #2a1a06;
+}
+.cg-ambar.on {
+  background: linear-gradient(#ffe6a8, #f2b24a);
+  box-shadow: 0 0 14px 2px rgba(255, 190, 60, 0.5);
+}
+.cg-entradas {
+  background: linear-gradient(#e6dccb, #c4b39b);
+  color: #1b1410;
+}
+.cg-entradas.on {
+  box-shadow: 0 0 16px 3px rgba(255, 200, 110, 0.7);
+}
+/* El fader tumbado: a la derecha sube; 0 dB a tres cuartos */
+.cg-fader {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 60px;
+  touch-action: none;
+  cursor: ew-resize;
+  outline: none;
+  border-radius: 10px;
+}
+.cg-fader:focus-visible {
+  box-shadow: 0 0 0 3px rgba(255, 210, 122, 0.85);
+}
+.cg-escala {
+  position: absolute;
+  left: 35px;
+  right: 35px;
+  top: 0;
+  height: 14px;
+}
+.cg-marca {
+  position: absolute;
+  left: calc(var(--en) * 100%);
+  transform: translateX(-50%);
+  color: #ece6da;
+  font-size: 10px;
+  font-weight: 700;
+}
+.cg-marca.cero {
+  color: #fff;
+  font-size: 11.5px;
+}
+.cg-ranura {
+  position: absolute;
+  left: 35px;
+  right: 35px;
+  top: 34px;
+  height: 12px;
+  margin-top: -6px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: linear-gradient(#000, #141414 50%, #000);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+.cg-luz {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  bottom: 3px;
+  width: calc(var(--nivel, 0%) * 0.98);
+  border-radius: 3px;
+  background: linear-gradient(90deg, #2fbf6a, #46e08a 55%, #ffd23c 80%, #ff5b3c) left / 600px 100% no-repeat;
+}
+.cg-tapa {
+  position: absolute;
+  top: 34px;
+  left: calc(35px + (100% - 70px) * var(--pos));
+  width: 40px;
+  height: 62px;
+  margin: -31px 0 0 -20px;
+  background: url(/mesa/fader-tapa.webp) center / 100% 100% no-repeat;
+  filter: drop-shadow(3px 0 3px rgba(0, 0, 0, 0.6));
+  transform: rotate(90deg);
+  pointer-events: none;
+}
+.cg-db {
+  position: absolute;
+  right: 0;
+  bottom: -2px;
+  color: #ffd9a8;
+  font-size: 11px;
+  font-weight: 700;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cg {
+    animation: none;
+  }
+}
