@@ -96,7 +96,7 @@ export default function Grabadora() {
     if (estado.fase !== "hecha") return;
     const ext = estado.blob.type.includes("webm") ? "webm" : "m4a";
     const fecha = new Date().toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(/[/:, ]+/g, "-");
-    const archivo = new File([estado.blob], `The Clavija ${fecha}.${ext}`, { type: estado.blob.type });
+    const archivo = new File([estado.blob], `Galileo ${fecha}.${ext}`, { type: estado.blob.type });
     const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
     if (nav.canShare?.({ files: [archivo] })) {
       try {

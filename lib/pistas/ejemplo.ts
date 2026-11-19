@@ -12,7 +12,7 @@ export const ID_EJEMPLO = "ejemplo-time-poor";
 export const PESO_EJEMPLO = "11 MB";
 
 const CREDITO =
-  "«Time Poor», de The Basics. Licencia CC BY 3.0 (Wikimedia Commons). Separada en pistas por The Clavija.";
+  "«Time Poor», de The Basics. Licencia CC BY 3.0 (Wikimedia Commons). Separada en pistas por Galileo.";
 
 export async function cargarEjemplo(alProgreso: (fraccion: number) => void): Promise<Cancion> {
   const ya = (await listarCanciones()).find((c) => c.id === ID_EJEMPLO);

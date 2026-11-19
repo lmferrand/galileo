@@ -407,7 +407,7 @@ export default function Pistas() {
                 </>
               ) : (
                 <>
-                  Se separa en el estudio de The Clavija y vuelve sola a tu lista, aunque cierres la app. Unos 15 minutos por canción.{" "}
+                  Se separa en el estudio de Galileo y vuelve sola a tu lista, aunque cierres la app. Unos 15 minutos por canción.{" "}
                   {estudioEncendido(estudio) ? "Ahora está encendido." : "Ahora está apagado: empezará cuando se encienda."}
                 </>
               )}
@@ -440,12 +440,12 @@ export default function Pistas() {
             <b>.zip:</b> varias canciones juntas. Las que ya vienen separadas entran al momento.
           </li>
           <li>
-            <b>En el estudio:</b> al elegir canciones puedes mandarlas al estudio de The Clavija, que separa con más calidad y te las devuelve
+            <b>En el estudio:</b> al elegir canciones puedes mandarlas al estudio de Galileo, que separa con más calidad y te las devuelve
             solas a esta lista (unos 15 minutos por canción; hasta 3 a la vez y de 10 minutos como mucho).
           </li>
           <li>La primera vez que separas aquí se descarga el separador ({PESO_MODELO}): mejor con wifi.</li>
           <li>Las de Apple Music o Spotify no se pueden abrir: vienen protegidas.</li>
-          {esMovil && <li>Mientras separa, deja la pantalla encendida y The Clavija abierta.</li>}
+          {esMovil && <li>Mientras separa, deja la pantalla encendida y Galileo abierta.</li>}
           {sinGpu && <li>Este navegador solo deja usar un núcleo: separar irá unas cuatro veces más lento.</li>}
         </ul>
         {canciones !== null && !canciones.some((c) => c.id === ID_EJEMPLO) && (
@@ -482,7 +482,7 @@ export default function Pistas() {
           )}
           <p className="trabajo-cancion">{mandando.nombre}</p>
           <p className="trabajo-titulo">{TEXTO_FASE[mandando.fase]}</p>
-          {mandando.fase !== "estudio" && <p className="pistas-letra-pequena">Deja The Clavija abierta hasta que acabe.</p>}
+          {mandando.fase !== "estudio" && <p className="pistas-letra-pequena">Deja Galileo abierta hasta que acabe.</p>}
         </div>
       )}
       <EstudioEncargos version={versionEstudio} onEstado={setEstudio} onRecibida={() => void recargar()} />
@@ -501,7 +501,7 @@ export default function Pistas() {
           <div className="progreso" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((anadiendo.hechas / anadiendo.total) * 100)}>
             <span style={{ width: `${Math.max(2, (anadiendo.hechas / anadiendo.total) * 100)}%` }} />
           </div>
-          <p className="pistas-letra-pequena">Deja The Clavija abierta hasta que acabe.</p>
+          <p className="pistas-letra-pequena">Deja Galileo abierta hasta que acabe.</p>
         </div>
       )}
 
@@ -676,7 +676,7 @@ function TarjetaTrabajo({ trabajo, enCola, tanda }: { trabajo: Trabajo; enCola: 
         </p>
       )}
       <p className="pistas-letra-pequena">
-        {enCola.length > 0 ? "Deja The Clavija abierta hasta que acaben todas; «Parar» las para todas." : "Deja esta pantalla abierta hasta que acabe."}
+        {enCola.length > 0 ? "Deja Galileo abierta hasta que acaben todas; «Parar» las para todas." : "Deja esta pantalla abierta hasta que acabe."}
       </p>
     </div>
   );

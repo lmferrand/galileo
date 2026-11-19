@@ -84,7 +84,7 @@ export default function LooperPanel({ looper, estado, modo, onModo, bpm, compas 
       est[2 * i] = v;
       est[2 * i + 1] = v;
     }
-    const r = await guardarArchivo(crearWav(est, m.frecuencia), `Bucle de The Clavija (${capas} ${capas === 1 ? "capa" : "capas"}).wav`);
+    const r = await guardarArchivo(crearWav(est, m.frecuencia), `Bucle de Galileo (${capas} ${capas === 1 ? "capa" : "capas"}).wav`);
     setGuardado(r === "cancelado" ? null : r === "compartido" ? "Guardado." : "Descargado.");
   };
 

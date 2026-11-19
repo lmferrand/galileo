@@ -14,8 +14,8 @@ a.marca {
 }
 .marca-logo {
   display: block;
-  /* «THE» encima de «Clavija»: más alto que el de antes para que se lea */
-  height: 44px;
+  /* GALILEO: ancho y bajito */
+  height: 34px;
   width: auto;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
   user-select: none;
@@ -23,7 +23,7 @@ a.marca {
 }
 @media (max-width: 380px) {
   .marca-logo {
-    height: 38px;
+    height: 30px;
   }
   .pestanas a {
     padding: 7px 12px;
