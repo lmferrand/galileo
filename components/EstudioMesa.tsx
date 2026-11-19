@@ -54,13 +54,16 @@ export default function EstudioMesa({ onCerrar, pistas }: { onCerrar: () => void
     return () => ro.disconnect();
   }, []);
 
+  // Escape: en la consola vuelve al estudio (paso a paso, como «‹»); en el estudio cierra la Mesa
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCerrar();
+      if (e.key !== "Escape") return;
+      if (fase === "consola") setFase("volviendo");
+      else if (fase === "estudio") onCerrar();
     };
     document.addEventListener("keydown", tecla);
     return () => document.removeEventListener("keydown", tecla);
-  }, [onCerrar]);
+  }, [onCerrar, fase]);
 
   // Acercarse y, al llegar, la consola; volver: la consola se va y la vista se aleja
   useEffect(() => {
@@ -156,7 +159,8 @@ export default function EstudioMesa({ onCerrar, pistas }: { onCerrar: () => void
       {(fase === "consola" || fase === "volviendo") ? (
         // La barra va dentro de la consola: así la hoja de efectos la tapa
         <div className="estudio-consola">
-          <Arriba onCerrar={onCerrar} onEstudio={() => setFase("volviendo")} />
+          {/* Dentro de la consola no hay ✕: se sale hacia atrás (canal → mesa → las dos → estudio) */}
+          <Arriba onEstudio={() => setFase("volviendo")} />
           <ConsolaMesa pistas={pistas} />
         </div>
       ) : (
@@ -166,7 +170,7 @@ export default function EstudioMesa({ onCerrar, pistas }: { onCerrar: () => void
   );
 }
 
-function Arriba({ onCerrar, onEstudio }: { onCerrar: () => void; onEstudio?: () => void }) {
+function Arriba({ onCerrar, onEstudio }: { onCerrar?: () => void; onEstudio?: () => void }) {
   return (
     <div className="estudio-arriba">
       {onEstudio && (
@@ -177,11 +181,13 @@ function Arriba({ onCerrar, onEstudio }: { onCerrar: () => void; onEstudio?: () 
           Estudio
         </button>
       )}
-      <button type="button" className="estudio-boton estudio-cerrar" onClick={onCerrar} aria-label="Cerrar la Mesa">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 6l12 12M18 6 6 18" />
-        </svg>
-      </button>
+      {onCerrar && (
+        <button type="button" className="estudio-boton estudio-cerrar" onClick={onCerrar} aria-label="Cerrar la Mesa">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
