@@ -190,6 +190,11 @@ export class Reproductor {
     return { datos: this.espectrosDatos, hz: this.ctx.sampleRate / (2 * this.espectrosDatos[0].length) };
   }
 
+  /** Sube o baja el tono (semitonos, de −6 a +6) sin cambiar la velocidad. */
+  tono(semitonos: number) {
+    this.nodo?.port.postMessage({ tipo: "tono", semitonos });
+  }
+
   /** 0,5 = a la mitad de velocidad, sin cambiar el tono. */
   velocidad(valor: number) {
     this.nodo?.port.postMessage({ tipo: "velocidad", valor });

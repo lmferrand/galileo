@@ -8,6 +8,9 @@
 // encaje se busca con la mezcla de todas y vale para todas: nunca se desfasan.
 // A velocidad normal los trozos van seguidos y la reconstrucción es exacta. Los
 // saltos (repetir un trozo, mover la barra) se funden solos en el solape.
+// El tono: cada trozo se lee r veces más deprisa (r = 2^(semitonos/12)), así sube o
+// baja el tono, y los trozos se siguen colocando al ritmo de la velocidad: el tempo
+// no cambia.
 
 const N = 2048; // tamaño de cada trozo (~46 ms)
 const HS = N / 2; // salto de salida (solape del 50 %)
@@ -33,6 +36,7 @@ class MezcladorPistas extends AudioWorkletProcessor {
     this.g = new Float32Array(8);
     this.gObjetivo = new Float32Array(8);
     this.velocidad = 1;
+    this.r = 1; // tono: lo que se lee de la fuente por cada muestra de salida
     this.bucle = null; // { a, b } en muestras de salida
     this.analisis = 0;
     this.previo = -HS;
@@ -56,7 +60,7 @@ class MezcladorPistas extends AudioWorkletProcessor {
 
   reiniciar(pos) {
     this.analisis = pos;
-    this.previo = pos - HS;
+    this.previo = pos - Math.round(HS * this.r);
     for (let s = 0; s < this.ns; s++) {
       this.colaL[s].fill(0);
       this.colaR[s].fill(0);
@@ -101,6 +105,9 @@ class MezcladorPistas extends AudioWorkletProcessor {
       case "velocidad":
         this.velocidad = Math.max(0.5, Math.min(1.25, m.valor));
         break;
+      case "tono":
+        this.r = Math.pow(2, Math.max(-6, Math.min(6, m.semitonos)) / 12);
+        break;
       case "bucle":
         if (!m.a && m.a !== 0) {
           this.bucle = null;
@@ -116,7 +123,7 @@ class MezcladorPistas extends AudioWorkletProcessor {
   }
 
   avisar() {
-    const pos = Math.max(0, this.previo + HS) * this.paso;
+    const pos = Math.max(0, this.previo + Math.round(HS * this.r)) * this.paso;
     this.port.postMessage({ tipo: "pos", frame: pos, tocando: this.tocando });
   }
 
@@ -124,6 +131,7 @@ class MezcladorPistas extends AudioWorkletProcessor {
   leer(n0, cuantos) {
     const ps = this.pistas;
     const paso = this.paso;
+    const r = this.r;
     const F = this.frames;
     for (let s = 0; s < this.ns; s++) {
       const TL = this.trozoL[s];
@@ -137,7 +145,7 @@ class MezcladorPistas extends AudioWorkletProcessor {
       }
       const k = g / 32768;
       for (let i = 0; i < cuantos; i++) {
-        const p = (n0 + i) * paso;
+        const p = (n0 + i * r) * paso;
         if (p >= 0 && p < F - 1) {
           const q = p | 0;
           const f = p - q;
@@ -179,11 +187,13 @@ class MezcladorPistas extends AudioWorkletProcessor {
 
   /** Busca, cerca de `nominal`, el trozo que mejor continúa la onda que ya ha sonado. */
   buscar(nominal, natural) {
+    // Se compara la onda como va a sonar: cada muestra de salida avanza r en la fuente
+    const r = this.r;
     const M = HS / DEC;
-    this.mono(natural, M, DEC, this.ref);
+    this.mono(natural, M, DEC * r, this.ref);
     const inicio = nominal - DELTA;
     const cuenta = (2 * DELTA + HS) / DEC;
-    this.mono(inicio, cuenta, DEC, this.region);
+    this.mono(inicio, cuenta, DEC * r, this.region);
     let mejor = -Infinity;
     let mejorJ = DELTA / DEC;
     const candidatos = (2 * DELTA) / DEC;
@@ -202,10 +212,10 @@ class MezcladorPistas extends AudioWorkletProcessor {
       }
     }
     // Afinar muestra a muestra alrededor del mejor candidato.
-    const grueso = inicio + mejorJ * DEC;
+    const grueso = Math.round(inicio + mejorJ * DEC * r);
     const L = 256;
-    this.mono(natural, L, 1, this.ref);
-    this.mono(grueso - DEC, L + 2 * DEC, 1, this.region);
+    this.mono(natural, L, r, this.ref);
+    this.mono(grueso - DEC * r, L + 2 * DEC, r, this.region);
     let fino = grueso;
     mejor = -Infinity;
     for (let d = 0; d <= 2 * DEC; d++) {
@@ -219,7 +229,7 @@ class MezcladorPistas extends AudioWorkletProcessor {
       const s = c / Math.sqrt(e);
       if (s > mejor) {
         mejor = s;
-        fino = grueso - DEC + d;
+        fino = Math.round(grueso - DEC * r + d * r);
       }
     }
     return fino;
@@ -231,7 +241,7 @@ class MezcladorPistas extends AudioWorkletProcessor {
     if (this.bucle && this.analisis >= this.bucle.b) {
       // Vuelta al principio del trozo: el solape funde el final con el inicio.
       this.analisis = this.bucle.a;
-      this.previo = this.bucle.a - HS;
+      this.previo = this.bucle.a - Math.round(HS * this.r);
     }
     if (this.analisis >= this.total()) {
       this.tocando = false;
@@ -240,7 +250,7 @@ class MezcladorPistas extends AudioWorkletProcessor {
     }
 
     const nominal = Math.round(this.analisis);
-    const natural = this.previo + HS;
+    const natural = this.previo + Math.round(HS * this.r);
     const inicio = Math.abs(nominal - natural) <= 1 ? natural : this.buscar(nominal, natural);
 
     this.leer(inicio, N);

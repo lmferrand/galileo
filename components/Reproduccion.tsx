@@ -64,6 +64,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   const [silencio, setSilencio] = useState<boolean[]>(() => inicial.silencio);
   const [solo, setSolo] = useState<boolean[]>(() => PISTAS.map(() => false));
   const [velocidad, setVelocidad] = useState(inicial.velocidad);
+  const [tono, setTono] = useState(inicial.tono);
   const [marcas, setMarcas] = useState<Marca[]>(inicial.marcas);
   const [desde, setDesde] = useState<number | null>(null);
   const [hasta, setHasta] = useState<number | null>(null);
@@ -173,6 +174,10 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
   }, [velocidad, cargando]);
 
   useEffect(() => {
+    if (!cargando) rep.current?.tono(tono);
+  }, [tono, cargando]);
+
+  useEffect(() => {
     if (cargando) return;
     if (repetir && trozoValido) rep.current?.bucle(desde, hasta as number);
     else rep.current?.bucle(null);
@@ -200,8 +205,8 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
 
   // Se guarda lo de esta canción (para la próxima vez y para el repertorio)
   useEffect(() => {
-    guardarAjustesCancion(cancion.id, { volumen, silencio, velocidad, tono: inicial.tono, marcas });
-  }, [cancion.id, volumen, silencio, velocidad, marcas, inicial.tono]);
+    guardarAjustesCancion(cancion.id, { volumen, silencio, velocidad, tono, marcas });
+  }, [cancion.id, volumen, silencio, velocidad, tono, marcas]);
 
   // ---- Partes de la canción (marcas) ----
   const marcar = (nombre: string) => {
@@ -564,6 +569,31 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
                 )}
               </div>
               {velocidad !== 1 && <p className="practica-ayuda">Más lenta pero en el mismo tono, para sacarla con calma.</p>}
+
+              <div className="practica-fila">
+                <span className="practica-titulo">Tono</span>
+                <div className="paso-a-paso">
+                  <button type="button" className="boton-redondo" onClick={() => setTono((t) => Math.max(-6, t - 1))} disabled={tono <= -6} aria-label="Bajar un semitono">
+                    −
+                  </button>
+                  <output className="paso-valor tono-valor" aria-live="polite">
+                    {tono === 0 ? "Original" : `${tono > 0 ? "+" : "−"}${Math.abs(tono)}`}
+                  </output>
+                  <button type="button" className="boton-redondo" onClick={() => setTono((t) => Math.min(6, t + 1))} disabled={tono >= 6} aria-label="Subir un semitono">
+                    +
+                  </button>
+                </div>
+                {tono !== 0 && (
+                  <button type="button" className="boton-texto" onClick={() => setTono(0)}>
+                    Original
+                  </button>
+                )}
+              </div>
+              {tono !== 0 && (
+                <p className="practica-ayuda">
+                  {Math.abs(tono)} {Math.abs(tono) === 1 ? "semitono" : "semitonos"} más {tono > 0 ? "agudo" : "grave"}, a la misma velocidad: para que el cantante llegue cómodo.
+                </p>
+              )}
 
               <div className="practica-fila partes">
                 <span className="practica-titulo">Partes</span>
