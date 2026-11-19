@@ -32,6 +32,7 @@ import { duracionToma, wavDeToma, type Toma } from "@/lib/mesa/toma";
 import { guardarArchivo } from "@/lib/pistas/exportar";
 import { esMovil } from "@/lib/pistas/aparato";
 import { formatoTiempo } from "@/lib/pistas/tipos";
+import { leerAjustesMetronomo } from "@/lib/metronomo";
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
 import { useHidratado } from "@/lib/hidratado";
 
@@ -67,6 +68,27 @@ export interface PistasMesa {
 type Abierta = { tipo: "entrada" | "pista"; i: number };
 
 const LECTURA_MS = 1400;
+/** Las tomas que se guardan (en memoria: cada minuto en estéreo ocupa unos 20 MB) */
+const MAX_TOMAS = 6;
+
+interface TomaGuardada {
+  id: number;
+  nombre: string;
+  toma: Toma;
+}
+
+/** Un golpe de la cuenta atrás de REC */
+function clic(ctx: AudioContext, t: number, fuerte: boolean) {
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.frequency.value = fuerte ? 1760 : 1320;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.5, t + 0.004);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+  o.connect(g).connect(ctx.destination);
+  o.start(t);
+  o.stop(t + 0.09);
+}
 /** Canales 3 a 8 de la foto (VOCALS, DRUMS, BASS, GUITAR, PIANO, OTHER) → su pista (orden de PISTAS) */
 const PISTA_DE_CANAL = [0, 3, 2, 1, 4, 5];
 
@@ -176,16 +198,20 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   };
 
   // ---------- REC: grabar lo que tocas ----------
-  // La toma empieza donde esté la canción (y la pone a sonar); se para con REC, con la pausa o
-  // cuando la canción acaba. Sin canción, graba lo que toques hasta volver a pulsar REC.
+  // REC: cuenta atrás de 4 golpes (al tempo del metrónomo) y empieza a grabar donde esté la canción
+  // (y la pone a sonar); se para con REC, con la pausa o cuando la canción acaba. Sin canción, graba
+  // hasta volver a pulsar REC. Cada toma va a la lista (las últimas MAX_TOMAS) para elegir la mejor.
   const [grabando, setGrabando] = useState<{ desde: number | null } | null>(null);
+  const [cuenta, setCuenta] = useState<number | null>(null);
   const [transcurrido, setTranscurrido] = useState(0);
-  const [toma, setToma] = useState<Toma | null>(null);
-  const [verToma, setVerToma] = useState(false);
-  const [preparada, setPreparada] = useState<{ blob: Blob; nombre: string } | null>(null);
+  const [tomas, setTomas] = useState<TomaGuardada[]>([]);
+  const [verTomas, setVerTomas] = useState(false);
+  const [preparada, setPreparada] = useState<{ id: number; blob: Blob; nombre: string } | null>(null);
   const [estadoToma, setEstadoToma] = useState<string | null>(null);
   const sonoGrabando = useRef(false);
   const sonandoSola = useRef<AudioContext | null>(null);
+  const relojCuenta = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const numeroToma = useRef(0);
   const tocandoCancion = pistas?.transporte.tocando ?? false;
 
   const parar = async () => {
@@ -198,23 +224,50 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     if (!g || !datos || datos.muestras.length < datos.frecuencia * 2 * 0.3) return;
     // Lo que tardó la canción en salir y lo que tardó tu sonido en volver: eso sobra al principio
     const retrasoTotal = g.desde === null ? 0 : (ultimasPistas.current?.retrasoSalida() ?? 0) + mesa.retrasoEntrada();
-    setToma({ ...datos, desde: g.desde, recorte: Math.round(retrasoTotal * datos.frecuencia) });
+    numeroToma.current += 1;
+    const nueva: TomaGuardada = {
+      id: numeroToma.current,
+      nombre: `Toma ${numeroToma.current}`,
+      toma: { ...datos, desde: g.desde, recorte: Math.round(retrasoTotal * datos.frecuencia) },
+    };
+    setEstadoToma(tomas.length >= MAX_TOMAS ? `Se guardan las ${MAX_TOMAS} últimas: la más antigua se ha quitado.` : null);
+    setTomas((ts) => [nueva, ...ts].slice(0, MAX_TOMAS));
     setPreparada(null);
-    setEstadoToma(null);
-    setVerToma(true);
+    setVerTomas(true);
   };
-  const pulsarRec = async () => {
-    if (grabando) return parar();
-    if (mesa.estado !== "encendida") {
-      const r = await mesa.encender(conSolo(ajustes));
-      if (r !== "encendida") return;
-      setRetraso(mesa.retrasoMs());
-    }
+  const cancelarCuenta = () => {
+    relojCuenta.current.forEach(clearTimeout);
+    relojCuenta.current = [];
+    setCuenta(null);
+  };
+  const empezarGrabar = async () => {
     if (!(await mesa.empezarToma())) return;
     const t = ultimasPistas.current?.transporte;
     setTranscurrido(0);
     setGrabando({ desde: t ? t.segundo : null });
     if (t && !t.tocando) t.onAlternar();
+  };
+  const pulsarRec = async () => {
+    if (grabando) return parar();
+    if (cuenta !== null) return cancelarCuenta();
+    if (mesa.estado !== "encendida") {
+      const r = await mesa.encender(conSolo(ajustes));
+      if (r !== "encendida") return;
+      setRetraso(mesa.retrasoMs());
+    }
+    // Cuenta atrás: 4 golpes al tempo del metrónomo (el primero, más agudo)
+    const golpe = 60 / leerAjustesMetronomo().bpm;
+    const ctx = mesa.ctx;
+    if (ctx) for (let k = 0; k < 4; k++) clic(ctx, ctx.currentTime + 0.05 + k * golpe, k === 0);
+    setCuenta(4);
+    relojCuenta.current = [1, 2, 3].map((k) => setTimeout(() => setCuenta(4 - k), (0.05 + k * golpe) * 1000));
+    relojCuenta.current.push(
+      setTimeout(() => {
+        relojCuenta.current = [];
+        setCuenta(null);
+        void empezarGrabar();
+      }, (0.05 + 4 * golpe) * 1000),
+    );
   };
   // Con canción: al pararse la canción (pausa, parar o se acaba) se para la toma
   useEffect(() => {
@@ -229,9 +282,10 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     const id = setInterval(() => setTranscurrido((x) => x + 0.1), 100);
     return () => clearInterval(id);
   }, [grabando, conPistas]);
-  // Al salir de la consola: deja de grabar y de sonar
+  // Al salir de la consola: deja de grabar, de contar y de sonar
   useEffect(
     () => () => {
+      relojCuenta.current.forEach(clearTimeout);
       if (mesa.grabando) void mesa.pararToma();
       void sonandoSola.current?.close().catch(() => undefined);
     },
@@ -243,10 +297,9 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     void sonandoSola.current?.close().catch(() => undefined);
     sonandoSola.current = null;
   };
-  const escucharToma = () => {
-    if (!toma) return;
+  const escucharToma = (toma: Toma) => {
     pararEscucha();
-    setVerToma(false);
+    setVerTomas(false);
     if (pistas && toma.desde !== null) return pistas.escucharToma(toma);
     // Sin canción: suena sola
     const ctx = new AudioContext();
@@ -266,15 +319,16 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     fuente.start();
     sonandoSola.current = ctx;
   };
-  const guardarToma = async (conCancion: boolean) => {
-    if (!toma) return;
-    setEstadoToma(conCancion ? "Preparando la canción con tu toma…" : "Preparando tu toma…");
+  const guardarToma = async (g: TomaGuardada, conCancion: boolean) => {
+    setEstadoToma(conCancion ? `Preparando la canción con la ${g.nombre.toLowerCase()}…` : `Preparando la ${g.nombre.toLowerCase()}…`);
     try {
       const archivo =
-        conCancion && pistas ? await pistas.mezclaConToma(toma) : { blob: wavDeToma(toma), nombre: "Mi toma.wav" };
+        conCancion && pistas
+          ? await pistas.mezclaConToma(g.toma).then((a) => ({ ...a, nombre: a.nombre.replace(/ \+ mi toma\.wav$/, ` + ${g.nombre.toLowerCase()}.wav`) }))
+          : { blob: wavDeToma(g.toma), nombre: `${g.nombre}.wav` };
       if (esMovil()) {
         // En el móvil el menú de compartir necesita un toque nuevo
-        setPreparada(archivo);
+        setPreparada({ id: g.id, ...archivo });
         setEstadoToma(null);
       } else {
         const r = await guardarArchivo(archivo.blob, archivo.nombre);
@@ -292,10 +346,12 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
       setEstadoToma(r === "compartido" ? "Guardado." : `Descargado: ${preparada.nombre}`);
     }
   };
-  const borrarToma = () => {
+  const borrarToma = (id: number) => {
     pararEscucha();
-    setToma(null);
-    setVerToma(false);
+    if (preparada?.id === id) setPreparada(null);
+    const quedan = tomas.filter((x) => x.id !== id);
+    setTomas(quedan);
+    if (quedan.length === 0) setVerTomas(false);
   };
 
   // El tamaño de la consola, para escalar la grabadora y la mesa
@@ -419,7 +475,9 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
   // Lo que enseña la pantalla de la grabadora: el mando que se mueve o cómo están las entradas
   const aviso = lectura
     ? `${lectura.donde} · ${lectura.texto}`
-    : grabando
+    : cuenta !== null
+      ? `● Prepárate: ${cuenta}…`
+      : grabando
       ? "● Grabando lo que tocas (REC para parar)"
       : encendida
       ? `${estadoTexto}${retraso !== null ? ` · retraso ≈ ${retraso} ms` : ""}`
@@ -478,8 +536,8 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
     t: pistas?.transporte ?? null,
     aviso,
     contador: grabando && !conPistas ? transcurrido : null,
-    rec: { grabando: !!grabando, ocupado: estado === "abriendo", onPulsar: () => void pulsarRec() },
-    toma: toma && !grabando ? () => setVerToma(true) : null,
+    rec: { grabando: !!grabando || cuenta !== null, ocupado: estado === "abriendo", onPulsar: () => void pulsarRec() },
+    toma: tomas.length > 0 && !grabando && cuenta === null ? () => setVerTomas(true) : null,
   };
   const propsMesa = {
     canales: [entrada(0), entrada(1), ...PISTA_DE_CANAL.map(pista)],
@@ -591,41 +649,56 @@ export default function ConsolaMesa({ pistas }: { pistas?: PistasMesa }) {
         <p>Gira el móvil para usar la mesa</p>
       </div>
 
-      {verToma && toma && (
-        <div className="hoja-fondo" onClick={() => setVerToma(false)}>
-          <div className="hoja" role="dialog" aria-modal="true" aria-label="Tu toma" onClick={(e) => e.stopPropagation()}>
+      {verTomas && tomas.length > 0 && (
+        <div className="hoja-fondo" onClick={() => setVerTomas(false)}>
+          <div className="hoja" role="dialog" aria-modal="true" aria-label="Tus tomas" onClick={(e) => e.stopPropagation()}>
             <div className="hoja-asa" aria-hidden="true" />
             <header className="hoja-cabecera">
-              <h2>Tu toma · {formatoTiempo(duracionToma(toma))}</h2>
-              <button type="button" className="boton-texto" onClick={() => setVerToma(false)}>
+              <h2>Tus tomas</h2>
+              <button type="button" className="boton-texto" onClick={() => setVerTomas(false)}>
                 Listo
               </button>
             </header>
             <div className="hoja-cuerpo toma-hoja">
-              <button type="button" className="boton-principal ancho" onClick={escucharToma}>
-                {pistas && toma.desde !== null ? "Escucharla con la canción" : "Escucharla"}
-              </button>
-              {preparada ? (
+              {preparada && (
                 <button type="button" className="boton-principal ancho" onClick={entregarToma}>
-                  Guardar o compartir el archivo
+                  Guardar o compartir «{preparada.nombre}»
                 </button>
-              ) : (
-                <>
-                  {pistas && toma.desde !== null && (
-                    <button type="button" className="boton-secundario ancho" onClick={() => void guardarToma(true)} disabled={!!estadoToma?.startsWith("Preparando")}>
-                      Guardar la canción con tu toma
-                    </button>
-                  )}
-                  <button type="button" className="boton-secundario ancho" onClick={() => void guardarToma(false)} disabled={!!estadoToma?.startsWith("Preparando")}>
-                    Guardar solo tu toma
-                  </button>
-                </>
               )}
+              <ul className="tomas-lista">
+                {tomas.map((g, i) => {
+                  const ocupado = !!estadoToma?.startsWith("Preparando");
+                  return (
+                    <li key={g.id} className="toma-fila">
+                      <span className="toma-nombre">
+                        {g.nombre}
+                        {i === 0 && <small> · la última</small>}
+                      </span>
+                      <span className="toma-dur">{formatoTiempo(duracionToma(g.toma))}</span>
+                      <span className="toma-botones">
+                        <button type="button" className="boton-secundario toma-boton" onClick={() => escucharToma(g.toma)}>
+                          Escuchar
+                        </button>
+                        {pistas && g.toma.desde !== null && (
+                          <button type="button" className="boton-secundario toma-boton" onClick={() => void guardarToma(g, true)} disabled={ocupado}>
+                            Con la canción
+                          </button>
+                        )}
+                        <button type="button" className="boton-secundario toma-boton" onClick={() => void guardarToma(g, false)} disabled={ocupado}>
+                          {pistas ? "Solo la toma" : "Guardar"}
+                        </button>
+                        <button type="button" className="boton-texto peligro toma-boton" onClick={() => borrarToma(g.id)} aria-label={`Borrar la ${g.nombre.toLowerCase()}`}>
+                          Borrar
+                        </button>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
               {estadoToma && <p className="toma-estado">{estadoToma}</p>}
-              <p className="toma-ayuda">Se guarda en un archivo WAV. Si grabas otra, esta se sustituye.</p>
-              <button type="button" className="boton-texto peligro" onClick={borrarToma}>
-                Borrar la toma
-              </button>
+              <p className="toma-ayuda">
+                Se guardan las {MAX_TOMAS} últimas mientras estés en la Mesa. «Con la canción» guarda la canción entera con tu toma; «Solo la toma», solo lo que tocaste. En WAV.
+              </p>
             </div>
           </div>
         </div>

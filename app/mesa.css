@@ -1247,6 +1247,46 @@
   font-size: 13px;
   color: #b9a58c;
 }
+/* La lista de tomas: nombre, duración y lo que se puede hacer con cada una */
+.tomas-lista {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.toma-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--linea, rgba(240, 226, 204, 0.16));
+  background: var(--superficie, rgba(42, 23, 17, 0.6));
+}
+.toma-nombre {
+  font-weight: 700;
+}
+.toma-nombre small {
+  font-weight: 500;
+  color: #b9a58c;
+}
+.toma-dur {
+  color: #d8c4a6;
+  font-variant-numeric: tabular-nums;
+}
+.toma-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+.toma-boton {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 14px;
+}
 
 /* ---------- Pantalla bajita (móvil tumbado): la grabadora y la mesa por separado ---------- */
 /* Las dos en pequeño, una encima de otra: se toca la que se quiere ver en grande */
