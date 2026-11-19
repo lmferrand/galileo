@@ -9,19 +9,17 @@ import Escenario from "./Escenario";
 import EstudioMesa from "./EstudioMesa";
 import type { PistasMesa } from "./ConsolaMesa";
 import { useHorizontal } from "@/lib/horizontal";
-import { leerAudios, renombrarCancion } from "@/lib/pistas/almacen";
+import { renombrarCancion } from "@/lib/pistas/almacen";
 import { Reproductor } from "@/lib/pistas/reproductor";
-import { leerWav } from "@/lib/pistas/wav";
-import { limpiarBajo } from "@/lib/pistas/limpiarBajo";
 import { separadaConRoformer } from "@/lib/pistas/importar";
 import { describirMezcla, guardarArchivo, mezclarCancion, nombreArchivo } from "@/lib/pistas/exportar";
 import { formatoTiempo, FRECUENCIA, PISTAS, type Cancion, type Pista } from "@/lib/pistas/tipos";
 import { tomaA, type Toma } from "@/lib/mesa/toma";
 import { ondaDe } from "@/lib/pistas/onda";
+import { leerPistasDeCancion } from "@/lib/pistas/cargar";
 import { ajustesPorDefecto, guardarAjustesCancion, leerAjustesCancion, nombreNuevo, NOMBRES_PARTES, type Marca } from "@/lib/pistas/ajustesCancion";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
-const IDS = PISTAS.map((p) => p.id);
 
 const MEZCLAS: { nombre: string; sin: Pista | null }[] = [
   { nombre: "Todo", sin: null },
@@ -134,21 +132,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
     };
     (async () => {
       try {
-        const audios = await leerAudios(cancion.id, IDS);
-        // De una en una: las que llegan en MP3 se descodifican y así no se juntan seis a la vez en memoria.
-        const leer = async () => {
-          const d: Int16Array[] = [];
-          for (const id of IDS) {
-            if (!vivo) return null;
-            d.push(await leerWav(audios[id], cancion.frames));
-          }
-          return d;
-        };
-        let datos = await leer();
-        if (!datos || !vivo) return;
-        // Los graves que el separador dejó en otras pistas, al bajo (si falla, se leen otra vez tal cual)
-        const limpias = sinLimpiar ? datos : await limpiarBajo(datos);
-        datos = limpias.some((p) => p.length === 0) ? await leer() : limpias;
+        const datos = await leerPistasDeCancion(cancion, () => vivo);
         if (!datos || !vivo) return;
         // Antes de cargar: al reproductor las pistas pasan al hilo de audio y dejan de valer aquí
         setOnda(ondaDe(datos, cancion.frames));
@@ -163,6 +147,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada }: Props)
       r.cerrar();
       rep.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cancion.id, cancion.frames, sinLimpiar]);
 
   useEffect(() => {

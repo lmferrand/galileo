@@ -8,6 +8,9 @@ import Nube from "./Nube";
 import Hoja from "./Hoja";
 import EstudioEncargos from "./EstudioEncargos";
 import ParaTocar from "./ParaTocar";
+import Repertorio from "./Repertorio";
+import Directo from "./Directo";
+import type { Repertorio as TipoRepertorio } from "@/lib/pistas/repertorio";
 import { estudioEncendido, mandarAlEstudio, type EstadoEstudio } from "@/lib/estudio/cliente";
 import { ErrorNube, nubeDisponible, separarEnLaNube, type FaseNube } from "@/lib/estudio/nube";
 import { borrarCancion, espacio, listarCanciones, pedirPersistencia } from "@/lib/pistas/almacen";
@@ -63,7 +66,9 @@ export default function Pistas() {
   const entradaZip = useRef<HTMLInputElement>(null);
   const entrada = useRef<HTMLInputElement>(null);
   // Hoja abierta: la nube o la ayuda (antes eran una tarjeta y párrafos en la pantalla)
-  const [hoja, setHoja] = useState<"nube" | "ayuda" | "tocar" | null>(null);
+  const [hoja, setHoja] = useState<"nube" | "ayuda" | "tocar" | "repertorio" | null>(null);
+  // El repertorio que se está tocando en directo (modo escenario)
+  const [directo, setDirecto] = useState<TipoRepertorio | null>(null);
   const cerrarHoja = useCallback(() => setHoja(null), []);
   // Canciones elegidas que esperan a que digas dónde separarlas (aquí o en el estudio)
   const [porSeparar, setPorSeparar] = useState<File[] | null>(null);
@@ -269,6 +274,10 @@ export default function Pistas() {
     if (todo.length) setFallosAnadir(todo.join("\n"));
   };
 
+  if (directo) {
+    return <Directo repertorio={directo} canciones={canciones ?? []} onSalir={() => setDirecto(null)} />;
+  }
+
   if (abierta) {
     return (
       <Reproduccion
@@ -345,7 +354,30 @@ export default function Pistas() {
             <path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
+        {/* El repertorio de un concierto y el modo escenario */}
+        <button type="button" className="bloque-ancho" onClick={() => setHoja("repertorio")}>
+          <svg className="icono" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 6h11M4 12h11M4 18h7M18 15v6M18 15l3 1.5" />
+          </svg>
+          <span className="bloque-ancho-textos">
+            <span>Repertorio</span>
+            <small>Para tocar en directo: botones grandes y pedal</small>
+          </span>
+          <svg className="bloque-ancho-flecha" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m9 6 6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </section>
+
+      <Hoja abierta={hoja === "repertorio"} titulo="Repertorio para tocar en directo" onCerrar={cerrarHoja}>
+        <Repertorio
+          canciones={canciones ?? []}
+          onDirecto={(r) => {
+            setHoja(null);
+            setDirecto(r);
+          }}
+        />
+      </Hoja>
 
       <Hoja abierta={hoja === "tocar"} titulo="Para tocar" onCerrar={cerrarHoja}>
         <ParaTocar

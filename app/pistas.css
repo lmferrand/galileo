@@ -1509,3 +1509,249 @@ html:has(.app-pistas) body {
 .estudio-lista .progreso {
   margin-top: 6px;
 }
+
+/* ---------- Repertorio (la hoja) ---------- */
+.repertorio {
+  display: grid;
+  gap: 12px;
+}
+.repertorio h3 {
+  margin: 6px 0 0;
+  font-size: 15px;
+}
+.repertorio-lista,
+.repertorio-canciones {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.repertorio-canciones {
+  counter-reset: cancion;
+}
+.repertorio-lista li,
+.repertorio-canciones li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--linea);
+  background: var(--superficie);
+}
+.repertorio-canciones li::before {
+  counter-increment: cancion;
+  content: counter(cancion);
+  min-width: 1.4em;
+  font-weight: 800;
+  color: var(--laton-claro, #e8c99a);
+}
+.repertorio-cancion {
+  flex: 1;
+  min-width: 10em;
+  font-weight: 700;
+}
+.repertorio-cancion small {
+  margin-left: 6px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+.repertorio-tocar {
+  padding: 8px 14px;
+}
+.repertorio-anadir {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.repertorio-nuevo,
+.repertorio-pie {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.repertorio-nuevo input,
+.repertorio-nombre input {
+  flex: 1;
+  min-width: 12em;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--linea);
+  background: var(--superficie-2, rgba(255, 255, 255, 0.05));
+  color: var(--texto);
+  font: inherit;
+}
+.repertorio-nombre {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+/* ---------- Modo escenario (Directo): botones grandes, alto contraste ---------- */
+.directo {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  gap: 10px;
+  padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  background: radial-gradient(ellipse at 50% 0%, #2a1610, #0b0705 70%);
+  color: #f6ecdc;
+  overscroll-behavior: none;
+}
+.directo-cabeza {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.directo-titulo {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: center;
+  color: #d8c4a6;
+  font-weight: 700;
+}
+.directo-candado {
+  white-space: nowrap;
+}
+.directo-candado.on {
+  border-color: rgba(255, 190, 90, 0.7);
+  color: #ffd79a;
+}
+.directo-centro {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: clamp(8px, 2.4dvh, 18px);
+  min-height: 0;
+  text-align: center;
+}
+.directo-cancion {
+  margin: 0;
+  font-family: var(--f-display);
+  font-size: clamp(28px, min(7vw, 9dvh), 64px);
+  line-height: 1.05;
+}
+.directo-tiempo {
+  margin: 0;
+  font-size: clamp(20px, min(4.4vw, 6dvh), 40px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.directo-parte {
+  color: #ffd79a;
+}
+.directo-barra {
+  position: relative;
+  width: min(100%, 760px);
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.directo-barra span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #ff9b4a, #ffd27a);
+}
+.directo-barra i {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  background: #fff;
+  opacity: 0.8;
+}
+.directo-partes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 900px;
+}
+.directo-boton-parte {
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.07);
+  color: inherit;
+  font-size: 17px;
+  font-weight: 700;
+}
+.directo-boton-parte.on {
+  border-color: #ffd27a;
+  background: rgba(255, 210, 122, 0.18);
+  color: #ffe3ad;
+}
+.directo-siguiente {
+  margin: 0;
+  color: #bfae95;
+  font-size: clamp(14px, 2.2vw, 18px);
+}
+.directo-mandos {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 1fr;
+  gap: 12px;
+}
+.directo-boton {
+  min-height: clamp(64px, 16dvh, 120px);
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-size: clamp(26px, 6dvh, 44px);
+  font-weight: 800;
+  -webkit-tap-highlight-color: transparent;
+}
+.directo-boton:active:not(:disabled) {
+  transform: translateY(2px);
+}
+.directo-boton:disabled {
+  opacity: 0.3;
+}
+.directo-tocar {
+  background: linear-gradient(#3a2a18, #24180e);
+  border-color: rgba(255, 210, 122, 0.4);
+}
+.directo-tocar.on {
+  background: linear-gradient(#5fe08a, #23a656);
+  border-color: #b8f5c8;
+  color: #0c2a16;
+  box-shadow: 0 0 28px rgba(70, 224, 138, 0.45);
+}
+.directo-pedal {
+  margin: 0;
+  text-align: center;
+  color: #9d8c75;
+  font-size: 12px;
+}
+.directo-aviso {
+  align-self: center;
+  text-align: center;
+  font-size: 18px;
+}
+/* Bloqueado: solo el pedal y el candado (se quita manteniendo pulsado) */
+.directo.bloqueado .directo-centro,
+.directo.bloqueado .directo-mandos {
+  pointer-events: none;
+  opacity: 0.8;
+}
+/* Tumbado y bajito: más apretado */
+@media (max-height: 500px) {
+  .directo {
+    gap: 6px;
+  }
+  .directo-boton-parte {
+    min-height: 40px;
+    font-size: 15px;
+  }
+}
