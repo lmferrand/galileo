@@ -14,6 +14,7 @@ import type { Repertorio as TipoRepertorio } from "@/lib/pistas/repertorio";
 import { estudioEncendido, mandarAlEstudio, type EstadoEstudio } from "@/lib/estudio/cliente";
 import { ErrorNube, nubeDisponible, separarEnLaNube, type FaseNube } from "@/lib/estudio/nube";
 import { borrarCancion, espacio, listarCanciones, pedirPersistencia } from "@/lib/pistas/almacen";
+import { tomarAbrirEnMesa } from "@/lib/mesa/abrirEnMesa";
 import { contenidoZip, esPaquete, importarSeparada, type CancionEnZip } from "@/lib/pistas/importar";
 import {
   nombreBonito,
@@ -124,6 +125,20 @@ export default function Pistas() {
     setEsMovil(esAparatoMovil());
     setCortada(separacionCortada());
   }, [recargar]);
+
+  // Una canción elegida en la Mesa del afinador: se abre ya en la Mesa, en la consola
+  useEffect(() => {
+    const id = tomarAbrirEnMesa();
+    if (!id) return;
+    listarCanciones()
+      .then((lista) => {
+        const c = lista.find((x) => x.id === id);
+        if (!c) return;
+        setMesaAlEntrar(true);
+        setAbierta(c);
+      })
+      .catch(() => undefined);
+  }, []);
 
   // Progreso de la separación (sigue aunque cambies de pestaña).
   useEffect(() => suscribirSeparacion(setSep), []);
@@ -312,7 +327,6 @@ export default function Pistas() {
           setMesaAlEntrar(true);
           setAbierta(c);
         }}
-        onCambiadas={recargar}
       />
     );
   }

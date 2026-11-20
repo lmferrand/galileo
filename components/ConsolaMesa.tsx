@@ -156,16 +156,12 @@ function clic(ctx: AudioContext, t: number, fuerte: boolean) {
 const PISTA_DE_CANAL = [0, 3, 2, 1, 4, 5];
 
 // El selector de pistas en el escritorio: su foto mide 277×145
-const APARATO = { ancho: 277, alto: 145 };
 
 export default function ConsolaMesa({
   pistas,
-  alAbrirSelector,
   canciones,
 }: {
   pistas?: PistasMesa;
-  /** El aparato del escritorio abre el selector de pistas */
-  alAbrirSelector?: () => void;
   /** Para el selector de la placa de la grabadora */
   canciones?: CancionesPlaca;
 }) {
@@ -593,22 +589,6 @@ export default function ConsolaMesa({
   const escalaCintaGrande = Math.min((W - 16) / ANCHO_CINTA, (H - 8) / ALTO_CINTA);
   const escalaMesaGrande = Math.min((W - 8) / ANCHO_MESA, (H - 4) / ALTO_MESA);
   const escalaResumen = Math.min((W * 0.92) / ANCHO_MESA, (H - 34) / PIEZA.alto);
-  // El aparato del selector, donde quede a la vista: a la izquierda de la pieza si hay sitio, si no
-  // debajo y, si tampoco, pequeño en la esquina (con la grabadora y la mesa juntas o en pequeño)
-  let aparato: { left: number; top: number; ancho: number } | null = null;
-  if (alAbrirSelector && (vista === "juntas" || vista === "las-dos")) {
-    const e = vista === "juntas" ? escala : escalaResumen;
-    const lado = (W - ANCHO_MESA * e) / 2;
-    const sobra = (H - PIEZA.alto * e - (vista === "las-dos" ? 34 : 0)) / 2;
-    const r = APARATO.alto / APARATO.ancho;
-    if (lado >= 110) {
-      const ancho = Math.min(210, lado - 24);
-      aparato = { ancho, left: (lado - ancho) / 2, top: 72 };
-    } else if (sobra >= 70) {
-      const ancho = Math.min(220, (sobra - 30) / r);
-      aparato = { ancho, left: 16, top: H - sobra + Math.max(4, (sobra - ancho * r - 20) / 2) };
-    } else aparato = { ancho: 96, left: 6, top: 54 };
-  }
 
   // Los medidores, sin pasar por React: las entradas si la Mesa está encendida y las pistas siempre
   useEffect(() => {
@@ -809,20 +789,6 @@ export default function ConsolaMesa({
         <div className="cf-abajo">
           <Pieza escala={escala} cinta={cinta} abajo={abajo} propsCinta={propsCinta} propsMesa={propsMesa} />
         </div>
-      )}
-
-      {aparato && (
-        <button
-          type="button"
-          className="cf-aparato"
-          style={{ left: aparato.left, top: aparato.top, width: aparato.ancho }}
-          onClick={alAbrirSelector}
-          aria-label="Selector de pistas: elegir otra canción"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- el aparato del escritorio */}
-          <img src="/mesa/selector-escritorio.webp" alt="" width={APARATO.ancho} height={APARATO.alto} draggable={false} />
-          <span className="cf-aparato-rotulo">Canciones</span>
-        </button>
       )}
 
       {vista === "las-dos" && (

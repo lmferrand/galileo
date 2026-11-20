@@ -51,10 +51,9 @@ interface Props {
   /** Para el selector de pistas de la Mesa: todas las canciones y abrir otra */
   canciones?: Cancion[];
   onAbrirOtra?: (c: Cancion) => void;
-  onCambiadas?: () => void;
 }
 
-export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEntrar = false, canciones, onAbrirOtra, onCambiadas }: Props) {
+export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEntrar = false, canciones, onAbrirOtra }: Props) {
   const rep = useRef<Reproductor | null>(null);
   const [cargando, setCargando] = useState(true);
   // Separada en el PC con BS-RoFormer: ya reparte bien los graves, no se limpia el bajo
@@ -769,7 +768,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
           onCerrar={cerrarMesa}
           pistas={pistasMesa}
           enConsola={mesaDirecta}
-          selector={canciones && onAbrirOtra ? { canciones, actual: cancion.id, onElegir: onAbrirOtra, onCambiadas: onCambiadas ?? (() => undefined) } : undefined}
+          selector={canciones && onAbrirOtra ? { canciones, actual: cancion.id, onElegir: onAbrirOtra } : undefined}
         />
       )}
     </main>

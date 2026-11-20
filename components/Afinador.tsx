@@ -15,7 +15,7 @@ import BarraAbajo from "./BarraAbajo";
 import MetronomoPanel from "./MetronomoPanel";
 import Grabadora from "./Grabadora";
 import LooperPanel from "./LooperPanel";
-import EstudioMesa from "./EstudioMesa";
+import MesaAfinador from "./MesaAfinador";
 import { leerAjusteRetraso, Looper, type EstadoLooper, type ModoLooper } from "@/lib/looper";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo, type Compas } from "@/lib/metronomo";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
@@ -629,7 +629,7 @@ export default function Afinador() {
         />
       )}
 
-      {hoja === "mesa" && <EstudioMesa onCerrar={cerrarHoja} />}
+      {hoja === "mesa" && <MesaAfinador onCerrar={cerrarHoja} />}
 
       <Hoja abierta={hoja === "metronomo"} titulo="Metrónomo" onCerrar={() => setHoja(null)}>
         <MetronomoPanel
