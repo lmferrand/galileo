@@ -41,6 +41,7 @@ import CarpetasMesa from "./CarpetasMesa";
 import { guardarCuentaMesa, leerCuentaMesa, SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
 import { guardarEscucha, guardarModoGrabar, leerEscucha, leerModoGrabar, RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA, type ModoGrabar } from "@/lib/mesa/escucha";
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
+import { AJUSTE_MAXIMO, ajusteRetraso, calibrar, guardarCalibracion, leerCalibracion, type Calibracion } from "@/lib/mesa/calibrar";
 import { Posicion } from "@/lib/pistas/posicion";
 import { useHidratado } from "@/lib/hidratado";
 
@@ -416,7 +417,8 @@ export default function ConsolaMesa({
     if (!g || !datos || datos.muestras.length < datos.frecuencia * 2 * 0.3) return;
     // Lo que tardó la canción en salir y lo que tardó tu sonido en volver: eso sobra al principio
     // y, con la cuenta del reproductor, lo que duró la cuenta (la canción entró al acabar)
-    const retrasoTotal = g.desde === null ? 0 : (ultimasPistas.current?.retrasoSalida() ?? 0) + mesa.retrasoEntrada();
+    // (más el ajuste de la calibración, si este aparato dice de menos o de más: lib/mesa/calibrar)
+    const retrasoTotal = g.desde === null ? 0 : Math.max(0, (ultimasPistas.current?.retrasoSalida() ?? 0) + mesa.retrasoEntrada() + ajusteRetraso());
     const recorte = Math.round((retrasoTotal + (g.cuenta ?? 0)) * datos.frecuencia);
     if (datos.muestras.length / 2 < recorte + datos.frecuencia * 0.3) return; // se paró en la cuenta
     numeroToma.current += 1;
@@ -585,6 +587,58 @@ export default function ConsolaMesa({
     setTomas(quedan);
     if (quedan.length === 0 && anadidas.length === 0) setVerTomas(false);
   };
+  // ---------- Calibrar el retraso de lo grabado (lib/mesa/calibrar) ----------
+  // Una prueba de unos 10 s mide lo que tarda de verdad el aparato; la diferencia con lo que dice el
+  // navegador se suma al cuadrar cada toma. También se puede retocar a mano.
+  const [verCalibrar, setVerCalibrar] = useState(false);
+  const [calCambiada, setCalCambiada] = useState<Calibracion | null | undefined>(undefined);
+  const calibracion: Calibracion | null = calCambiada !== undefined ? calCambiada : hidratado ? leerCalibracion() : null;
+  const [midiendo, setMidiendo] = useState(false);
+  const [avisoCal, setAvisoCal] = useState<string | null>(null);
+  const ponerCalibracion = (c: Calibracion | null) => {
+    setCalCambiada(c);
+    guardarCalibracion(c);
+  };
+  const abrirCalibrar = () => {
+    setAbierta(null);
+    setVerTomas(false);
+    setAvisoCal(null);
+    setVerCalibrar(true);
+  };
+  const empezarCalibrar = async () => {
+    if (midiendo) return;
+    if (grabando || cuenta !== null) return setAvisoCal("Para antes la grabación.");
+    // Sin haber elegido cómo grabas, primero eso (enciende las entradas)
+    if (mesa.estado !== "encendida" && !modo) {
+      setVerCalibrar(false);
+      return setPideModo({ que: "encender" });
+    }
+    const t = ultimasPistas.current?.transporte;
+    if (t?.tocando) t.onAlternar();
+    pararEscucha();
+    setAvisoCal(null);
+    setMidiendo(true);
+    try {
+      if (mesa.estado !== "encendida") {
+        const r = await mesa.encender(conSolo(ajustes));
+        if (r !== "encendida") throw new Error("No se ha podido abrir el micrófono: mira su permiso.");
+        setRetraso(mesa.retrasoMs());
+      }
+      ponerCalibracion(await calibrar());
+    } catch (e) {
+      setAvisoCal((e as Error).message || "No se ha podido hacer la prueba.");
+    } finally {
+      // La prueba deja las entradas sin efectos: vuelven los tuyos
+      if (mesa.estado === "encendida") mesa.aplicar(conSolo(ajustes));
+      setMidiendo(false);
+    }
+  };
+  const retocarCalibracion = (ms: number) => {
+    const ajuste = Math.max(-AJUSTE_MAXIMO, Math.min(AJUSTE_MAXIMO, (Math.round((calibracion?.ajuste ?? 0) * 1000) + ms) / 1000));
+    ponerCalibracion({ ajuste, medido: calibracion?.medido ?? null, dicho: calibracion?.dicho ?? null, cuando: calibracion?.cuando ?? Date.now() });
+  };
+  const ajusteMs = Math.round((calibracion?.ajuste ?? 0) * 1000);
+
   // Añadir una toma a la canción: se queda con ella y suena como una pista más
   const [anadiendo, setAnadiendo] = useState<number | null>(null);
   const anadirACancion = async (g: TomaGuardada) => {
@@ -1135,6 +1189,79 @@ export default function ConsolaMesa({
         />
       )}
 
+      {verCalibrar && (
+        <div className="hoja-fondo" onClick={() => !midiendo && setVerCalibrar(false)}>
+          <div className="hoja" role="dialog" aria-modal="true" aria-label="Calibrar el retraso" onClick={(e) => e.stopPropagation()}>
+            <div className="hoja-asa" aria-hidden="true" />
+            <header className="hoja-cabecera">
+              <h2>Calibrar el retraso</h2>
+              <button type="button" className="boton-texto" onClick={() => setVerCalibrar(false)} disabled={midiendo}>
+                Listo
+              </button>
+            </header>
+            <div className="hoja-cuerpo cal-hoja">
+              <p className="toma-ayuda">
+                Para que lo que grabas caiga a tiempo con la canción, mido lo que tarda de verdad este aparato en sonar y en oírte. Suenan unos clics (unos 10 segundos) y el micrófono tiene que oírlos.
+              </p>
+              <ol className="cal-pasos">
+                <li>Sube el volumen.</li>
+                <li>Con cascos, acerca un auricular al micrófono. Con altavoz, déjalo como está.</li>
+                <li>No hagas ruido mientras suenan.</li>
+              </ol>
+              <button type="button" className="boton-principal ancho" onClick={() => void empezarCalibrar()} disabled={midiendo}>
+                {midiendo ? "Escuchando los clics…" : calibracion?.medido != null ? "Calibrar otra vez" : "Calibrar ahora"}
+              </button>
+              {avisoCal && (
+                <p className="toma-estado" role="alert">
+                  {avisoCal}
+                </p>
+              )}
+              <section className="cal-resultado" aria-live="polite">
+                {calibracion ? (
+                  <p className="mm-estado">
+                    <strong className="mm-bpm">
+                      {ajusteMs > 0 ? "+" : ""}
+                      {ajusteMs}
+                    </strong>
+                    <span>
+                      milisegundos de ajuste.{" "}
+                      {calibracion.medido !== null && calibracion.dicho !== null
+                        ? `En la prueba, este aparato tardó ${Math.round(calibracion.medido * 1000)} ms; el navegador decía ${Math.round(calibracion.dicho * 1000)}.`
+                        : "Puesto a mano."}
+                      <br />
+                      {ajusteMs === 0 ? "Lo que grabas ya cae en su sitio." : `Lo que grabes desde ahora se coloca ${Math.abs(ajusteMs)} ms ${ajusteMs > 0 ? "antes" : "después"}.`}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="toma-ayuda">Sin calibrar: se usa el retraso que dice el navegador.</p>
+                )}
+                <div className="cal-mano">
+                  <button type="button" className="boton-redondo" onClick={() => retocarCalibracion(-5)} disabled={midiendo} aria-label="5 milisegundos menos de ajuste">
+                    −
+                  </button>
+                  <span>
+                    Ajuste a mano
+                    <br />
+                    <small>de 5 en 5 ms</small>
+                  </span>
+                  <button type="button" className="boton-redondo" onClick={() => retocarCalibracion(5)} disabled={midiendo} aria-label="5 milisegundos más de ajuste">
+                    +
+                  </button>
+                  {calibracion && (
+                    <button type="button" className="boton-texto peligro" onClick={() => ponerCalibracion(null)} disabled={midiendo}>
+                      Quitar el ajuste
+                    </button>
+                  )}
+                </div>
+              </section>
+              <p className="toma-ayuda">
+                A mano: si tu toma suena tarde respecto a la canción, sube el ajuste; si suena antes de tiempo, bájalo. Vale para lo que grabes a partir de ahora. Si cambias de cascos o de altavoz (sobre todo a Bluetooth), calibra otra vez.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pideModo && (
         <div className="hoja-fondo" onClick={() => setPideModo(null)}>
           <div className="hoja" role="dialog" aria-modal="true" aria-label="Cómo vas a grabar" onClick={(e) => e.stopPropagation()}>
@@ -1221,6 +1348,11 @@ export default function ConsolaMesa({
                     ? `${tomas.length === 1 ? "Esta se guarda" : "Estas se guardan"} solo mientras estés en la Mesa (las ${MAX_TOMAS} últimas). «Añadir a la canción» la deja con la canción para siempre, como una pista más. «Exportar» saca un archivo WAV: con la canción entera o la toma sola.`
                     : `Se guardan las ${MAX_TOMAS} últimas mientras estés en la Mesa. «Guardar» saca la toma en un archivo WAV.`}
                 </p>
+              )}
+              {pistas && tomas.length > 0 && (
+                <button type="button" className="boton-texto toma-calibrar" onClick={abrirCalibrar}>
+                  ¿No cae a tiempo con la canción? Calibrar el retraso
+                </button>
               )}
               {pistas && anadidas.length > 0 && (
                 <section className="tomas-anadidas" aria-label="Tomas añadidas a la canción">
@@ -1312,6 +1444,9 @@ export default function ConsolaMesa({
                         ? "Sin interfaz no te oyes mientras grabas: tu voz llegaría tarde y complica ir a tiempo. La canción suena igual; al parar REC, escuchas la toma con la canción, con tus efectos ya puestos."
                         : "No te oyes en los cascos: óyete con la escucha directa de tu interfaz («direct monitor») o apartando un poco un auricular. La canción suena igual y REC graba lo que tocas, con sus efectos."}
                   </p>
+                  <button type="button" className="boton-secundario ancho" onClick={abrirCalibrar}>
+                    {calibracion ? `Retraso de lo grabado: ${ajusteMs > 0 ? "+" : ""}${ajusteMs} ms de ajuste` : "Calibrar el retraso de lo grabado"}
+                  </button>
                 </section>
               )}
               {abierta.tipo === "entrada" && (

@@ -1904,6 +1904,45 @@
   border-radius: 10px;
   font-weight: 700;
 }
+/* Calibrar el retraso de lo grabado */
+.cal-hoja {
+  display: grid;
+  gap: 14px;
+}
+.cal-pasos {
+  display: grid;
+  list-style: decimal;
+  gap: 4px;
+  margin: 0;
+  padding-left: 22px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--texto-2);
+}
+.cal-resultado {
+  display: grid;
+  gap: 12px;
+}
+.cal-mano {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  line-height: 1.3;
+  color: var(--texto-2);
+}
+.cal-mano small {
+  color: #b9a58c;
+}
+.cal-mano .boton-texto {
+  margin-left: auto;
+}
+.toma-calibrar {
+  justify-self: start;
+  min-height: 36px;
+  padding: 0;
+  text-align: left;
+}
 /* Las tomas añadidas a la canción: suenan con ella; aquí, su volumen */
 .tomas-anadidas {
   display: grid;
