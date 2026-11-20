@@ -401,6 +401,20 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   };
   const volumenToma = (idToma: string, v: number) => cambiarToma(idToma, (t) => ({ ...t, volumen: Math.max(0, Math.min(1.5, v)) }), 400);
   const silencioToma = (idToma: string) => cambiarToma(idToma, (t) => ({ ...t, silencio: !t.silencio }));
+  const nombreToma = (idToma: string, nombreNuevoToma: string) => {
+    const limpio = nombreNuevoToma.trim().slice(0, 40);
+    if (limpio) cambiarToma(idToma, (t) => ({ ...t, nombre: limpio }));
+  };
+  /** Mueve la toma `ms` milisegundos (positivo: suena después); con 0, vuelve a donde se grabó. */
+  const moverToma = (idToma: string, ms: number) => {
+    const antes = tomasAhora.current.find((t) => t.id === idToma);
+    if (!antes) return;
+    const movida = ms === 0 ? 0 : Math.max(-500, Math.min(500, (antes.movida ?? 0) + ms));
+    const paso = Math.round(((movida - (antes.movida ?? 0)) / 1000) * FRECUENCIA);
+    const desde = Math.max(0, antes.desde + paso);
+    cambiarToma(idToma, (t) => ({ ...t, desde, movida }), 400);
+    rep.current?.moverToma(idToma, desde);
+  };
   /** Añade a la canción una toma grabada con ella. Devuelve el motivo si no se puede. */
   const anadirToma = async (toma: Toma, nombreToma: string): Promise<string | null> => {
     if (tomasAhora.current.length >= MAX_TOMAS_CANCION) return `Ya hay ${MAX_TOMAS_CANCION} tomas añadidas a esta canción: borra alguna para añadir otra.`;
@@ -619,7 +633,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
       r.tocarToma(tomaA(toma, FRECUENCIA), FRECUENCIA);
     },
     pararToma: () => rep.current?.pararToma(),
-    tomas: { lista: tomasCancion, tope: MAX_TOMAS_CANCION, anadir: anadirToma, onVolumen: volumenToma, onSilencio: silencioToma, borrar: borrarTomaAnadida },
+    tomas: { lista: tomasCancion, tope: MAX_TOMAS_CANCION, anadir: anadirToma, onVolumen: volumenToma, onSilencio: silencioToma, onMover: moverToma, onNombre: nombreToma, borrar: borrarTomaAnadida },
     mezclaConToma: async (toma: Toma, formato: Formato, alProgreso?: (hecho: number) => void) => {
       const a = await mezclarCancion(cancion, efectivas, { muestras: tomaA(toma, FRECUENCIA), desde: (toma.desde ?? 0) * FRECUENCIA }, formato, alProgreso);
       return { ...a, nombre: nombreArchivo({ ...cancion, nombre }, efectivas, a.formato).replace(/\.(\w+)$/, " + mi toma.$1") };

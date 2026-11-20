@@ -235,6 +235,11 @@ export class Reproductor {
     this.nodo?.port.postMessage({ tipo: "toma-g", id, g: ganancia });
   }
 
+  /** Dónde empieza (fotograma de la canción): para moverla si quedó adelantada o atrasada. */
+  moverToma(id: string, desde: number) {
+    this.nodo?.port.postMessage({ tipo: "toma-desde", id, desde });
+  }
+
   quitarToma(id: string) {
     this.nodo?.port.postMessage({ tipo: "toma-fuera", id });
   }

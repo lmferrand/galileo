@@ -118,6 +118,12 @@ class MezcladorPistas extends AudioWorkletProcessor {
         if (t) t.gObjetivo = m.g;
         break;
       }
+      case "toma-desde": {
+        // Moverla (suena antes o después)
+        const t = this.tomas.find((x) => x.id === m.id);
+        if (t) t.desde = m.desde;
+        break;
+      }
       case "toma-fuera":
         this.tomas = this.tomas.filter((t) => t.id !== m.id);
         break;

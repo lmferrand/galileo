@@ -58,6 +58,9 @@ export interface TomasDeCancion {
   anadir: (t: Toma, nombre: string) => Promise<string | null>;
   onVolumen: (id: string, v: number) => void;
   onSilencio: (id: string) => void;
+  /** Moverla `ms` milisegundos (positivo: suena después; 0: a donde se grabó) */
+  onMover: (id: string, ms: number) => void;
+  onNombre: (id: string, nombre: string) => void;
   borrar: (id: string) => Promise<void>;
 }
 
@@ -648,6 +651,30 @@ export default function ConsolaMesa({
   };
   const ajusteMs = Math.round((calibracion?.ajuste ?? 0) * 1000);
 
+  // Las tomas añadidas: cambiarles el nombre y borrarlas en dos toques (un toque suelto no borra)
+  const [nombrando, setNombrando] = useState<{ id: string; texto: string } | null>(null);
+  const guardarNombreToma = () => {
+    if (nombrando && pistas) pistas.tomas.onNombre(nombrando.id, nombrando.texto);
+    setNombrando(null);
+  };
+  const [borrarArmado, setBorrarArmado] = useState<string | null>(null);
+  const relojBorrar = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const borrarAnadida = (id: string) => {
+    if (relojBorrar.current) clearTimeout(relojBorrar.current);
+    if (borrarArmado !== id) {
+      setBorrarArmado(id);
+      relojBorrar.current = setTimeout(() => setBorrarArmado(null), 4000);
+      return;
+    }
+    setBorrarArmado(null);
+    void pistas?.tomas.borrar(id);
+  };
+  useEffect(
+    () => () => {
+      if (relojBorrar.current) clearTimeout(relojBorrar.current);
+    },
+    [],
+  );
   // Añadir una toma a la canción: se queda con ella y suena como una pista más
   const [anadiendo, setAnadiendo] = useState<number | null>(null);
   const anadirACancion = async (g: TomaGuardada) => {
@@ -1382,7 +1409,28 @@ export default function ConsolaMesa({
                   <ul className="tomas-lista">
                     {anadidas.map((t) => (
                       <li key={t.id} className={`toma-fila toma-anadida${t.silencio ? " callada" : ""}`}>
-                        <span className="toma-nombre">{t.nombre}</span>
+                        {nombrando?.id === t.id ? (
+                          <input
+                            className="toma-nombre-campo"
+                            value={nombrando.texto}
+                            maxLength={40}
+                            autoFocus
+                            aria-label="Nombre de la toma"
+                            onChange={(e) => setNombrando({ id: t.id, texto: e.target.value })}
+                            onBlur={guardarNombreToma}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") guardarNombreToma();
+                              else if (e.key === "Escape") setNombrando(null);
+                            }}
+                          />
+                        ) : (
+                          <button type="button" className="toma-nombre toma-nombre-boton" onClick={() => setNombrando({ id: t.id, texto: t.nombre })} aria-label={`Cambiar el nombre de ${t.nombre}`}>
+                            {t.nombre}
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                              <path d="M4 20h4l10-10-4-4L4 16v4zM13 7l4 4" />
+                            </svg>
+                          </button>
+                        )}
                         <span className="toma-dur">
                           desde {formatoTiempo(t.desde / FRECUENCIA)} · dura {formatoTiempo(t.frames / FRECUENCIA)}
                         </span>
@@ -1390,8 +1438,13 @@ export default function ConsolaMesa({
                           <button type="button" className="boton-secundario toma-boton" aria-pressed={t.silencio} onClick={() => pistas.tomas.onSilencio(t.id)}>
                             {t.silencio ? "Callada" : "Suena"}
                           </button>
-                          <button type="button" className="boton-texto peligro toma-boton" onClick={() => void pistas.tomas.borrar(t.id)} aria-label={`Borrar ${t.nombre} de la canción`}>
-                            Borrar
+                          <button
+                            type="button"
+                            className={`boton-texto peligro toma-boton${borrarArmado === t.id ? " armado" : ""}`}
+                            onClick={() => borrarAnadida(t.id)}
+                            aria-label={borrarArmado === t.id ? `Sí, borrar ${t.nombre} de la canción` : `Borrar ${t.nombre} de la canción`}
+                          >
+                            {borrarArmado === t.id ? "¿Seguro? Borrar" : "Borrar"}
                           </button>
                         </span>
                         <label className="toma-volumen">
@@ -1407,11 +1460,26 @@ export default function ConsolaMesa({
                           />
                           <output>{Math.round(t.volumen * 100)} %</output>
                         </label>
+                        <div className="toma-mover" role="group" aria-label={`Mover ${t.nombre}`}>
+                          <span>A tiempo</span>
+                          <button type="button" className="boton-secundario toma-boton" onClick={() => pistas.tomas.onMover(t.id, -10)} disabled={(t.movida ?? 0) <= -500} aria-label="Que suene 10 milisegundos antes">
+                            ◀ Antes
+                          </button>
+                          <output>{t.movida ? `${t.movida > 0 ? "+" : "−"}${Math.abs(t.movida)} ms` : "en su sitio"}</output>
+                          <button type="button" className="boton-secundario toma-boton" onClick={() => pistas.tomas.onMover(t.id, 10)} disabled={(t.movida ?? 0) >= 500} aria-label="Que suene 10 milisegundos después">
+                            Después ▶
+                          </button>
+                          {!!t.movida && (
+                            <button type="button" className="boton-texto toma-boton" onClick={() => pistas.tomas.onMover(t.id, 0)}>
+                              Como estaba
+                            </button>
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ul>
                   <p className="toma-ayuda">
-                    Suenan con la canción desde su sitio (también en Pistas y al exportar la mezcla). Caben {pistas.tomas.tope}. Llevan los efectos con que las grabaste.
+                    Suenan con la canción desde su sitio (también en Pistas y al exportar la mezcla). Caben {pistas.tomas.tope}. Llevan los efectos con que las grabaste. Si una se oye tarde, «◀ Antes»; si se adelanta, «Después ▶» (de 10 en 10 ms, con la canción sonando). Toca su nombre para cambiarlo.
                   </p>
                 </section>
               )}

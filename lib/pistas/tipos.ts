@@ -19,6 +19,8 @@ export interface TomaCancion {
   nombre: string;
   /** Fotograma de la canción (a FRECUENCIA) en que empieza */
   desde: number;
+  /** Milisegundos que la has movido a mano desde donde se grabó (positivo: suena después) */
+  movida?: number;
   frames: number;
   /** De 0 a 1,5 (1 = como se grabó) */
   volumen: number;

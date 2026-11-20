@@ -1994,6 +1994,64 @@
 .toma-anadida.callada .toma-dur {
   opacity: 0.55;
 }
+/* El nombre de una toma añadida: se toca para cambiarlo */
+.toma-nombre-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.toma-nombre-boton svg {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.55;
+}
+.toma-nombre-campo {
+  flex: 1 1 140px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 4px 10px;
+  border: 1px solid var(--laton);
+  border-radius: 8px;
+  background: var(--superficie-2);
+  color: var(--texto);
+  font: inherit;
+  font-weight: 700;
+}
+.toma-boton.armado {
+  color: #fff;
+  background: #a8322a;
+  border-radius: 8px;
+}
+/* Mover una toma añadida: antes o después, de 10 en 10 ms */
+.toma-mover {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 13px;
+  color: #b9a58c;
+}
+.toma-mover output {
+  min-width: 78px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  color: #d8c4a6;
+}
 .toma-volumen {
   flex: 1 1 100%;
   display: flex;
