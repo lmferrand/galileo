@@ -1,11 +1,9 @@
 // Guardar tu backing track: mezcla las 6 pistas con el volumen que tengas
 // puesto en cada una y lo convierte en un WAV para llevártelo.
 
-import { leerAudios } from "./almacen";
+import { leerPistasDeCancion } from "./cargar";
 import { FRECUENCIA, PISTAS, type Cancion } from "./tipos";
-import { crearWav, leerWav } from "./wav";
-import { limpiarBajo } from "./limpiarBajo";
-import { separadaConRoformer } from "./importar";
+import { crearWav } from "./wav";
 
 const IDS = PISTAS.map((p) => p.id);
 
@@ -14,15 +12,9 @@ const IDS = PISTAS.map((p) => p.id);
  * canción desde el fotograma `desde`.
  */
 export async function mezclarCancion(cancion: Cancion, ganancias: number[], encima?: { muestras: Float32Array; desde: number }): Promise<Blob> {
-  const audios = await leerAudios(cancion.id, IDS);
-  const leer = async () => {
-    const d: Int16Array[] = [];
-    for (const id of IDS) d.push(await leerWav(audios[id], cancion.frames));
-    return d;
-  };
   // Igual que al escucharla: los graves colados en otras pistas, al bajo
-  let pistas = separadaConRoformer(cancion) ? await leer() : await limpiarBajo(await leer());
-  if (pistas.some((p) => p.length === 0)) pistas = await leer();
+  const pistas = await leerPistasDeCancion(cancion);
+  if (!pistas) throw new Error("No se han podido leer las pistas de la canción.");
   const suma = new Float32Array(cancion.frames * 2);
   for (let s = 0; s < IDS.length; s++) {
     const g = ganancias[s];
