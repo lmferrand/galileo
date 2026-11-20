@@ -9,7 +9,7 @@
 // silencio son los del reproductor; sus efectos, los de su canal en lib/pistas/reproductor.
 // En el móvil de pie pide girarlo: la mesa necesita la pantalla tumbada.
 
-import { useEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
 import EfectosMesa, { efectosActivos } from "./EfectosMesa";
 import MesaFoto, { ALTO_MESA, ANCHO_MESA, type CanalFoto } from "./MesaFoto";
 import CanalGrande from "./CanalGrande";
@@ -116,6 +116,68 @@ const PIEZA = (() => {
   return { xCinta: 56 - 3 * K_CINTA, yMesa, alto: yMesa + 838 };
 })();
 
+/** Lo que mide la consola: su zona útil (w × h) y, alrededor, la pantalla entera con sus márgenes */
+interface Tam {
+  w: number;
+  h: number;
+  tactil: boolean;
+  /** Dónde empieza la zona útil dentro de la pantalla */
+  x0: number;
+  y0: number;
+  /** La pantalla entera */
+  ancho: number;
+  alto: number;
+}
+
+type Parte = "las-dos" | "cinta" | "mesa";
+interface Encuadre {
+  z: number;
+  x: number;
+  y: number;
+}
+
+/** La foto del escritorio (public/mesa/escritorio2.webp) */
+const ESCRITORIO = { w: 1671, h: 941 };
+/** Debajo de la grabadora y la mesa vistas de lejos: el sitio del letrero «Toca la grabadora o la mesa…» */
+const HUECO_LETRERO = 34;
+
+/**
+ * Pantalla bajita (el móvil tumbado): el escritorio, la grabadora y la mesa van en UNA capa, y lo
+ * que cambia al tocar una parte es desde dónde se mira (la cámara): la capa entera se acerca a ella,
+ * con el fondo, y todo guarda sus proporciones. Antes la parte tocada se pintaba sola y más grande
+ * sobre el mismo fondo: parecía que venía hacia ti en vez de acercarte tú.
+ * La capa se pinta al tamaño más grande al que se va a ver, así acercarse nunca la amplía (nítida).
+ * Medidas de la capa en sus propios píxeles; cada encuadre, dónde cae en la pantalla y a qué escala.
+ */
+function camaraDe({ w, h, x0, y0, ancho, alto }: Tam) {
+  const lejos = Math.min((w * 0.92) / ANCHO_MESA, (h - HUECO_LETRERO) / PIEZA.alto);
+  const mesaCerca = Math.min((w - 8) / ANCHO_MESA, (h - 4) / ALTO_MESA);
+  const cintaCerca = Math.min((w - 16) / ANCHO_CINTA, (h - 8) / ALTO_CINTA);
+  const escala = Math.max(mesaCerca, cintaCerca / K_CINTA);
+  // Sin sitio (la consola aún sin tamaño, o escondida): no hay nada que encuadrar
+  if (!(lejos > 0 && mesaCerca > 0 && cintaCerca > 0)) return null;
+  const z0 = lejos / escala;
+  // De lejos, la capa ocupa la pantalla justa
+  const escena = { w: ancho / z0, h: alto / z0 };
+  const pieza = { x: (x0 + (w - ANCHO_MESA * lejos) / 2) / z0, y: (y0 + (h - HUECO_LETRERO - PIEZA.alto * lejos) / 2) / z0 };
+  // El escritorio: su foto entera, llenando la pantalla de lejos (lo que sobra asoma al acercarse)
+  const k = Math.max(escena.w / ESCRITORIO.w, escena.h / ESCRITORIO.h);
+  const fondo = { x: (escena.w - ESCRITORIO.w * k) / 2, y: (escena.h - ESCRITORIO.h * k) / 2, w: ESCRITORIO.w * k, h: ESCRITORIO.h * k };
+  // Una parte (en píxeles de la capa) centrada en la zona útil, sin que asome el borde del escritorio
+  const dentro = (v: number, z: number, desde: number, largo: number, pantalla: number) => Math.min(-z * desde, Math.max(pantalla - z * (desde + largo), v));
+  const cerca = (z: number, x: number, y: number, ancha: number, alta: number): Encuadre => ({
+    z,
+    x: dentro(x0 + (w - ancha * z) / 2 - x * z, z, fondo.x, fondo.w, ancho),
+    y: dentro(y0 + (h - alta * z) / 2 - y * z, z, fondo.y, fondo.h, alto),
+  });
+  const encuadres: Record<Parte, Encuadre> = {
+    "las-dos": { z: z0, x: 0, y: 0 },
+    cinta: cerca(cintaCerca / (K_CINTA * escala), pieza.x + PIEZA.xCinta * escala, pieza.y, ANCHO_CINTA * K_CINTA * escala, ALTO_CINTA * K_CINTA * escala),
+    mesa: cerca(mesaCerca / escala, pieza.x, pieza.y + PIEZA.yMesa * escala, ANCHO_MESA * escala, ALTO_MESA * escala),
+  };
+  return { escala, escena, pieza, fondo, encuadres, marco: { left: -x0, top: -y0, width: ancho, height: alto } };
+}
+
 function Pieza({
   escala,
   cinta,
@@ -123,6 +185,7 @@ function Pieza({
   propsCinta,
   propsMesa,
   elegir,
+  activa,
 }: {
   escala: number;
   cinta: RefObject<HTMLDivElement | null>;
@@ -131,6 +194,8 @@ function Pieza({
   propsMesa: Omit<ComponentProps<typeof MesaFoto>, "escala">;
   /** En la vista de las dos (móvil): cada parte se toca para verla en grande */
   elegir?: (p: "cinta" | "mesa") => Record<string, unknown>;
+  /** Con la vista acercada a una parte (móvil): la otra, que asoma, no se toca */
+  activa?: "cinta" | "mesa";
 }) {
   return (
     <div className="cf-pieza" style={{ width: ANCHO_MESA * escala, height: PIEZA.alto * escala }}>
@@ -139,7 +204,7 @@ function Pieza({
         style={{ left: PIEZA.xCinta * escala, top: 0 }}
         {...(elegir ? { "aria-label": "Ver la grabadora en grande", ...elegir("cinta") } : {})}
       >
-        <div ref={cinta} inert={!!elegir}>
+        <div ref={cinta} inert={!!elegir || activa === "mesa"}>
           <GrabadoraMesa escala={escala * K_CINTA} {...propsCinta} />
         </div>
       </div>
@@ -148,7 +213,7 @@ function Pieza({
         style={{ left: 0, top: PIEZA.yMesa * escala }}
         {...(elegir ? { "aria-label": "Ver la mesa de mezclas en grande", ...elegir("mesa") } : {})}
       >
-        <div ref={abajo} inert={!!elegir}>
+        <div ref={abajo} inert={!!elegir || activa === "cinta"}>
           <MesaFoto escala={escala} {...propsMesa} />
         </div>
       </div>
@@ -829,11 +894,33 @@ export default function ConsolaMesa({
 
   // El tamaño de la consola, para escalar la grabadora y la mesa
   const raiz = useRef<HTMLDivElement>(null);
-  const [tam, setTam] = useState<{ w: number; h: number; tactil: boolean } | null>(null);
-  useEffect(() => {
+  const [tam, setTam] = useState<Tam | null>(null);
+  const medido = useRef<Tam | null>(null);
+  // La vista (móvil) se acerca y se aleja con suavidad solo al tocar una parte o «Volver»; si lo que
+  // cambia es el tamaño de la pantalla (al girar el móvil), se recoloca de golpe
+  const [suave, setSuave] = useState(false);
+  // Se mide antes de pintar, y hasta entonces no se pinta nada: si no, en el móvil salía un instante
+  // la vista del ordenador (un salto) y la grabadora y la mesa se montaban dos veces
+  useLayoutEffect(() => {
     const el = raiz.current;
     if (!el) return;
-    const medir = () => setTam({ w: el.clientWidth, h: el.clientHeight, tactil: matchMedia("(pointer: coarse)").matches });
+    const medir = () => {
+      const marco = (el.offsetParent as HTMLElement | null) ?? el;
+      const t: Tam = {
+        w: el.clientWidth,
+        h: el.clientHeight,
+        tactil: matchMedia("(pointer: coarse)").matches,
+        x0: el.offsetLeft,
+        y0: el.offsetTop,
+        ancho: marco.clientWidth,
+        alto: marco.clientHeight,
+      };
+      const a = medido.current;
+      if (a && (Object.keys(t) as (keyof Tam)[]).every((k) => a[k] === t[k])) return;
+      medido.current = t;
+      setSuave(false);
+      setTam(t);
+    };
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
@@ -846,21 +933,26 @@ export default function ConsolaMesa({
   const partido = H < 520;
   // Al poner otra canción desde la placa de la grabadora, la Mesa se vuelve a montar con ella: si
   // estabas viendo la grabadora en grande, sigue en grande
-  const [parte, setParte] = useState<"las-dos" | "cinta" | "mesa">(() => (seguirEnLaCinta ? "cinta" : "las-dos"));
+  const [parte, setParte] = useState<Parte>(() => (seguirEnLaCinta ? "cinta" : "las-dos"));
+  const irA = (p: Parte) => {
+    setSuave(true);
+    setParte(p);
+  };
   useEffect(() => {
     seguirEnLaCinta = false;
   }, []);
   // En la mesa en grande, tocar un canal lo abre a toda pantalla (CanalGrande)
   const [canalAbierto, setCanalAbierto] = useState<number | null>(null);
   const vista = partido ? (parte === "mesa" && canalAbierto !== null ? "canal" : parte) : "juntas";
-  const atras = () => (canalAbierto !== null ? setCanalAbierto(null) : setParte("las-dos"));
+  const atras = () => (canalAbierto !== null ? setCanalAbierto(null) : irA("las-dos"));
+  // El canal en grande va encima de la mesa (que sigue debajo, sin desmontarse): su luz de nivel
+  const enCanal = useRef<HTMLDivElement>(null);
   // Juntas: la grabadora sobre la mesa, como una sola pieza (PIEZA), lo más grande que quepa; si así
   // queda demasiado pequeña, más grande y se desliza
   const escala = Math.min(1, Math.max(Math.min(W / ANCHO_MESA, H / PIEZA.alto), tam?.tactil ? 0.5 : 0.42));
-  // Por separado: cada una lo más grande que quepa; las dos juntas, en pequeño una encima de otra
-  const escalaCintaGrande = Math.min((W - 16) / ANCHO_CINTA, (H - 8) / ALTO_CINTA);
-  const escalaMesaGrande = Math.min((W - 8) / ANCHO_MESA, (H - 4) / ALTO_MESA);
-  const escalaResumen = Math.min((W * 0.92) / ANCHO_MESA, (H - 34) / PIEZA.alto);
+  // En el móvil tumbado: las dos en pequeño y, al tocar una, la vista se acerca a ella (camaraDe)
+  const camara = partido && tam ? camaraDe(tam) : null;
+  const encuadre = camara?.encuadres[parte];
 
   // Los medidores, sin pasar por React: las entradas si la Mesa está encendida y las pistas siempre.
   // Van a unos 30 por segundo (de sobra para el ojo) y solo se escribe lo que cambia: pintarlos en
@@ -869,7 +961,7 @@ export default function ConsolaMesa({
   useEffect(() => {
     if (!encendida && !conPistas) return;
     // Las luces de nivel de la mesa (en la ranura de cada fader)
-    const luz = (id: string) => abajo.current?.querySelector<HTMLSpanElement>(`[data-medidor="${id}"]`) ?? null;
+    const luz = (id: string) => (vista === "canal" ? enCanal : abajo).current?.querySelector<HTMLSpanElement>(`[data-medidor="${id}"]`) ?? null;
     const luces = Array.from({ length: 8 }, (_, i) => luz(String(i)));
     const general = luz("general");
     // Las agujas de los VU de la grabadora, con su inercia (suben deprisa y bajan despacio)
@@ -936,7 +1028,10 @@ export default function ConsolaMesa({
       if (e.key !== "Escape" || document.querySelector(".hoja")) return;
       e.stopImmediatePropagation();
       if (vista === "canal") setCanalAbierto(null);
-      else setParte("las-dos");
+      else {
+        setSuave(true);
+        setParte("las-dos");
+      }
     };
     document.addEventListener("keydown", tecla, true);
     return () => document.removeEventListener("keydown", tecla, true);
@@ -1070,43 +1165,62 @@ export default function ConsolaMesa({
   const elegir = (p: "cinta" | "mesa") => ({
     role: "button" as const,
     tabIndex: 0,
-    onClick: () => setParte(p),
+    onClick: () => irA(p),
     onKeyDown: (e: React.KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        setParte(p);
+        irA(p);
       }
     },
   });
 
   return (
     <div className={`consola-foto vista-${vista}`} ref={raiz}>
-      {vista === "juntas" && (
+      {tam && vista === "juntas" && (
         // La grabadora sobre la mesa, una sola pieza (se desliza si no cabe)
         <div className="cf-abajo">
           <Pieza escala={escala} cinta={cinta} abajo={abajo} propsCinta={propsCinta} propsMesa={propsMesa} />
         </div>
       )}
 
-      {vista === "las-dos" && (
-        <div className="cf-resumen">
-          <Pieza escala={escalaResumen} cinta={cinta} abajo={abajo} propsCinta={propsCinta} propsMesa={propsMesa} elegir={elegir} />
-          <p className="cf-ayuda-partes">Toca la grabadora o la mesa para verla en grande</p>
+      {camara && encuadre && (
+        // El móvil tumbado: el escritorio, la grabadora y la mesa en una sola capa (camaraDe). No se
+        // desmonta al acercarse ni al abrir un canal: solo cambia desde dónde se mira
+        <div className="cf-camara" style={camara.marco} inert={vista === "canal"}>
+          <div
+            className={`cf-escena${suave ? " suave" : ""}`}
+            style={{ width: camara.escena.w, height: camara.escena.h, transform: `translate(${encuadre.x}px, ${encuadre.y}px) scale(${encuadre.z})` }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              className="cf-escritorio"
+              src="/mesa/escritorio2.webp"
+              alt=""
+              draggable={false}
+              style={{ left: camara.fondo.x, top: camara.fondo.y, width: camara.fondo.w, height: camara.fondo.h }}
+            />
+            <div className="cf-en-escena" style={{ left: camara.pieza.x, top: camara.pieza.y }}>
+              <Pieza
+                escala={camara.escala}
+                cinta={cinta}
+                abajo={abajo}
+                propsCinta={propsCinta}
+                propsMesa={parte === "mesa" ? { ...propsMesa, alTocarCanal: setCanalAbierto } : propsMesa}
+                elegir={parte === "las-dos" ? elegir : undefined}
+                activa={parte === "las-dos" ? undefined : parte}
+              />
+            </div>
+          </div>
         </div>
+      )}
+      {camara && (
+        <p className="cf-ayuda-partes" aria-hidden={vista !== "las-dos"}>
+          Toca la grabadora o la mesa para acercarte
+        </p>
       )}
 
-      {vista === "cinta" && (
-        <div className="cf-grande" ref={cinta}>
-          <GrabadoraMesa escala={escalaCintaGrande} {...propsCinta} />
-        </div>
-      )}
-      {vista === "mesa" && (
-        <div className="cf-grande" ref={abajo}>
-          <MesaFoto escala={escalaMesaGrande} {...propsMesa} alTocarCanal={setCanalAbierto} />
-        </div>
-      )}
       {vista === "canal" && canalAbierto !== null && propsMesa.canales[canalAbierto] && (
-        <div className="cf-grande" ref={abajo}>
+        <div className="cf-grande" ref={enCanal}>
           <CanalGrande
             key={canalAbierto}
             canal={propsMesa.canales[canalAbierto]!}

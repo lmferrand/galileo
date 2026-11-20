@@ -12,7 +12,21 @@
   color: #f3e8d6;
   overflow: hidden;
   outline: none;
+  /* Sin el zoom del navegador (pellizcar con dos dedos, dos toques): descolocaba la Mesa, que ya se
+     acerca ella sola al tocarla. Deslizar con un dedo sigue valiendo (las hojas, la mesa en el PC). */
+  touch-action: pan-x pan-y;
   animation: estudio-aparece 280ms ease both;
+}
+/* Con la Mesa en pantalla (EstudioMesa pone la clase), la página de detrás se queda quieta: en
+   Android, tirar hacia abajo con el dedo recargaba la app (un salto y la pantalla en blanco). */
+html.con-mesa,
+html.con-mesa body {
+  overscroll-behavior: none;
+}
+/* La pestaña «Mesa» no tiene nada debajo del estudio: que la página no sea más alta que la pantalla
+   (con el móvil tumbado lo era, y se podía deslizar por detrás) */
+.app.app-mesa {
+  min-height: 0;
 }
 .estudio-escena {
   position: absolute;
@@ -2073,16 +2087,39 @@
   color: #d8c4a6;
 }
 
-/* ---------- Pantalla bajita (móvil tumbado): la grabadora y la mesa por separado ---------- */
-/* Las dos en pequeño, una encima de otra: se toca la que se quiere ver en grande */
-.cf-resumen {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+/* ---------- Pantalla bajita (móvil tumbado): la vista se acerca a la grabadora o a la mesa ---------- */
+/* El escritorio, la grabadora y la mesa en una sola capa (.cf-escena) que ocupa la pantalla entera,
+   márgenes incluidos. Tocar una parte mueve la capa entera: todo guarda sus proporciones. */
+.cf-camara {
+  position: absolute;
+  overflow: hidden;
+}
+.cf-escena {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+.cf-escena.suave {
+  transition: transform 520ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+.cf-escritorio {
+  position: absolute;
+  max-width: none;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cf-en-escena {
+  position: absolute;
+}
+/* Los bordes de la pantalla, algo más oscuros (como en .estudio-consola): no se mueven con la vista */
+.cf-camara::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(12, 6, 2, 0) 55%, rgba(12, 6, 2, 0.45) 100%);
+  pointer-events: none;
 }
 .cf-parte {
   position: relative;
@@ -2100,15 +2137,28 @@
   filter: brightness(1.12);
 }
 .cf-ayuda-partes {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 4px;
   margin: 0;
   padding: 3px 12px;
   border-radius: 999px;
   background: rgba(20, 10, 5, 0.6);
   font-size: 13px;
   color: #ead8bd;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  transition: opacity 200ms ease;
+  pointer-events: none;
 }
-/* Una sola, a toda pantalla */
+.consola-foto:not(.vista-las-dos) .cf-ayuda-partes {
+  opacity: 0;
+}
+/* Un canal, a toda pantalla (encima de la mesa) */
 .cf-grande {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -2158,6 +2208,10 @@
 @media (prefers-reduced-motion: reduce) {
   .cf-grande {
     animation: none;
+  }
+  .cf-escena.suave,
+  .cf-ayuda-partes {
+    transition: none;
   }
 }
 

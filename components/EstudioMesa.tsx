@@ -49,6 +49,9 @@ const IRSE_MS = 220;
 
 const sinMovimiento = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** Cuántas Mesas hay en pantalla (al cambiar de canción, un instante, la que se va y la que llega) */
+let enPantalla = 0;
+
 export default function EstudioMesa({
   onCerrar,
   pistas,
@@ -86,6 +89,21 @@ export default function EstudioMesa({
     const ro = new ResizeObserver(medir);
     ro.observe(el);
     return () => ro.disconnect();
+  }, []);
+
+  // Con la Mesa en pantalla, la página de detrás se queda quieta (html.con-mesa, en mesa.css): tirar
+  // hacia abajo con el dedo no recarga la app. La clase se pone aquí y no con «html:has(…)»: las
+  // pestañas ocultas siguen en la página (ver lib/pestana).
+  useLayoutEffect(() => {
+    const raiz = document.documentElement;
+    enPantalla++;
+    raiz.classList.add("con-mesa");
+    return () => {
+      if (--enPantalla <= 0) {
+        enPantalla = 0;
+        raiz.classList.remove("con-mesa");
+      }
+    };
   }, []);
 
   // Escape: en la consola vuelve al estudio (paso a paso, como «‹»); en el estudio cierra la Mesa

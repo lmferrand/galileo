@@ -145,7 +145,7 @@ function RuedaMaestra({ r, p }: { r: (typeof RUEDAS_MAESTRAS)[number]; p: PropsM
   );
 }
 
-function FaderFoto({ c, nombre, valor, onCambio, escala, medidor, desactivado }: { c: Carril; nombre: string; valor: number; onCambio: (v: number) => void; escala: number; /** Para encontrar su luz de nivel (data-medidor) */ medidor: string; desactivado?: boolean }) {
+function FaderFoto({ c, nombre, valor, onCambio, medidor, desactivado }: { c: Carril; nombre: string; valor: number; onCambio: (v: number) => void; /** Para encontrar su luz de nivel (data-medidor) */ medidor: string; desactivado?: boolean }) {
   const pos = posDeAmplitud(valor);
   const p: PropsMando = {
     nombre,
@@ -158,10 +158,11 @@ function FaderFoto({ c, nombre, valor, onCambio, escala, medidor, desactivado }:
     onCambio: (v) => onCambio(amplitudDePos(v)),
     desactivado,
   };
-  // El fader va pegado al dedo: el recorrido de la tapa, ya escalado
-  const manejo = useArrastre(p, () => Math.max(40, (c.abajo - c.arriba) * escala));
   const arriba = c.ranura[0] - 14;
   const alto = c.ranura[1] - c.ranura[0] + 28;
+  // El fader va pegado al dedo: el recorrido de la tapa tal como se ve en la pantalla (la mesa va
+  // escalada y, en el móvil, además la vista se acerca y se aleja: se mide en el momento)
+  const manejo = useArrastre(p, (el) => Math.max(40, (c.abajo - c.arriba) * (el.getBoundingClientRect().height / alto)));
   return (
     <div className="mf-mando mf-fader" style={{ left: c.x - 50, top: arriba, width: 128, height: alto }} {...accesible(p)} aria-valuetext={verDb(valor)} {...manejo}>
       <span className="mf-ranura" style={{ left: 50 - 7, top: 14, height: c.ranura[1] - c.ranura[0] }} aria-hidden="true">
@@ -316,7 +317,6 @@ export default function MesaFoto({ escala, canales, sinEntrada2, general, onGene
                 c={CARRILES[i]}
                 nombre={`Volumen de ${k.titulo}`}
                 valor={k.volumen}
-                escala={escala}
                 medidor={String(k.medidor)}
                 onCambio={(v) => {
                   k.onVolumen(v);
@@ -369,7 +369,6 @@ export default function MesaFoto({ escala, canales, sinEntrada2, general, onGene
             c={CARRIL_MAESTRO}
             nombre="Volumen general"
             valor={general}
-            escala={escala}
             medidor="general"
             onCambio={(v) => {
               onGeneral(v);
