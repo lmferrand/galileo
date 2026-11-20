@@ -946,6 +946,19 @@
     margin: 0;
     font-size: 18px;
   }
+  .cf-girar .cf-girar-boton {
+    min-height: 48px;
+    padding: 12px 22px;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 800;
+  }
+  .cf-girar .cf-girar-nota {
+    max-width: 280px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #cdb89a;
+  }
 }
 @keyframes girar-movil {
   0%,

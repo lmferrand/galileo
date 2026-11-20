@@ -44,6 +44,7 @@ import BucleMesa from "./BucleMesa";
 import { guardarCuentaMesa, leerCuentaMesa, SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
 import { guardarEscucha, guardarModoGrabar, leerEscucha, leerModoGrabar, RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA, type ModoGrabar } from "@/lib/mesa/escucha";
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
+import { puedeTumbarse, usePantallaTumbada } from "@/lib/mesa/tumbada";
 import { AJUSTE_MAXIMO, ajusteRetraso, calibrar, guardarCalibracion, leerCalibracion, type Calibracion } from "@/lib/mesa/calibrar";
 import { Posicion } from "@/lib/pistas/posicion";
 import { useHidratado } from "@/lib/hidratado";
@@ -796,6 +797,9 @@ export default function ConsolaMesa({
   };
   useEffect(() => () => pararAuto(), []);
 
+  // En el móvil la Mesa va tumbada: se le pide al aparato al entrar (lib/mesa/tumbada)
+  const tumbada = usePantallaTumbada();
+
   // El tamaño de la consola, para escalar la grabadora y la mesa
   const raiz = useRef<HTMLDivElement>(null);
   const [tam, setTam] = useState<{ w: number; h: number; tactil: boolean } | null>(null);
@@ -1113,6 +1117,12 @@ export default function ConsolaMesa({
           <path d="M8 30a16 16 0 0 0 16 12M40 18A16 16 0 0 0 24 6" />
         </svg>
         <p>Gira el móvil para usar la mesa</p>
+        {hidratado && puedeTumbarse() && (
+          <button type="button" className="boton-principal cf-girar-boton" onClick={() => void tumbada.girar()}>
+            Girar la pantalla
+          </button>
+        )}
+        {tumbada.fallo && <p className="cf-girar-nota">No se ha podido girar desde aquí. Activa el giro automático del móvil y gíralo.</p>}
       </div>
 
       <button type="button" className="estudio-boton cf-ayuda" onClick={() => setVerAyuda(true)} aria-label="Qué hace cada mando">
