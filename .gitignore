@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# la lista de lo que se guarda para funcionar sin conexión: se hace al compilar (scripts/precarga.mjs)
+/public/precarga.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
