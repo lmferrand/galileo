@@ -11,6 +11,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHorizontal } from "@/lib/horizontal";
 import ConsolaMesa, { type PistasMesa } from "./ConsolaMesa";
+import { usePantallaTumbada } from "@/lib/mesa/tumbada";
 import Navegacion from "./Navegacion";
 import type { Cancion } from "@/lib/pistas/tipos";
 
@@ -71,6 +72,9 @@ export default function EstudioMesa({
   const caja = useRef<HTMLDivElement>(null);
   const [tam, setTam] = useState<{ w: number; h: number } | null>(null);
   const [fase, setFase] = useState<Fase>(enConsola ? "consola" : "estudio");
+  // En el móvil, MESA va tumbada desde que se entra (ya en la foto del estudio): se le pide al
+  // aparato; en un ordenador o una tableta no se toca nada (lib/mesa/tumbada)
+  const tumbada = usePantallaTumbada();
 
   // Se mide antes de pintar: si no, el primer fotograma sale vacío (negro) y parece que parpadea
   useLayoutEffect(() => {
@@ -198,7 +202,7 @@ export default function EstudioMesa({
         <div className="estudio-consola">
           {/* Dentro de la consola no hay ✕: se sale hacia atrás (canal → mesa → las dos → estudio) */}
           <Arriba onEstudio={() => setFase("volviendo")} />
-          <ConsolaMesa pistas={pistas} canciones={selector ? { lista: selector.canciones, actual: selector.actual, onElegir: selector.onElegir, onCambiadas: selector.onCambiadas } : undefined} />
+          <ConsolaMesa tumbada={tumbada} pistas={pistas} canciones={selector ? { lista: selector.canciones, actual: selector.actual, onElegir: selector.onElegir, onCambiadas: selector.onCambiadas } : undefined} />
         </div>
       ) : pagina ? (
         // La pestaña «Mesa»: la cabecera de la app, y la ✕ si hay canción (la quita)

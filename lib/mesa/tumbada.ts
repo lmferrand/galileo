@@ -1,5 +1,6 @@
-// En el móvil la Mesa se usa tumbada. Al entrar, se le pide al aparato que tumbe la pantalla
-// (Screen Orientation API) en vez de esperar a que la gire quien la usa:
+// En el móvil la Mesa se usa tumbada. Al entrar en MESA (ya en la foto del estudio, antes de pasar
+// a la consola: lo usa EstudioMesa) se le pide al aparato que tumbe la pantalla (Screen Orientation
+// API) en vez de esperar a que la gire quien la usa:
 //  - En Android, la app instalada puede quedarse clavada de pie aunque el móvil tenga el giro
 //    automático puesto: el icono se instaló cuando la app pedía ir siempre de pie, y Android tarda
 //    días en enterarse de que ya no (visto en un Motorola el 20-nov-2026: «al girar la pantalla la
