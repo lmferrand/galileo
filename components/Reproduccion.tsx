@@ -102,8 +102,13 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   // Otra canción sin desmontar (elegida en la placa de la Mesa): la Mesa se queda montada y lo de la
   // canción se pone como lo dejó la última vez. Desmontar la Mesa entera daba un tirón y un fogonazo
   // oscuro. (Se cambia aquí mismo, al pintar: así nada llega a guardarse con la canción equivocada.)
+  // Play pulsado mientras la canción aún carga: se queda apuntado y suena en cuanto esté lista
+  // (antes la tecla estaba desactivada sin que se notara: «le doy al play y no funciona»)
+  const [esperaTocar, setEsperaTocar] = useState(false);
+  const tocarAlCargar = useRef(false);
   const [idActual, setIdActual] = useState(cancion.id);
   if (cancion.id !== idActual) {
+    setEsperaTocar(false);
     const a = leerAjustesCancion(cancion.id, PISTAS.length);
     setIdActual(cancion.id);
     setCargando(true);
@@ -163,6 +168,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   useEffect(() => {
     const r = new Reproductor();
     rep.current = r;
+    tocarAlCargar.current = false;
     let vivo = true;
     r.alCambiar = ({ tocando: t, segundo: s }) => {
       if (t !== ultimo.current.tocando || Math.abs(s - ultimo.current.segundo) >= 0.1) {
@@ -178,7 +184,13 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
         // Antes de cargar: al reproductor las pistas pasan al hilo de audio y dejan de valer aquí
         setOnda(ondaDe(datos, cancion.frames));
         await r.cargar(datos, cancion.frames, efectivas);
-        if (vivo) setCargando(false);
+        if (!vivo) return;
+        setCargando(false);
+        if (tocarAlCargar.current) {
+          tocarAlCargar.current = false;
+          setEsperaTocar(false);
+          void r.tocar();
+        }
       } catch (e) {
         if (vivo) setError((e as Error).message || "No se han podido abrir las pistas.");
       }
@@ -295,9 +307,18 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   }, [claveGanancias]);
 
   const alternar = () => {
-    if (!rep.current || cargando) return;
-    if (tocando) rep.current.pausar();
-    else rep.current.tocar();
+    const r = rep.current;
+    if (!r) return;
+    if (cargando) {
+      // Aún carga: se apunta (otro toque lo quita) y el sonido se desbloquea ya, con este toque
+      const apuntar = !tocarAlCargar.current;
+      tocarAlCargar.current = apuntar;
+      setEsperaTocar(apuntar);
+      if (apuntar) r.desbloquear();
+      return;
+    }
+    if (tocando) r.pausar();
+    else void r.tocar();
   };
 
   const ir = (s: number) => {
@@ -396,6 +417,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     transporte: {
       tocando,
       cargando,
+      esperaTocar,
       segundo,
       duracion: cancion.duracion,
       onda,
@@ -560,7 +582,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
               <button type="button" className="boton-salto" onClick={() => ir(segundo - 10)} disabled={cargando} aria-label="Atrás 10 segundos">
                 <IconoSalto atras />
               </button>
-              <button type="button" className="boton-tocar" onClick={alternar} disabled={cargando} aria-label={tocando ? "Pausa" : "Tocar"}>
+              <button
+                type="button"
+                className={`boton-tocar${esperaTocar ? " espera" : ""}`}
+                onClick={alternar}
+                aria-label={cargando ? (esperaTocar ? "Cargando: sonará en cuanto esté lista (toca para quitarlo)" : "Tocar en cuanto cargue") : tocando ? "Pausa" : "Tocar"}
+              >
                 {cargando ? <span className="girando" aria-hidden="true" /> : tocando ? <IconoPausa /> : <IconoTocar />}
               </button>
               <button type="button" className="boton-salto" onClick={() => ir(segundo + 10)} disabled={cargando} aria-label="Adelante 10 segundos">

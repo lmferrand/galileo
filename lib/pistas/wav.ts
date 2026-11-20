@@ -74,6 +74,7 @@ async function descodificar(buffer: ArrayBuffer, frames?: number): Promise<Int16
   const salida = new Int16Array(n * 2);
   // A trozos, cediendo el paso entre uno y otro: de golpe, cada pista dejaba la pantalla quieta un
   // cuarto de segundo en el móvil (se notaba al cambiar de canción en la Mesa)
+  let desde = performance.now();
   for (let ini = 0; ini < m; ini += TROZO) {
     const fin = Math.min(m, ini + TROZO);
     for (let k = ini; k < fin; k++) {
@@ -82,13 +83,19 @@ async function descodificar(buffer: ArrayBuffer, frames?: number): Promise<Int16
       salida[2 * k] = l < 0 ? l * 32768 : l * 32767;
       salida[2 * k + 1] = r < 0 ? r * 32768 : r * 32767;
     }
-    if (fin < m) await ceder();
+    // Solo se cede cuando ya se llevan unos milisegundos seguidos: ceder de más alargaba la carga
+    if (fin < m && performance.now() - desde > SEGUIDOS_MS) {
+      await ceder();
+      desde = performance.now();
+    }
   }
   return salida;
 }
 
-/** Muestras que se convierten seguidas (~0,4 s de audio: un par de milisegundos) */
-const TROZO = 1 << 14;
+/** Muestras que se convierten entre una mirada al reloj y otra */
+const TROZO = 1 << 13;
+/** Lo que se trabaja seguido antes de ceder el paso (ms) */
+const SEGUIDOS_MS = 7;
 
 /** Deja pintar y atender toques antes de seguir. */
 function ceder(): Promise<void> {

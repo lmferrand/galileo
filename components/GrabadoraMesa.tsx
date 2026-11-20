@@ -214,8 +214,18 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
   const clase = `gm${t?.tocando ? " tocando" : ""}${corriendo ? ` corre-${corriendo}` : ""}`;
   const vuelta = `${2.6 / Math.max(0.5, t?.velocidad ?? 1)}s`;
 
+  // Tocar vale también mientras la canción carga: se queda apuntado y suena en cuanto esté lista
+  const espera = !!t?.cargando && !!t.esperaTocar;
   const tecla = (k: keyof typeof TECLAS, etiqueta: string, on: boolean, accion: () => void) => (
-    <button type="button" className={`gm-tecla gm-${k}${on ? " on" : ""}`} style={enCaja(TECLAS[k])} aria-label={etiqueta} aria-pressed={k === "tocar" || k === "pausa" ? on : undefined} disabled={sin} onClick={accion} />
+    <button
+      type="button"
+      className={`gm-tecla gm-${k}${on ? " on" : ""}${k === "tocar" && espera ? " espera" : ""}`}
+      style={enCaja(TECLAS[k])}
+      aria-label={etiqueta}
+      aria-pressed={k === "tocar" || k === "pausa" ? on : undefined}
+      disabled={k === "tocar" ? !t : sin}
+      onClick={accion}
+    />
   );
 
   return (
@@ -247,7 +257,7 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
           t.onIr(t.repetir && t.desde !== null ? t.desde : 0);
           correr("atras");
         })}
-        {tecla("tocar", "Tocar", !!t?.tocando, () => {
+        {tecla("tocar", t?.cargando ? (espera ? "Cargando: sonará en cuanto esté lista (toca para quitarlo)" : "Tocar en cuanto cargue") : "Tocar", !!t?.tocando, () => {
           if (t && !t.tocando) t.onAlternar();
         })}
         {tecla("pausa", "Pausa", parada, () => {

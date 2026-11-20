@@ -50,7 +50,13 @@ export class Reproductor {
         } catch {
           ctx = new Ctor();
         }
+        this.ctxNuevo = ctx;
         await ctx.audioWorklet.addModule("/mezclador.worklet.js");
+        if (this.cerrado) {
+          // Se cerró mientras se preparaba (otra canción): este contexto ya no hace falta
+          void ctx.close().catch(() => undefined);
+          return;
+        }
         const nodo = new AudioWorkletNode(ctx, "mezclador-pistas", {
           numberOfInputs: 0,
           numberOfOutputs: PISTAS.length + 1,
@@ -129,6 +135,24 @@ export class Reproductor {
   }
 
   private esperandoCuenta: ((segundos: number) => void) | null = null;
+  /** El contexto recién creado, mientras se termina de preparar (para desbloquearlo ya) */
+  private ctxNuevo: AudioContext | null = null;
+  private cerrado = false;
+
+  /**
+   * Llamar desde un toque cuando la canción aún está cargando: el iPhone solo deja sonar si el
+   * sonido se arranca dentro de un toque. Así, al acabar de cargar, `tocar()` puede sonar sola.
+   */
+  desbloquear() {
+    void this.preparar().catch(() => undefined);
+    try {
+      const sesion = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+      if (sesion) sesion.type = mesa.estado === "encendida" ? "play-and-record" : "playback";
+    } catch {
+      /* navegador sin audioSession */
+    }
+    void (this.ctx ?? this.ctxNuevo)?.resume().catch(() => undefined);
+  }
 
   /** Llamar desde un toque: el iPhone solo deja sonar después de uno. Con `cuenta` y el click
    *  puesto, suena un compás de click antes de que entre la canción (con `forzarCuenta`, aunque el
@@ -291,6 +315,7 @@ export class Reproductor {
   }
 
   async cerrar() {
+    this.cerrado = true;
     this.pararToma();
     this.nodo?.port.postMessage({ tipo: "vaciar" });
     this.nodo?.disconnect();
@@ -305,8 +330,8 @@ export class Reproductor {
     this.clickVolumen = null;
     const ctx = this.ctx;
     this.ctx = null;
+    this.ctxNuevo = null;
     this.nodo = null;
-    this.preparando = null;
     await ctx?.close().catch(() => undefined);
   }
 }

@@ -344,6 +344,7 @@ export default function ConsolaMesa({
     setGrabando(null);
     sonoGrabando.current = false;
     if (mesa.grabando) void mesa.pararToma();
+    seguirEnLaCinta = false;
     setTomas([]);
     setVerTomas(false);
     setPreparada(null);
@@ -791,6 +792,10 @@ export default function ConsolaMesa({
       ? `● Prepárate: ${cuenta}…`
       : grabando
       ? "● Grabando lo que tocas (REC para parar)"
+      : pistas?.transporte.cargando
+      ? pistas.transporte.esperaTocar
+        ? "Cargando la canción… sonará en cuanto esté lista"
+        : "Cargando la canción…"
       : encendida
       ? `${estadoTexto}${retraso !== null ? ` · retraso ≈ ${retraso} ms` : ""}`
       : estado !== "apagada"
@@ -848,7 +853,7 @@ export default function ConsolaMesa({
     t: pistas?.transporte ?? null,
     aviso,
     contador: grabando && !conPistas ? transcurrido : null,
-    rec: { grabando: !!grabando || cuenta !== null, ocupado: estado === "abriendo", onPulsar: () => void pulsarRec() },
+    rec: { grabando: !!grabando || cuenta !== null, ocupado: estado === "abriendo" || !!pistas?.transporte.cargando, onPulsar: () => void pulsarRec() },
     toma: tomas.length > 0 && !grabando && cuenta === null ? () => setVerTomas(true) : null,
     metronomo: teclaMetro,
     canciones: canciones && {

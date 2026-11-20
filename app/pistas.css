@@ -305,6 +305,23 @@ a.marca {
 .boton-tocar:disabled {
   opacity: 0.6;
 }
+/* Pulsado mientras la canción carga: un aro que late hasta que empieza a sonar */
+.boton-tocar.espera {
+  animation: tocar-espera 0.9s ease-in-out infinite;
+}
+@keyframes tocar-espera {
+  50% {
+    box-shadow:
+      0 0 0 7px rgba(241, 213, 157, 0.45),
+      0 0 26px 6px rgba(241, 213, 157, 0.35);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boton-tocar.espera {
+    animation: none;
+    box-shadow: 0 0 0 5px rgba(241, 213, 157, 0.55);
+  }
+}
 .icono-relleno {
   width: 30px;
   height: 30px;

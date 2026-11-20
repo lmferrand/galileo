@@ -18,6 +18,8 @@ import { formatoTiempo } from "@/lib/pistas/tipos";
 export interface Transporte {
   tocando: boolean;
   cargando: boolean;
+  /** Se ha pulsado tocar mientras cargaba: sonará en cuanto esté lista */
+  esperaTocar?: boolean;
   segundo: number;
   duracion: number;
   /** La onda de la canción (0–1 por trozo), para dibujarla en la pantalla */
@@ -329,9 +331,8 @@ export default function TransporteMesa({
             <div className="tecla-con-nombre">
               <button
                 type="button"
-                className={`tecla pc-tecla pc-tocar${t.tocando ? " on" : ""}`}
+                className={`tecla pc-tecla pc-tocar${t.tocando ? " on" : ""}${t.esperaTocar ? " espera" : ""}`}
                 onClick={t.onAlternar}
-                disabled={t.cargando}
                 aria-label={t.tocando ? "Pausa" : "Tocar"}
               >
                 {t.tocando ? (
