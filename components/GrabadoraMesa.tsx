@@ -14,6 +14,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import { accesible, useArrastre, type PropsMando } from "./MandosMesa";
 import TransporteMesa, { type Transporte } from "./TransporteMesa";
 import PlacaCanciones, { type CancionesPlaca } from "./PlacaCanciones";
+import { usePosicion, type Posicion } from "@/lib/pistas/posicion";
 
 export const ANCHO_CINTA = 2000;
 export const ALTO_CINTA = 787;
@@ -106,8 +107,9 @@ const POLIGONOS = Object.fromEntries(Object.entries(SEGMENTOS).map(([k, s]) => [
 const X_DIGITOS = [32, 70, 120, 158, 208, 246];
 const X_PUNTOS = [104, 192];
 
-function Contador({ segundo }: { segundo: number }) {
-  const s = Math.max(0, segundo);
+/** Se repinta él solo mientras la canción avanza (lib/pistas/posicion) */
+function Contador({ posicion }: { posicion: Posicion | null }) {
+  const s = Math.max(0, usePosicion(posicion));
   const mm = Math.min(99, Math.floor(s / 60));
   const ss = Math.floor(s % 60);
   const ff = Math.floor((s % 1) * 30);
@@ -154,6 +156,28 @@ function RuedaNaranja({ r, p, giro }: { r: typeof RUEDA_VELOCIDAD; p: PropsMando
 
 const enCaja = ([x, y, w, h]: Caja): CSSProperties => ({ left: x, top: y, width: w, height: h });
 
+/** La rueda de mover la canción: gira con ella (se repinta ella sola, lib/pistas/posicion) */
+function RuedaBuscar({ t, sin }: { t: Transporte | null; sin: boolean }) {
+  const segundo = usePosicion(t?.posicion ?? null);
+  return (
+    <RuedaNaranja
+      r={RUEDA_BUSCAR}
+      giro={segundo * 6}
+      p={{
+        nombre: "Mover la canción",
+        valor: Math.round(segundo * 2) / 2,
+        min: 0,
+        max: Math.max(1, t?.duracion ?? 1),
+        paso: 0.5,
+        porDefecto: 0,
+        ver: (v) => `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, "0")}`,
+        onCambio: (v) => t?.onIr(v),
+        desactivado: sin,
+      }}
+    />
+  );
+}
+
 interface Props {
   escala: number;
   /** El reproductor de la canción; sin él (desde el afinador) la grabadora está parada */
@@ -163,7 +187,7 @@ interface Props {
   /** REC: grabar lo que tocas (y pararlo) */
   rec: { grabando: boolean; ocupado: boolean; onPulsar: () => void };
   /** Sin canción, mientras se graba, el contador cuenta lo grabado */
-  contador: number | null;
+  contador: Posicion | null;
   /** Hay una toma: abrirla (escuchar, guardar, borrar) */
   toma: (() => void) | null;
   /** Las canciones para el selector de la placa (sin ellas, desde el afinador: «Sin cinta») */
@@ -187,7 +211,8 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
   };
   const sin = !t || t.cargando;
   const D = Math.max(1, t?.duracion ?? 1);
-  const segundo = t?.segundo ?? 0;
+  // ¿Ha avanzado ya la canción? (solo cambia al empezar o al volver al principio)
+  const empezada = usePosicion(t?.posicion ?? null, (s) => s > 0.05);
   const teclaToma: ReactNode = toma ? (
     <button type="button" className="tecla pc-tecla gm-tecla-toma" onClick={toma} aria-label="Tu toma: escucharla, guardarla o borrarla">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -214,7 +239,7 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
       <span className="gm-metro-bpm">{metronomo.texto}</span>
     </button>
   ) : null;
-  const parada = !!t && !t.tocando && segundo > 0.05;
+  const parada = !!t && !t.tocando && empezada;
   const clase = `gm${t?.tocando ? " tocando" : ""}${corriendo ? ` corre-${corriendo}` : ""}`;
   const vuelta = `${2.6 / Math.max(0.5, t?.velocidad ?? 1)}s`;
 
@@ -248,11 +273,11 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
             <img src={b.src} alt="" width={b.lado} height={b.lado} draggable={false} />
           </span>
         ))}
-        <Contador segundo={contador ?? segundo} />
+        <Contador posicion={contador ?? t?.posicion ?? null} />
 
         {tecla("atras", "Atrás 10 segundos", false, () => {
           if (!t) return;
-          t.onIr(Math.max(0, t.segundo - 10));
+          t.onIr(Math.max(0, t.posicion.leer() - 10));
           correr("atras");
         })}
         {tecla("parar", "Parar y volver al principio", false, () => {
@@ -279,7 +304,7 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
         />
         {tecla("adelante", "Adelante 10 segundos", false, () => {
           if (!t) return;
-          t.onIr(Math.min(D, t.segundo + 10));
+          t.onIr(Math.min(D, t.posicion.leer() + 10));
           correr("adelante");
         })}
 
@@ -297,21 +322,7 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
             desactivado: sin,
           }}
         />
-        <RuedaNaranja
-          r={RUEDA_BUSCAR}
-          giro={segundo * 6}
-          p={{
-            nombre: "Mover la canción",
-            valor: Math.round(segundo * 2) / 2,
-            min: 0,
-            max: D,
-            paso: 0.5,
-            porDefecto: 0,
-            ver: (v) => `${Math.floor(v / 60)}:${String(Math.floor(v % 60)).padStart(2, "0")}`,
-            onCambio: (v) => t?.onIr(v),
-            desactivado: sin,
-          }}
-        />
+        <RuedaBuscar t={t} sin={sin} />
 
         <PlacaCanciones canciones={canciones} onOrganizar={onOrganizar} alLeer={alLeer} />
 

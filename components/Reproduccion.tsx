@@ -19,6 +19,7 @@ import { ondaDe } from "@/lib/pistas/onda";
 import { leerPistasDeCancion, pulsoDeCancion } from "@/lib/pistas/cargar";
 import { ajustesPorDefecto, guardarAjustesCancion, leerAjustesCancion, moverUno, nombreNuevo, NOMBRES_PARTES, ponerCompas, pulsoAnticuado, pulsoDoble, pulsoMitad, type ClickCancion, type Marca } from "@/lib/pistas/ajustesCancion";
 import { VERSION_PULSO } from "@/lib/pistas/pulso";
+import { Posicion, usePosicion } from "@/lib/pistas/posicion";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
 
@@ -58,6 +59,31 @@ interface Props {
   soloMesa?: boolean;
 }
 
+/** La barra de la posición: se repinta ella sola mientras la canción avanza (lib/pistas/posicion) */
+function BarraTiempo({ posicion, duracion, cargando, onIr }: { posicion: Posicion; duracion: number; cargando: boolean; onIr: (s: number) => void }) {
+  const segundo = usePosicion(posicion);
+  return (
+    <input
+      type="range"
+      className="barra-tiempo"
+      min={0}
+      max={duracion}
+      step={0.1}
+      value={Math.min(segundo, duracion)}
+      onChange={(e) => onIr(Number(e.target.value))}
+      disabled={cargando}
+      aria-label="Posición en la canción"
+      aria-valuetext={`${formatoTiempo(segundo)} de ${formatoTiempo(duracion)}`}
+      style={{ "--hecho": `${(Math.min(segundo, duracion) / Math.max(1, duracion)) * 100}%` } as CSSProperties}
+    />
+  );
+}
+
+/** Por dónde va la canción, en texto (se repinta una vez por segundo) */
+function TiempoAhora({ posicion }: { posicion: Posicion }) {
+  return usePosicion(posicion, formatoTiempo);
+}
+
 export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEntrar = false, canciones, onAbrirOtra, onCambiadas, soloMesa = false }: Props) {
   const rep = useRef<Reproductor | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -65,7 +91,9 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   const sinLimpiar = separadaConRoformer(cancion);
   const [error, setError] = useState<string | null>(null);
   const [tocando, setTocando] = useState(false);
-  const [segundo, setSegundo] = useState(0);
+  // Por dónde va la canción: no es estado de esta pantalla (se repintaría entera 10 veces por
+  // segundo, con la Mesa dentro); la leen de aquí las piezas que la enseñan (lib/pistas/posicion)
+  const [posicion] = useState(() => new Posicion());
   // Lo que la canción recuerda de la última vez (mezcla, velocidad, marcas de sus partes)
   const [inicial] = useState(() => (typeof window === "undefined" ? ajustesPorDefecto(PISTAS.length) : leerAjustesCancion(cancion.id, PISTAS.length)));
   const [volumen, setVolumen] = useState<number[]>(() => inicial.volumen);
@@ -117,7 +145,6 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     setCargando(true);
     setError(null);
     setTocando(false);
-    setSegundo(0);
     setVolumen(a.volumen);
     setSilencio(a.silencio);
     setSolo(PISTAS.map(() => false));
@@ -172,12 +199,13 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     const r = new Reproductor();
     rep.current = r;
     tocarAlCargar.current = false;
+    posicion.poner(0);
     let vivo = true;
     r.alCambiar = ({ tocando: t, segundo: s }) => {
       if (t !== ultimo.current.tocando || Math.abs(s - ultimo.current.segundo) >= 0.1) {
         ultimo.current = { tocando: t, segundo: s };
         setTocando(t);
-        setSegundo(s);
+        posicion.poner(s);
       }
     };
     (async () => {
@@ -303,7 +331,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
 
   // ---- Partes de la canción (marcas) ----
   const marcar = (nombre: string) => {
-    const s = Math.round(segundo * 10) / 10;
+    const s = Math.round(posicion.leer() * 10) / 10;
     setMarcas((ms) => [...ms.filter((m) => Math.abs(m.segundo - s) > 0.5), { segundo: s, nombre: nombreNuevo(ms, nombre) }].sort((a, b) => a.segundo - b.segundo));
   };
   const quitarMarca = (i: number) => setMarcas((ms) => ms.filter((_, j) => j !== i));
@@ -339,7 +367,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   const ir = (s: number) => {
     const v = Math.max(0, Math.min(cancion.duracion, s));
     rep.current?.ir(v);
-    setSegundo(v);
+    posicion.poner(v);
   };
 
   const aplicarMezcla = (sin: Pista | null) => {
@@ -359,12 +387,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
 
   // ---- Repetir un trozo ----
   const marcarInicio = () => {
-    const s = Math.round(segundo * 10) / 10;
+    const s = Math.round(posicion.leer() * 10) / 10;
     setDesde(s);
     if (hasta !== null && hasta - s < TROZO_MINIMO) setHasta(null);
   };
   const marcarFin = () => {
-    const s = Math.round(segundo * 10) / 10;
+    const s = Math.round(posicion.leer() * 10) / 10;
     const ini = desde ?? 0;
     if (s - ini < TROZO_MINIMO) return;
     if (desde === null) setDesde(0);
@@ -433,7 +461,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
       tocando,
       cargando,
       esperaTocar,
-      segundo,
+      posicion,
       duracion: cancion.duracion,
       onda,
       desde,
@@ -581,26 +609,16 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
                   aria-hidden="true"
                 />
               )}
-              <input
-                type="range"
-                className="barra-tiempo"
-                min={0}
-                max={cancion.duracion}
-                step={0.1}
-                value={Math.min(segundo, cancion.duracion)}
-                onChange={(e) => ir(Number(e.target.value))}
-                disabled={cargando}
-                aria-label="Posición en la canción"
-                aria-valuetext={`${formatoTiempo(segundo)} de ${formatoTiempo(cancion.duracion)}`}
-                style={{ "--hecho": pct(segundo) } as CSSProperties}
-              />
+              <BarraTiempo posicion={posicion} duracion={cancion.duracion} cargando={cargando} onIr={ir} />
             </div>
             <div className="tiempos">
-              <span>{formatoTiempo(segundo)}</span>
+              <span>
+                <TiempoAhora posicion={posicion} />
+              </span>
               <span>{formatoTiempo(cancion.duracion)}</span>
             </div>
             <div className="mandos">
-              <button type="button" className="boton-salto" onClick={() => ir(segundo - 10)} disabled={cargando} aria-label="Atrás 10 segundos">
+              <button type="button" className="boton-salto" onClick={() => ir(posicion.leer() - 10)} disabled={cargando} aria-label="Atrás 10 segundos">
                 <IconoSalto atras />
               </button>
               <button
@@ -611,7 +629,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
               >
                 {cargando ? <span className="girando" aria-hidden="true" /> : tocando ? <IconoPausa /> : <IconoTocar />}
               </button>
-              <button type="button" className="boton-salto" onClick={() => ir(segundo + 10)} disabled={cargando} aria-label="Adelante 10 segundos">
+              <button type="button" className="boton-salto" onClick={() => ir(posicion.leer() + 10)} disabled={cargando} aria-label="Adelante 10 segundos">
                 <IconoSalto />
               </button>
             </div>
@@ -758,7 +776,10 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
                 )}
               </div>
               <div className="partes-nueva">
-                <span>Marcar aquí ({formatoTiempo(segundo)}):</span>
+                <span>
+                  Marcar aquí (<TiempoAhora posicion={posicion} />
+                  ):
+                </span>
                 {NOMBRES_PARTES.map((n) => (
                   <button key={n} type="button" className="chip" onClick={() => marcar(n)} disabled={cargando}>
                     {n}

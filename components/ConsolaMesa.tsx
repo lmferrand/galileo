@@ -41,6 +41,7 @@ import CarpetasMesa from "./CarpetasMesa";
 import { guardarCuentaMesa, leerCuentaMesa, SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
 import { guardarEscucha, guardarModoGrabar, leerEscucha, leerModoGrabar, RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA, type ModoGrabar } from "@/lib/mesa/escucha";
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
+import { Posicion } from "@/lib/pistas/posicion";
 import { useHidratado } from "@/lib/hidratado";
 
 /** Las pistas de la canción que suena en Pistas, para tenerlas como canales 3 a 8. */
@@ -356,7 +357,9 @@ export default function ConsolaMesa({
   // pulsar REC. Cada toma va a la lista (las últimas MAX_TOMAS) para elegir la mejor.
   const [grabando, setGrabando] = useState<{ desde: number | null; cuenta?: number } | null>(null);
   const [cuenta, setCuenta] = useState<number | null>(null);
-  const [transcurrido, setTranscurrido] = useState(0);
+  // Lo que llevas grabado sin canción (para el contador): fuera de React, como la posición de la
+  // canción, para no repintar la consola entera 10 veces por segundo (lib/pistas/posicion)
+  const [transcurrido] = useState(() => new Posicion());
   const [tomas, setTomas] = useState<TomaGuardada[]>([]);
   const [verTomas, setVerTomas] = useState(false);
   const [preparada, setPreparada] = useState<{ id: number; blob: Blob; nombre: string } | null>(null);
@@ -421,8 +424,8 @@ export default function ConsolaMesa({
   const empezarGrabar = async () => {
     if (!(await mesa.empezarToma())) return;
     const t = ultimasPistas.current?.transporte;
-    setTranscurrido(0);
-    setGrabando({ desde: t ? t.segundo : null });
+    transcurrido.poner(0);
+    setGrabando({ desde: t ? t.posicion.leer() : null });
     if (t && !t.tocando) t.onAlternar();
   };
   /** La cuenta atrás en la pantalla (3, 2, 1) y, al acabar, `alAcabar` */
@@ -458,8 +461,8 @@ export default function ConsolaMesa({
     // Con el ritmo de la canción: la cuenta, en su rejilla, la da el reproductor
     if (t && metro?.pulso) {
       if (!(await mesa.empezarToma())) return;
-      const desde = t.segundo;
-      setTranscurrido(0);
+      const desde = t.posicion.leer();
+      transcurrido.poner(0);
       setGrabando({ desde, cuenta: 0 });
       const segundos = await metro.tocarConCuenta(SEGUNDOS_CUENTA);
       setGrabando((g) => (g ? { ...g, cuenta: segundos } : g));
@@ -492,9 +495,9 @@ export default function ConsolaMesa({
   // Sin canción, el contador cuenta lo que llevas grabado
   useEffect(() => {
     if (!grabando || conPistas) return;
-    const id = setInterval(() => setTranscurrido((x) => x + 0.1), 100);
+    const id = setInterval(() => transcurrido.poner(Math.round((transcurrido.leer() + 0.1) * 10) / 10), 100);
     return () => clearInterval(id);
-  }, [grabando, conPistas]);
+  }, [grabando, conPistas, transcurrido]);
   // Al salir de la consola: deja de grabar, de contar y de sonar
   useEffect(
     () => () => {
@@ -733,7 +736,10 @@ export default function ConsolaMesa({
   const escalaMesaGrande = Math.min((W - 8) / ANCHO_MESA, (H - 4) / ALTO_MESA);
   const escalaResumen = Math.min((W * 0.92) / ANCHO_MESA, (H - 34) / PIEZA.alto);
 
-  // Los medidores, sin pasar por React: las entradas si la Mesa está encendida y las pistas siempre
+  // Los medidores, sin pasar por React: las entradas si la Mesa está encendida y las pistas siempre.
+  // Van a unos 30 por segundo (de sobra para el ojo) y solo se escribe lo que cambia: pintarlos en
+  // cada fotograma era, con la canción sonando, lo que más frenaba la Mesa en un móvil modesto (la
+  // altura de 9 luces y 10 agujas, 60 o 120 veces por segundo).
   useEffect(() => {
     if (!encendida && !conPistas) return;
     // Las luces de nivel de la mesa (en la ranura de cada fader)
@@ -743,34 +749,48 @@ export default function ConsolaMesa({
     // Las agujas de los VU de la grabadora, con su inercia (suben deprisa y bajan despacio)
     const agujas = VUS.map((_, i) => cinta.current?.querySelector<SVGGElement>(`[data-vu="${i}"]`) ?? null);
     const angulos = VUS.map(() => VU_REPOSO);
-    const aguja = (i: number, pico: number) => {
+    const escritos = VUS.map(() => "");
+    // `pasos`: los fotogramas de 1/60 s que han pasado (la inercia no depende de la pantalla)
+    const aguja = (i: number, pico: number, pasos: number) => {
       const el = agujas[i];
       if (!el) return;
       const objetivo = anguloVu(pico);
-      angulos[i] += (objetivo - angulos[i]) * (objetivo > angulos[i] ? 0.35 : 0.1);
-      el.setAttribute("transform", `rotate(${angulos[i].toFixed(2)} ${VUS[i].eje[0]} ${VUS[i].eje[1]})`);
+      angulos[i] += (objetivo - angulos[i]) * (1 - Math.pow(objetivo > angulos[i] ? 0.65 : 0.9, pasos));
+      const giro = angulos[i].toFixed(1);
+      if (giro === escritos[i]) return;
+      escritos[i] = giro;
+      el.setAttribute("transform", `rotate(${giro} ${VUS[i].eje[0]} ${VUS[i].eje[1]})`);
     };
     let raf = 0;
+    const pintados = new Map<HTMLSpanElement, number>();
     const pintar = (el: HTMLSpanElement | null | undefined, v: number) => {
       if (!el) return;
-      el.style.setProperty("--nivel", `${Math.min(1, Math.sqrt(v)) * 100}%`);
-      el.classList.toggle("satura", v > 0.97);
+      // En tantos por ciento enteros, y con la saturación en el bit de arriba
+      const nivel = Math.round(Math.min(1, Math.sqrt(v)) * 100) + (v > 0.97 ? 1000 : 0);
+      if (pintados.get(el) === nivel) return;
+      pintados.set(el, nivel);
+      el.style.setProperty("--nivel", `${nivel % 1000}%`);
+      el.classList.toggle("satura", nivel >= 1000);
     };
-    const bucle = () => {
+    let antes = 0;
+    const bucle = (ahora: number) => {
       raf = requestAnimationFrame(bucle);
+      if (antes && ahora - antes < 30) return;
+      const pasos = antes ? Math.min(8, (ahora - antes) / (1000 / 60)) : 1;
+      antes = ahora;
       const e = encendida ? mesa.niveles() : null;
       const p = ultimasPistas.current?.niveles();
       pintar(luces[0], e?.canales[0] ?? 0);
       pintar(luces[1], e?.canales[1] ?? 0);
       p?.pistas.forEach((v, i) => pintar(luces[2 + i], v));
       pintar(general, Math.max(e?.general ?? 0, p?.general ?? 0));
-      aguja(0, e?.canales[0] ?? 0);
-      aguja(1, e?.canales[1] ?? 0);
-      PISTA_DE_CANAL.forEach((j, k) => aguja(2 + k, p?.pistas[j] ?? 0));
-      aguja(8, Math.max(e?.izq ?? 0, p?.izq ?? 0));
-      aguja(9, Math.max(e?.der ?? 0, p?.der ?? 0));
+      aguja(0, e?.canales[0] ?? 0, pasos);
+      aguja(1, e?.canales[1] ?? 0, pasos);
+      PISTA_DE_CANAL.forEach((j, k) => aguja(2 + k, p?.pistas[j] ?? 0, pasos));
+      aguja(8, Math.max(e?.izq ?? 0, p?.izq ?? 0), pasos);
+      aguja(9, Math.max(e?.der ?? 0, p?.der ?? 0), pasos);
     };
-    bucle();
+    raf = requestAnimationFrame(bucle);
     const volver = () => void mesa.reanudar();
     document.addEventListener("visibilitychange", volver);
     return () => {
@@ -1062,7 +1082,7 @@ export default function ConsolaMesa({
       {verMetro && (
         <MetronomoMesa
           cancion={metroCancion}
-          segundo={pistas?.transporte.segundo}
+          posicion={pistas?.transporte.posicion ?? null}
           tocando={pistas?.transporte.tocando}
           bpm={metroAj.bpm}
           compas={metroAj.compas}

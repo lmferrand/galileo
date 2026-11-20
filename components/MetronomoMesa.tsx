@@ -12,6 +12,7 @@ import MetronomoPanel, { COMPASES } from "./MetronomoPanel";
 import type { Compas } from "@/lib/metronomo";
 import { SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
 import type { ClickCancion } from "@/lib/pistas/ajustesCancion";
+import { usePosicion, type Posicion } from "@/lib/pistas/posicion";
 
 /** El metrónomo con el ritmo de la canción que suena en la Mesa (el click del reproductor) */
 export interface MetronomoCancion {
@@ -35,8 +36,8 @@ export interface MetronomoCancion {
 
 interface Props {
   cancion: MetronomoCancion | null;
-  /** Por dónde va la canción (segundos) y si suena: para encender el punto del golpe que toca */
-  segundo?: number;
+  /** Por dónde va la canción y si suena: para encender el punto del golpe que toca */
+  posicion?: Posicion | null;
   tocando?: boolean;
   // Sin canción
   bpm: number;
@@ -70,7 +71,7 @@ function golpeDelCompas(pulso: ClickCancion, segundo: number): number | null {
   return (((a - pulso.uno) % pulso.compas) + pulso.compas) % pulso.compas;
 }
 
-export default function MetronomoMesa({ cancion, segundo = 0, tocando = false, bpm, compas, sonando, alGolpe, onBpm, onCompas, onAlternar, cuenta, onCuenta, onCerrar }: Props) {
+export default function MetronomoMesa({ cancion, posicion = null, tocando = false, bpm, compas, sonando, alGolpe, onBpm, onCompas, onAlternar, cuenta, onCuenta, onCerrar }: Props) {
   // El punto que se enciende en cada golpe (solo con la hoja abierta: así no se repinta la Mesa)
   const [tiempo, setTiempo] = useState<number | null>(null);
   useEffect(() => {
@@ -80,7 +81,8 @@ export default function MetronomoMesa({ cancion, segundo = 0, tocando = false, b
   }, [alGolpe, cancion, sonando]);
 
   const pulso = cancion?.pulso ?? null;
-  const suena = pulso && tocando ? golpeDelCompas(pulso, segundo) : null;
+  // El golpe del compás que suena (−1: ninguno): la hoja solo se repinta cuando cambia de golpe
+  const suena = usePosicion(posicion, (s) => (pulso && tocando ? (golpeDelCompas(pulso, s) ?? -1) : -1));
   return (
     <div className="hoja-fondo" onClick={onCerrar}>
       <div className="hoja" role="dialog" aria-modal="true" aria-label="Metrónomo" onClick={(e) => e.stopPropagation()}>

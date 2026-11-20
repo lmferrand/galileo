@@ -14,13 +14,15 @@ import {
   type ReactNode,
 } from "react";
 import { formatoTiempo } from "@/lib/pistas/tipos";
+import { usePosicion, type Posicion } from "@/lib/pistas/posicion";
 
 export interface Transporte {
   tocando: boolean;
   cargando: boolean;
   /** Se ha pulsado tocar mientras cargaba: sonará en cuanto esté lista */
   esperaTocar?: boolean;
-  segundo: number;
+  /** Por dónde va la canción: fuera de React, para no repintar la Mesa entera en cada cambio */
+  posicion: Posicion;
   duracion: number;
   /** La onda de la canción (0–1 por trozo), para dibujarla en la pantalla */
   onda: Float32Array | null;
@@ -56,6 +58,22 @@ type Arrastre = {
  * bucle, y la pantalla es roja como su contador. `aviso` (el mando que se mueve, las entradas…)
  * se enseña en lugar de la ayuda.
  */
+// Las piezas que siguen a la canción: se repintan ellas solas (lib/pistas/posicion)
+/** Por dónde va, en texto (cambia una vez por segundo) */
+function Ahora({ posicion }: { posicion: Posicion }) {
+  return usePosicion(posicion, formatoTiempo);
+}
+/** La parte ya sonada de la onda (el recorte que la pinta encendida) */
+function Hecho({ posicion, duracion, ancho }: { posicion: Posicion; duracion: number; ancho: number }) {
+  const s = usePosicion(posicion);
+  return <rect x="0" y="-1" width={Math.min(1, Math.max(0, s / duracion)) * ancho} height="2" />;
+}
+/** El cabezal: la raya que marca por dónde va */
+function Cabezal({ posicion, duracion }: { posicion: Posicion; duracion: number }) {
+  const s = usePosicion(posicion);
+  return <span className="pc-cabezal" style={{ left: `${(Math.min(Math.max(s, 0), duracion) / duracion) * 100}%` }} aria-hidden="true" />;
+}
+
 export default function TransporteMesa({
   t,
   conCinta,
@@ -76,6 +94,8 @@ export default function TransporteMesa({
     hasta: number;
   } | null>(null);
   const D = Math.max(1, t.duracion);
+  // Para quien usa lector de pantalla: el segundo entero (esta pantalla se repinta una vez por segundo)
+  const segundoEntero = usePosicion(t.posicion, Math.round);
   const trozo =
     provisional ??
     (t.desde !== null && t.hasta !== null && t.hasta - t.desde >= TROZO_MINIMO
@@ -155,7 +175,7 @@ export default function TransporteMesa({
       PageDown: -30,
     };
     if (e.key in pasos)
-      t.onIr(Math.min(D, Math.max(0, t.segundo + pasos[e.key])));
+      t.onIr(Math.min(D, Math.max(0, t.posicion.leer() + pasos[e.key])));
     else if (e.key === "Home") t.onIr(0);
     else return;
     e.preventDefault();
@@ -204,7 +224,6 @@ export default function TransporteMesa({
     }
     return `${arriba} L${onda.length},0${abajo} Z`;
   }, [onda]);
-  const hecho = Math.min(1, Math.max(0, t.segundo / D));
 
   return (
     <section
@@ -219,8 +238,8 @@ export default function TransporteMesa({
         aria-label="Posición en la canción (arrastra para elegir un trozo)"
         aria-valuemin={0}
         aria-valuemax={Math.round(D)}
-        aria-valuenow={Math.round(t.segundo)}
-        aria-valuetext={`${formatoTiempo(t.segundo)} de ${formatoTiempo(t.duracion)}`}
+        aria-valuenow={segundoEntero}
+        aria-valuetext={`${formatoTiempo(segundoEntero)} de ${formatoTiempo(t.duracion)}`}
         onPointerDown={(e) => empezar("nuevo", e)}
         onPointerMove={mover}
         onPointerUp={soltar}
@@ -228,7 +247,9 @@ export default function TransporteMesa({
         onKeyDown={teclaBarra}
       >
         <div className="pc-tiempos" aria-hidden="true">
-          <span>{formatoTiempo(t.segundo)}</span>
+          <span>
+            <Ahora posicion={t.posicion} />
+          </span>
           {aviso ? (
             <span className="pc-ayuda pc-aviso">{aviso}</span>
           ) : trozo ? (
@@ -249,7 +270,7 @@ export default function TransporteMesa({
             >
               <defs>
                 <clipPath id="pc-hecho">
-                  <rect x="0" y="-1" width={hecho * N} height="2" />
+                  <Hecho posicion={t.posicion} duracion={D} ancho={N} />
                 </clipPath>
               </defs>
               <path d={silueta} className="pc-onda-fondo" />
@@ -302,11 +323,7 @@ export default function TransporteMesa({
               />
             </span>
           )}
-          <span
-            className="pc-cabezal"
-            style={{ left: pct(t.segundo) }}
-            aria-hidden="true"
-          />
+          <Cabezal posicion={t.posicion} duracion={D} />
         </div>
       </div>
 
@@ -318,7 +335,7 @@ export default function TransporteMesa({
               <button
                 type="button"
                 className="tecla pc-tecla"
-                onClick={() => t.onIr(Math.max(0, t.segundo - 10))}
+                onClick={() => t.onIr(Math.max(0, t.posicion.leer() - 10))}
                 disabled={t.cargando}
                 aria-label="Atrás 10 segundos"
               >
@@ -362,7 +379,7 @@ export default function TransporteMesa({
               <button
                 type="button"
                 className="tecla pc-tecla"
-                onClick={() => t.onIr(Math.min(D, t.segundo + 10))}
+                onClick={() => t.onIr(Math.min(D, t.posicion.leer() + 10))}
                 disabled={t.cargando}
                 aria-label="Adelante 10 segundos"
               >
