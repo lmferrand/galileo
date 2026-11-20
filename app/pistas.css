@@ -12,19 +12,28 @@ a.marca {
   color: inherit;
   text-decoration: none;
 }
+/* GALILEO con su disco y sus alas (ancho y bajito). Ocupa el sitio que dejan las pestañas y el
+   botón de ajustes del afinador, hasta su tamaño: en los móviles estrechos se hace más pequeño en
+   vez de montarse encima (a.marca se encoge, ver aprender.css; la imagen se ajusta sin deformarse). */
 .marca-logo {
   display: block;
-  /* GALILEO: ancho y bajito */
-  height: 34px;
-  width: auto;
+  width: 100%;
+  height: 36px;
+  object-fit: contain;
+  object-position: left center;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
   user-select: none;
   -webkit-user-select: none;
 }
-@media (max-width: 380px) {
-  .marca-logo {
-    height: 30px;
+@media (min-width: 700px) {
+  a.marca {
+    flex-basis: 143px;
   }
+  .marca-logo {
+    height: 48px;
+  }
+}
+@media (max-width: 380px) {
   .pestanas a {
     padding: 7px 12px;
   }

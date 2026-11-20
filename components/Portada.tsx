@@ -12,7 +12,7 @@ const MARCAS = Array.from({ length: 9 }, (_, i) => -60 + i * 15);
 
 export default function Portada({ onFin }: { onFin: () => void }) {
   const [saltada, setSaltada] = useState(false);
-  preload("/logo-galileo-grande.webp", { as: "image", fetchPriority: "high" });
+  preload("/logo-galileo-disco-grande.webp", { as: "image", fetchPriority: "high" });
 
   return (
     <div
@@ -27,7 +27,7 @@ export default function Portada({ onFin }: { onFin: () => void }) {
     >
       <div className="portada-luz" aria-hidden="true" />
       {/* eslint-disable-next-line @next/next/no-img-element -- imagen fija, precargada */}
-      <img className="portada-logo" src="/logo-galileo-grande.webp" alt="" width={900} height={329} draggable={false} />
+      <img className="portada-logo" src="/logo-galileo-disco-grande.webp" alt="" width={1100} height={370} draggable={false} />
       <svg className="portada-dial" viewBox="0 0 240 124" aria-hidden="true">
         <path className="portada-arco" d="M 40.3 66 A 92 92 0 0 1 199.7 66" />
         {MARCAS.map((g) => {

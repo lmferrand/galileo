@@ -40,14 +40,19 @@ html.hueco:is([data-pestana="aprender"], :not([data-pestana])):has(.app-aprender
   height: 100%;
 }
 
-/* Tres pestañas: el logo nunca se encoge (se deformaba) y en móviles estrechos todo algo más junto */
+/* Tres pestañas: si no hay sitio, el logo se hace más pequeño (sin deformarse: object-fit en
+   pistas.css) y en móviles estrechos todo algo más junto */
 .marca {
+  flex: 0 1 107px;
+  min-width: 0;
+}
+.pestanas {
   flex: none;
 }
 .cabecera {
   gap: 6px;
 }
-@media (max-width: 420px) {
+@media (max-width: 460px) {
   .pestanas a {
     padding: 7px 10px;
     font-size: 14px;
@@ -69,9 +74,6 @@ html.hueco:is([data-pestana="aprender"], :not([data-pestana])):has(.app-aprender
   }
   .navegacion {
     gap: 8px;
-  }
-  .marca-logo {
-    height: 34px;
   }
   .pestanas a {
     padding: 6px 7px;

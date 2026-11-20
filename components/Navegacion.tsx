@@ -7,9 +7,9 @@ export default function Navegacion({ actual }: { actual: "afinar" | "pistas" | "
   return (
     <div className="navegacion">
       <Link href="/" className="marca" aria-label="Galileo, inicio">
-        {/* Crema con contorno oscuro: se lee igual sobre la madera oscura y sobre la clara */}
+        {/* El logo del disco con alas (20-nov-2026): letras crema con borde dorado, se lee sobre la madera */}
         {/* eslint-disable-next-line @next/next/no-img-element -- logo pequeño, ya optimizado */}
-        <img src="/logo-galileo.webp" alt="Galileo" width={328} height={120} className="marca-logo" draggable={false} />
+        <img src="/logo-galileo-disco.webp" alt="Galileo" width={380} height={128} className="marca-logo" draggable={false} />
       </Link>
       <nav className="pestanas" aria-label="Secciones">
         <Link href="/" aria-current={actual === "afinar" ? "page" : undefined}>
