@@ -372,6 +372,44 @@ a.marca {
 .mezclas::-webkit-scrollbar {
   display: none;
 }
+/* Para practicar un pasaje: el bucle por compases y el entrenador de velocidad (PracticaBucle) */
+.pb {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.pb-fila {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.pb-titulo {
+  min-width: 118px;
+  font-weight: 700;
+  font-size: 15px;
+}
+.pb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pb-chips .chip {
+  min-width: 44px;
+  min-height: 38px;
+}
+.pb-nota {
+  font-size: 13.5px;
+  color: var(--texto-3);
+}
+.pb-interruptor {
+  justify-self: start;
+  min-height: 40px;
+}
+.pb-estado {
+  margin: 0;
+}
+
 /* Tus tomas añadidas en la Mesa, entre las pistas de la canción */
 .canal-toma .canal-nombre small {
   font-weight: 500;

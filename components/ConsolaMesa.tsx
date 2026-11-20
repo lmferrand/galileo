@@ -38,6 +38,7 @@ import { formatoTiempo, FRECUENCIA } from "@/lib/pistas/tipos";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo } from "@/lib/metronomo";
 import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
 import CarpetasMesa from "./CarpetasMesa";
+import BucleMesa from "./BucleMesa";
 import { guardarCuentaMesa, leerCuentaMesa, SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
 import { guardarEscucha, guardarModoGrabar, leerEscucha, leerModoGrabar, RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA, type ModoGrabar } from "@/lib/mesa/escucha";
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
@@ -320,6 +321,8 @@ export default function ConsolaMesa({
   // Con canción va con su ritmo (el click del reproductor, sacado de la batería: ver MetronomoMesa);
   // sin canción, el tempo y el compás que pongas (los mismos que el metrónomo del afinador).
   const [verMetro, setVerMetro] = useState(false);
+  // La hoja «Bucle» (repetir, compases y entrenador de velocidad)
+  const [verBucle, setVerBucle] = useState(false);
   // Organizar las carpetas del selector (la lente de la rueda dentada de la placa)
   const [verCarpetas, setVerCarpetas] = useState(false);
   const [metroCambiado, setMetroCambiado] = useState<AjustesMetronomo | null>(null);
@@ -1000,6 +1003,7 @@ export default function ConsolaMesa({
     rec: { grabando: !!grabando || cuenta !== null, ocupado: estado === "abriendo" || !!pistas?.transporte.cargando, onPulsar: () => void pulsarRec() },
     toma: (tomas.length > 0 || anadidas.length > 0) && !grabando && cuenta === null ? () => setVerTomas(true) : null,
     metronomo: teclaMetro,
+    onBucle: pistas ? () => setVerBucle(true) : undefined,
     onOrganizar: canciones ? () => setVerCarpetas(true) : undefined,
     alLeer: leer,
     canciones: canciones && {
@@ -1165,6 +1169,8 @@ export default function ConsolaMesa({
       {verCarpetas && canciones && (
         <CarpetasMesa canciones={canciones.lista} onCambiadas={canciones.onCambiadas ?? (() => undefined)} onCerrar={() => setVerCarpetas(false)} />
       )}
+
+      {verBucle && pistas && <BucleMesa t={pistas.transporte} onCerrar={() => setVerBucle(false)} />}
 
       {verMetro && (
         <MetronomoMesa

@@ -198,9 +198,11 @@ interface Props {
   alLeer?: (donde: string, texto: string) => void;
   /** La tecla del metrónomo de la Mesa: su tempo, si suena y abrir su hoja */
   metronomo?: { texto: string; on: boolean; onAbrir: () => void };
+  /** La tecla «Bucle» abre su hoja */
+  onBucle?: () => void;
 }
 
-export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, canciones, metronomo, onOrganizar, alLeer }: Props) {
+export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, canciones, metronomo, onOrganizar, alLeer, onBucle }: Props) {
   // Al ir atrás o adelante, las bobinas corren un momento
   const [corriendo, setCorriendo] = useState<"atras" | "adelante" | null>(null);
   const [fin, setFin] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -333,6 +335,7 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
               t={t}
               conCinta
               aviso={aviso}
+              onBucle={onBucle}
               extra={
                 <>
                   {teclaMetro}

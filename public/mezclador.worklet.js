@@ -343,6 +343,8 @@ class MezcladorPistas extends AudioWorkletProcessor {
       // Vuelta al principio del trozo: el solape funde el final con el inicio.
       this.analisis = this.bucle.a;
       this.previo = this.bucle.a - Math.round(HS * this.r);
+      // Para el entrenador de velocidad (sube un poco en cada vuelta)
+      this.port.postMessage({ tipo: "vuelta" });
     }
     if (this.analisis >= this.total()) {
       this.tocando = false;

@@ -15,6 +15,7 @@ import {
 } from "react";
 import { formatoTiempo } from "@/lib/pistas/tipos";
 import { usePosicion, type Posicion } from "@/lib/pistas/posicion";
+import type { Practica } from "./PracticaBucle";
 
 export interface Transporte {
   tocando: boolean;
@@ -39,6 +40,8 @@ export interface Transporte {
   velocidadMin: number;
   velocidadMax: number;
   onVelocidad: (v: number) => void;
+  /** El bucle por compases y el entrenador de velocidad (components/PracticaBucle) */
+  practica?: Practica;
 }
 
 /** Lo más corto que puede ser un trozo, en segundos */
@@ -79,12 +82,15 @@ export default function TransporteMesa({
   conCinta,
   aviso,
   extra,
+  onBucle,
 }: {
   t: Transporte;
   conCinta?: boolean;
   aviso?: string | null;
   /** Otra tecla al final (la de la toma de REC) */
   extra?: ReactNode;
+  /** La tecla «Bucle» abre su hoja (repetir, compases, entrenador) en lugar de solo repetir o no */
+  onBucle?: () => void;
 }) {
   const barra = useRef<HTMLDivElement>(null);
   const arrastre = useRef<Arrastre | null>(null);
@@ -396,9 +402,9 @@ export default function TransporteMesa({
             type="button"
             className={`tecla pc-tecla${t.repetir && trozo ? " on" : ""}`}
             aria-pressed={t.repetir && !!trozo}
-            aria-label="Repetir el trozo"
-            disabled={!trozo}
-            onClick={() => t.onRepetir(!t.repetir)}
+            aria-label={onBucle ? "Bucle: repetir un trozo, por compases, y entrenador de velocidad" : "Repetir el trozo"}
+            disabled={!onBucle && !trozo}
+            onClick={onBucle ?? (() => t.onRepetir(!t.repetir))}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M17 4l3 3-3 3M20 7H8a4 4 0 0 0-4 4M7 20l-3-3 3-3M4 17h12a4 4 0 0 0 4-4" />

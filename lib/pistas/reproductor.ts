@@ -39,6 +39,8 @@ export class Reproductor {
   private tempo: ClickCancion | null = null;
   private volClick = 0.8;
   alCambiar: (e: EstadoReproductor) => void = () => undefined;
+  /** El trozo que se repite ha dado una vuelta (para el entrenador de velocidad) */
+  alDarVuelta: () => void = () => undefined;
 
   private preparar(): Promise<void> {
     if (!this.preparando) {
@@ -109,6 +111,7 @@ export class Reproductor {
           const m = e.data;
           if (m.tipo === "pos") this.alCambiar({ tocando: m.tocando, segundo: m.frame / FRECUENCIA });
           else if (m.tipo === "fin") this.alCambiar({ tocando: false, segundo: this.frames / FRECUENCIA });
+          else if (m.tipo === "vuelta") this.alDarVuelta();
           else if (m.tipo === "cuenta") {
             this.esperandoCuenta?.(m.segundos || 0);
             this.esperandoCuenta = null;

@@ -1904,6 +1904,30 @@
   border-radius: 10px;
   font-weight: 700;
 }
+/* La hoja «Bucle»: repetir, compases, velocidad y entrenador */
+.bucle-hoja {
+  display: grid;
+  gap: 14px;
+}
+.bucle-hoja .pb {
+  margin-top: 0;
+}
+.bucle-velocidad {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bucle-velocidad output {
+  min-width: 56px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.bucle-quitar {
+  justify-self: start;
+  min-height: 36px;
+  padding: 0;
+}
 /* Calibrar el retraso de lo grabado */
 .cal-hoja {
   display: grid;

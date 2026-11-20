@@ -21,6 +21,8 @@ import { leerPistasDeCancion, pulsoDeCancion } from "@/lib/pistas/cargar";
 import { ajustesPorDefecto, guardarAjustesCancion, leerAjustesCancion, moverUno, nombreNuevo, NOMBRES_PARTES, ponerCompas, pulsoAnticuado, pulsoDoble, pulsoMitad, type ClickCancion, type Marca } from "@/lib/pistas/ajustesCancion";
 import { VERSION_PULSO } from "@/lib/pistas/pulso";
 import { Posicion, usePosicion } from "@/lib/pistas/posicion";
+import { bucleDeCompases, compasesDe, moverBucle, type Bucle } from "@/lib/pistas/compases";
+import PracticaBucle, { type Practica } from "./PracticaBucle";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
 
@@ -115,6 +117,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   const [desde, setDesde] = useState<number | null>(null);
   const [hasta, setHasta] = useState<number | null>(null);
   const [repetir, setRepetir] = useState(false);
+  // El entrenador de velocidad: en cada vuelta del trozo que se repite, un poco más rápido
+  const [entrenar, setEntrenar] = useState(false);
+  const [cadaVueltas, setCadaVueltas] = useState(2);
+  const [vueltasAqui, setVueltasAqui] = useState(0);
+  /** Lo mismo, al día para el aviso de vuelta del reproductor (`n`: vueltas dadas a esta velocidad) */
+  const entrenador = useRef({ activo: false, cada: 2, n: 0 });
   const [nombre, setNombre] = useState(cancion.nombre);
   const [editando, setEditando] = useState(false);
   const [borrador, setBorrador] = useState(cancion.nombre);
@@ -152,6 +160,8 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     setCargando(true);
     setError(null);
     setTocando(false);
+    setEntrenar(false);
+    setVueltasAqui(0);
     setTomasCancion([]);
     setVolumen(a.volumen);
     setSilencio(a.silencio);
@@ -209,7 +219,19 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     tocarAlCargar.current = false;
     posicion.poner(0);
     tomasAhora.current = [];
+    entrenador.current = { ...entrenador.current, activo: false, n: 0 };
     let vivo = true;
+    // El entrenador: cada tantas vueltas del trozo, un 5 % más rápido, hasta la velocidad de la canción
+    r.alDarVuelta = () => {
+      const e = entrenador.current;
+      if (!e.activo) return;
+      e.n += 1;
+      if (e.n >= e.cada) {
+        e.n = 0;
+        setVelocidad((v) => Math.round(Math.min(VEL_MAX, v + 0.05) * 100) / 100);
+      }
+      setVueltasAqui(e.n);
+    };
     r.alCambiar = ({ tocando: t, segundo: s }) => {
       if (t !== ultimo.current.tocando || Math.abs(s - ultimo.current.segundo) >= 0.1) {
         ultimo.current = { tocando: t, segundo: s };
@@ -480,6 +502,36 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     setRepetir(false);
   };
 
+  // ---- El bucle por compases y el entrenador de velocidad (lib/pistas/compases, PracticaBucle) ----
+  const ponerBucle = (b: Bucle | null) => {
+    if (!b || b.hasta - b.desde < TROZO_MINIMO) return;
+    setDesde(b.desde);
+    setHasta(b.hasta);
+    setRepetir(true);
+  };
+  const ponerEntrenador = (activo: boolean, cada: number) => {
+    entrenador.current = { activo, cada, n: 0 };
+    setEntrenar(activo);
+    setCadaVueltas(cada);
+    setVueltasAqui(0);
+  };
+  const practica: Practica = {
+    conCompases: !!click,
+    buscando: buscandoPulso === "buscando",
+    compasesDelBucle: click && desde !== null && hasta !== null ? (compasesDe(click, desde, hasta, cancion.duracion)?.cuantos ?? null) : null,
+    onCompases: (n) => {
+      if (click) ponerBucle(bucleDeCompases(click, posicion.leer(), n, cancion.duracion));
+    },
+    onMover: (pasos) => {
+      if (click && desde !== null && hasta !== null) ponerBucle(moverBucle(click, desde, hasta, pasos, cancion.duracion));
+    },
+    entrenar,
+    cada: cadaVueltas,
+    vuelta: vueltasAqui,
+    onEntrenar: (si) => ponerEntrenador(si, cadaVueltas),
+    onCada: (n) => ponerEntrenador(entrenar, n),
+  };
+
   // ---- Velocidad ----
   const cambiarVelocidad = (delta: number) =>
     setVelocidad((v) => Math.round(Math.max(VEL_MIN, Math.min(VEL_MAX, v + delta)) * 100) / 100);
@@ -554,6 +606,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
       velocidadMin: VEL_MIN,
       velocidadMax: VEL_MAX,
       onVelocidad: (v) => setVelocidad(Math.round(Math.max(VEL_MIN, Math.min(VEL_MAX, v)) * 100) / 100),
+      practica,
     },
     retrasoSalida: () => rep.current?.retrasoSalida() ?? 0,
     escucharToma: async (toma: Toma) => {
@@ -981,6 +1034,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
                       ? `Se repite de ${formatoTiempo(desde)} a ${formatoTiempo(hasta)}.`
                       : "Activa «Repetir» para que suene en bucle."}
               </p>
+              <PracticaBucle p={practica} hayTrozo={trozoValido} repitiendo={repetir && trozoValido} velocidad={velocidad} />
             </section>
 
             <section className="guardar" aria-label="Guardar la mezcla">
