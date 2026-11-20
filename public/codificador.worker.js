@@ -1,10 +1,11 @@
-// Clavija: comprime una pista (Int16 estéreo intercalado, 44,1 kHz) a MP3
-// para subirla a la nube. Usa lamejs (LGPL) desde jsDelivr.
+// Clavija: comprime una pista (Int16 estéreo intercalado, 44,1 kHz) a MP3: para subirla a la nube y
+// para exportar la mezcla o una toma. Usa lamejs (LGPL), que va dentro de la app (public/lamejs, ver
+// su LEEME.txt): así también funciona sin conexión.
 //
 // Recibe: { datos: Int16Array, kbps, progreso? }   Envía: { tipo: 'hecho', mp3: ArrayBuffer } | { tipo: 'error', mensaje }
 // Con `progreso`, también { tipo: 'progreso', hecho: 0–1 } de vez en cuando (al exportar un MP3 largo).
 
-import { Mp3Encoder } from "https://cdn.jsdelivr.net/npm/@breezystack/lamejs@1.2.7/+esm";
+import { Mp3Encoder } from "./lamejs/lamejs.js";
 
 self.onmessage = (e) => {
   try {

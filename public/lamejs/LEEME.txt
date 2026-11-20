@@ -1,0 +1,14 @@
+lamejs: el codificador de MP3 que usa Galileo para exportar la mezcla y las tomas en MP3 y para
+comprimir las pistas que suben a la nube (public/codificador.worker.js).
+
+  Paquete:   @breezystack/lamejs, versión 1.2.7 (npm)
+  Archivo:   dist/lamejs.js, tal cual viene en el paquete, sin modificar
+  Licencia:  LGPL-3.0 (ver LICENSE en esta carpeta)
+  Código:    https://github.com/shijinyu/lamejs  ·  LAME: https://lame.sourceforge.net
+  Huella del paquete (sha512, la del registro de npm):
+             6wc7ck65ctA75Hq7FYHTtTvGnYs6msgdxiSUICQ+A01nVOWg6rqouZB8IdyteRlfpYYiFovkf67dIeOgWIUzTA==
+
+Va como archivo aparte (no mezclado con el código de la app) para que se pueda cambiar por otra
+versión, como pide su licencia. Antes se cargaba de internet (jsDelivr) cada vez: sin conexión no
+se podía hacer un MP3. Para actualizarlo: bajar el paquete nuevo con «npm pack», comprobar su
+huella y copiar aquí su dist/lamejs.js.
