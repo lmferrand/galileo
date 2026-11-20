@@ -534,6 +534,8 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   const practica: Practica = {
     conCompases: !!click,
     buscando: buscandoPulso === "buscando",
+    sinRitmo: buscandoPulso === "sin",
+    onBuscar: () => void sacarElPulso(false),
     compasesDelBucle: click && desde !== null && hasta !== null ? (compasesDe(click, desde, hasta, cancion.duracion)?.cuantos ?? null) : null,
     onCompases: (n) => {
       if (click) ponerBucle(bucleDeCompases(click, posicion.leer(), n, cancion.duracion));

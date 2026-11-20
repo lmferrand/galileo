@@ -11,6 +11,10 @@ export interface Practica {
   conCompases: boolean;
   /** Se está buscando */
   buscando: boolean;
+  /** Se buscó y no se encontró (la batería no se oye clara) */
+  sinRitmo: boolean;
+  /** Buscar el ritmo de la canción ahora (sin encender el click) */
+  onBuscar: () => void;
   /** Cuántos compases mide el trozo que se repite, si cae en compases */
   compasesDelBucle: number | null;
   /** Repetir `n` compases desde el compás donde está la canción */
@@ -73,7 +77,12 @@ export default function PracticaBucle({ p, hayTrozo, repitiendo, velocidad }: Pr
             </div>
           </>
         ) : (
-          <span className="pb-nota">{p.buscando ? "Buscando el ritmo de la canción…" : "Hace falta el ritmo de la canción (el click)."}</span>
+          <>
+            <button type="button" className="chip" onClick={p.onBuscar} disabled={p.buscando}>
+              {p.buscando ? "Buscando el ritmo…" : p.sinRitmo ? "Buscar el ritmo otra vez" : "Buscar el ritmo de la canción"}
+            </button>
+            <span className="pb-nota">{p.sinRitmo ? "No lo encuentro: la batería no se oye clara." : "Hace falta para saber dónde empieza cada compás."}</span>
+          </>
         )}
       </div>
       <button type="button" className={`interruptor-mini pb-interruptor ${p.entrenar ? "on" : ""}`} role="switch" aria-checked={p.entrenar} onClick={() => p.onEntrenar(!p.entrenar)}>
