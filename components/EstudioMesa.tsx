@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useHorizontal } from "@/lib/horizontal";
 import ConsolaMesa, { type PistasMesa } from "./ConsolaMesa";
+import Navegacion from "./Navegacion";
 import type { Cancion } from "@/lib/pistas/tipos";
 
 /** Para el selector de canciones de la grabadora */
@@ -50,8 +51,12 @@ export default function EstudioMesa({
   pistas,
   enConsola = false,
   selector,
+  pagina = false,
 }: {
-  onCerrar: () => void;
+  /** La ✕ (y Escape en el estudio). En la pestaña «Mesa», sin canción, no hay. */
+  onCerrar?: () => void;
+  /** Es la pestaña «Mesa»: en el estudio, arriba va la cabecera con las pestañas */
+  pagina?: boolean;
   /** Desde Pistas: las 6 pistas de la canción */
   pistas?: PistasMesa;
   /** Abrir ya en la consola (al cambiar de canción desde el selector) */
@@ -81,7 +86,7 @@ export default function EstudioMesa({
     const tecla = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (fase === "consola") setFase("volviendo");
-      else if (fase === "estudio") onCerrar();
+      else if (fase === "estudio") onCerrar?.();
     };
     document.addEventListener("keydown", tecla);
     return () => document.removeEventListener("keydown", tecla);
@@ -130,7 +135,14 @@ export default function EstudioMesa({
   }
 
   return (
-    <div ref={caja} className={`estudio-mesa fase-${fase}${horizontal === false ? " foto-vertical" : ""}`} role="dialog" aria-modal="true" aria-label="Mesa" tabIndex={-1}>
+    <div
+      ref={caja}
+      className={`estudio-mesa fase-${fase}${horizontal === false ? " foto-vertical" : ""}${pagina ? " es-pagina" : ""}`}
+      role={pagina ? undefined : "dialog"}
+      aria-modal={pagina ? undefined : true}
+      aria-label="Mesa"
+      tabIndex={-1}
+    >
       {tam && horizontal !== null && (
         <div className="estudio-escena" style={{ transform: transformacion }}>
           <div className="estudio-marco" style={marco}>
@@ -185,6 +197,18 @@ export default function EstudioMesa({
           <Arriba onEstudio={() => setFase("volviendo")} />
           <ConsolaMesa pistas={pistas} canciones={selector ? { lista: selector.canciones, actual: selector.actual, onElegir: selector.onElegir } : undefined} />
         </div>
+      ) : pagina ? (
+        // La pestaña «Mesa»: la cabecera de la app, y la ✕ si hay canción (la quita)
+        <header className="cabecera estudio-cabecera">
+          <Navegacion actual="mesa" />
+          {onCerrar && (
+            <button type="button" className="estudio-boton estudio-cerrar" onClick={onCerrar} aria-label="Quitar la canción de la Mesa">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          )}
+        </header>
       ) : (
         <Arriba onCerrar={onCerrar} />
       )}

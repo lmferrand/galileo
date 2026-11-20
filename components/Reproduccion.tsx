@@ -51,9 +51,11 @@ interface Props {
   /** Para el selector de pistas de la Mesa: todas las canciones y abrir otra */
   canciones?: Cancion[];
   onAbrirOtra?: (c: Cancion) => void;
+  /** Solo la Mesa, sin la pantalla del reproductor (la pestaña «Mesa»): su ✕ es `onVolver` */
+  soloMesa?: boolean;
 }
 
-export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEntrar = false, canciones, onAbrirOtra }: Props) {
+export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEntrar = false, canciones, onAbrirOtra, soloMesa = false }: Props) {
   const rep = useRef<Reproductor | null>(null);
   const [cargando, setCargando] = useState(true);
   // Separada en el PC con BS-RoFormer: ya reparte bien los graves, no se limpia el bajo
@@ -416,6 +418,18 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     },
   };
   const queda = describirMezcla(efectivas);
+
+  if (soloMesa) {
+    return (
+      <EstudioMesa
+        pagina
+        onCerrar={onVolver}
+        pistas={pistasMesa}
+        enConsola={mesaDirecta}
+        selector={canciones && onAbrirOtra ? { canciones, actual: cancion.id, onElegir: onAbrirOtra } : undefined}
+      />
+    );
+  }
 
   return (
     <main className="app app-pistas con-escenario">

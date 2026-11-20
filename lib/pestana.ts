@@ -2,7 +2,7 @@
 
 import { useLayoutEffect } from "react";
 
-export type Pestana = "afinar" | "pistas" | "aprender";
+export type Pestana = "afinar" | "pistas" | "aprender" | "mesa";
 
 /**
  * Apunta en <html data-pestana> la pestaña que se ve. Las otras siguen en la página, ocultas (ver

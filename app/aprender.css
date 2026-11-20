@@ -40,7 +40,7 @@ html.hueco:is([data-pestana="aprender"], :not([data-pestana])):has(.app-aprender
   height: 100%;
 }
 
-/* Tres pestañas: si no hay sitio, el logo se hace más pequeño (sin deformarse: object-fit en
+/* Cuatro pestañas: si no hay sitio, el logo se hace más pequeño (sin deformarse: object-fit en
    pistas.css) y en móviles estrechos todo algo más junto */
 .marca {
   flex: 0 1 107px;
@@ -54,8 +54,14 @@ html.hueco:is([data-pestana="aprender"], :not([data-pestana])):has(.app-aprender
 }
 @media (max-width: 460px) {
   .pestanas a {
-    padding: 7px 10px;
-    font-size: 14px;
+    padding: 7px 8px;
+    font-size: 13.5px;
+  }
+}
+@media (max-width: 400px) {
+  .pestanas a {
+    padding: 6px 6.5px;
+    font-size: 13px;
   }
 }
 /* En el afinador, el botón de ajustes solo con su icono (el «La 440» no cabe junto a tres pestañas) */
@@ -76,8 +82,14 @@ html.hueco:is([data-pestana="aprender"], :not([data-pestana])):has(.app-aprender
     gap: 8px;
   }
   .pestanas a {
-    padding: 6px 7px;
+    padding: 6px 5.5px;
     font-size: 12.5px;
+  }
+}
+/* Muy estrecho: sin logo, para que quepan las cuatro pestañas */
+@media (max-width: 340px) {
+  .marca {
+    display: none;
   }
 }
 

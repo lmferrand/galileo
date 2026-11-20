@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 
-/** Logo y pestañas «Afinar» / «Pistas» / «Aprender» de la cabecera. */
-export default function Navegacion({ actual }: { actual: "afinar" | "pistas" | "aprender"; sobreOscuro?: boolean }) {
+/** Logo y pestañas «Afinar» / «Pistas» / «Aprender» / «Mesa» de la cabecera. */
+export default function Navegacion({ actual }: { actual: "afinar" | "pistas" | "aprender" | "mesa"; sobreOscuro?: boolean }) {
   return (
     <div className="navegacion">
       <Link href="/" className="marca" aria-label="Galileo, inicio">
@@ -20,6 +20,9 @@ export default function Navegacion({ actual }: { actual: "afinar" | "pistas" | "
         </Link>
         <Link href="/aprender" aria-current={actual === "aprender" ? "page" : undefined}>
           Aprender
+        </Link>
+        <Link href="/mesa" aria-current={actual === "mesa" ? "page" : undefined}>
+          Mesa
         </Link>
       </nav>
     </div>

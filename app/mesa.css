@@ -89,6 +89,52 @@
 .estudio-mesa:not(.fase-estudio) .estudio-pista {
   opacity: 0;
 }
+/* La pestaña «Mesa» (PaginaMesa): los colores oscuros de Pistas, para la cabecera y las hojas */
+.app-mesa {
+  --bg: #1d100c;
+  --bg-alto: #3d2117;
+  --superficie: #2a1711;
+  --superficie-2: #3a2219;
+  --linea: rgba(240, 226, 204, 0.16);
+  --texto: #f3e8d6;
+  --texto-2: #dcc6aa;
+  --texto-3: #b39a80;
+  --laton: #d9b26a;
+  --laton-claro: #f1d59d;
+  --laton-osc: #8a6833;
+  --peligro: #f08a72;
+  color-scheme: dark;
+  color: var(--texto);
+}
+/* La pestaña «Mesa»: en el estudio, arriba, la cabecera de la app (y la ✕ si hay canción) */
+.estudio-cabecera {
+  position: fixed;
+  z-index: 5;
+  top: max(0px, env(safe-area-inset-top));
+  left: 0;
+  right: 0;
+  max-width: 540px;
+  margin: 0 auto;
+  padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+}
+.estudio-cabecera .estudio-cerrar {
+  flex: none;
+}
+.es-pagina .estudio-pista {
+  top: calc(max(16px, env(safe-area-inset-top)) + 64px);
+}
+.es-pagina.foto-vertical .estudio-pista {
+  top: auto;
+}
+.es-pagina {
+  animation: none;
+}
+@media (max-width: 360px) {
+  .estudio-cabecera {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
 .estudio-arriba {
   position: fixed;
   z-index: 5;
