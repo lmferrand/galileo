@@ -35,6 +35,7 @@ export default function MesaAfinador({ onCerrar }: { onCerrar: () => void }) {
                 pedirAbrirEnMesa(c.id);
                 router.push("/pistas");
               },
+              onCambiadas: leer,
             }
           : undefined
       }

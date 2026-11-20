@@ -37,6 +37,7 @@ import { esMovil } from "@/lib/pistas/aparato";
 import { formatoTiempo } from "@/lib/pistas/tipos";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo } from "@/lib/metronomo";
 import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
+import CarpetasMesa from "./CarpetasMesa";
 import { guardarCuentaMesa, leerCuentaMesa, SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
 import { useHidratado } from "@/lib/hidratado";
@@ -279,6 +280,8 @@ export default function ConsolaMesa({
   // Con canción va con su ritmo (el click del reproductor, sacado de la batería: ver MetronomoMesa);
   // sin canción, el tempo y el compás que pongas (los mismos que el metrónomo del afinador).
   const [verMetro, setVerMetro] = useState(false);
+  // Organizar las carpetas del selector (la lente de la rueda dentada de la placa)
+  const [verCarpetas, setVerCarpetas] = useState(false);
   const [metroCambiado, setMetroCambiado] = useState<AjustesMetronomo | null>(null);
   const metroAj: AjustesMetronomo = metroCambiado ?? (hidratado ? leerAjustesMetronomo() : { bpm: 90, compas: 4 });
   const [cuentaCambiada, setCuentaCambiada] = useState<boolean | null>(null);
@@ -856,6 +859,8 @@ export default function ConsolaMesa({
     rec: { grabando: !!grabando || cuenta !== null, ocupado: estado === "abriendo" || !!pistas?.transporte.cargando, onPulsar: () => void pulsarRec() },
     toma: tomas.length > 0 && !grabando && cuenta === null ? () => setVerTomas(true) : null,
     metronomo: teclaMetro,
+    onOrganizar: canciones ? () => setVerCarpetas(true) : undefined,
+    alLeer: leer,
     canciones: canciones && {
       ...canciones,
       onElegir: (c: Cancion) => {
@@ -1014,6 +1019,10 @@ export default function ConsolaMesa({
             </div>
           </div>
         </div>
+      )}
+
+      {verCarpetas && canciones && (
+        <CarpetasMesa canciones={canciones.lista} onCambiadas={canciones.onCambiadas ?? (() => undefined)} onCerrar={() => setVerCarpetas(false)} />
       )}
 
       {verMetro && (

@@ -42,9 +42,10 @@ export default function PaginaMesa() {
           onAbrirOtra={setCancion}
           onVolver={() => setCancion(null)}
           onRenombrada={leer}
+          onCambiadas={leer}
         />
       ) : (
-        <EstudioMesa pagina selector={canciones ? { canciones, actual: "", onElegir: setCancion } : undefined} />
+        <EstudioMesa pagina selector={canciones ? { canciones, actual: "", onElegir: setCancion, onCambiadas: leer } : undefined} />
       )}
     </main>
   );

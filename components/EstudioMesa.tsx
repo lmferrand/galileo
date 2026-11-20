@@ -5,8 +5,8 @@
 // (ConsolaMesa). «Estudio» vuelve a alejarse; la ✕ cierra (la Mesa sigue sonando si está
 // encendida). Igual que al elegir instrumento: la foto y la zona para tocar van en UNA capa que se
 // acerca entera con una transformación CSS (fluida en el iPhone). Medidas en píxeles de la foto.
-// Las canciones se eligen en la placa de metal de la grabadora (PlacaCanciones): elegir otra la pone
-// en la Mesa sin salir de ella.
+// Las canciones se eligen en la placa de metal de la grabadora (PlacaCanciones), por carpetas: elegir
+// otra la pone en la Mesa sin salir de ella. Las carpetas se organizan ahí mismo (CarpetasMesa).
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHorizontal } from "@/lib/horizontal";
@@ -19,6 +19,8 @@ export interface SelectorMesa {
   canciones: Cancion[];
   actual: string;
   onElegir: (c: Cancion) => void;
+  /** Han cambiado las carpetas: hay que volver a leer las canciones */
+  onCambiadas: () => void;
 }
 
 interface Rect {
@@ -196,7 +198,7 @@ export default function EstudioMesa({
         <div className="estudio-consola">
           {/* Dentro de la consola no hay ✕: se sale hacia atrás (canal → mesa → las dos → estudio) */}
           <Arriba onEstudio={() => setFase("volviendo")} />
-          <ConsolaMesa pistas={pistas} canciones={selector ? { lista: selector.canciones, actual: selector.actual, onElegir: selector.onElegir } : undefined} />
+          <ConsolaMesa pistas={pistas} canciones={selector ? { lista: selector.canciones, actual: selector.actual, onElegir: selector.onElegir, onCambiadas: selector.onCambiadas } : undefined} />
         </div>
       ) : pagina ? (
         // La pestaña «Mesa»: la cabecera de la app, y la ✕ si hay canción (la quita)

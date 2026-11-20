@@ -168,11 +168,15 @@ interface Props {
   toma: (() => void) | null;
   /** Las canciones para el selector de la placa (sin ellas, desde el afinador: «Sin cinta») */
   canciones?: CancionesPlaca;
+  /** La lente de la rueda dentada de la placa: organizar las carpetas */
+  onOrganizar?: () => void;
+  /** Lo que se va eligiendo en la placa se enseña en la pantalla */
+  alLeer?: (donde: string, texto: string) => void;
   /** La tecla del metrónomo de la Mesa: su tempo, si suena y abrir su hoja */
   metronomo?: { texto: string; on: boolean; onAbrir: () => void };
 }
 
-export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, canciones, metronomo }: Props) {
+export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, canciones, metronomo, onOrganizar, alLeer }: Props) {
   // Al ir atrás o adelante, las bobinas corren un momento
   const [corriendo, setCorriendo] = useState<"atras" | "adelante" | null>(null);
   const [fin, setFin] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -309,7 +313,7 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
           }}
         />
 
-        <PlacaCanciones canciones={canciones} />
+        <PlacaCanciones canciones={canciones} onOrganizar={onOrganizar} alLeer={alLeer} />
 
         {/* Debajo de los VU, la pantalla de la canción (o solo los avisos, sin canción) */}
         <div className="gm-pantalla" style={enCaja(PANTALLA)}>

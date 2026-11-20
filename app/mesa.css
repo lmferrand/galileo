@@ -1225,6 +1225,258 @@
   font-size: 26px;
   color: rgba(255, 214, 150, 0.3);
 }
+/* Una carpeta en el tambor: su dibujo delante y cuántas canciones tiene detrás */
+.gm-placa-ico {
+  display: inline-block;
+  width: 0.82em;
+  height: 0.82em;
+  margin-right: 0.32em;
+  vertical-align: -0.08em;
+  fill: currentColor;
+  opacity: 0.82;
+}
+.gm-placa-fila small {
+  margin-left: 0.5em;
+  font-family: var(--f-ui);
+  font-size: 0.52em;
+  font-weight: 800;
+  opacity: 0.62;
+  vertical-align: 0.18em;
+}
+/* Las lentes de los lados de la placa (sobre los casquillos de latón): volver a las carpetas y
+   organizarlas. Encendidas tienen la misma luz que la ventana; apagadas, cristal oscuro. */
+.gm-placa-lente {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.gm-placa-lente::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #2a1a0c, #120904);
+  box-shadow:
+    0 0 0 2px #160d06,
+    inset 0 2px 4px rgba(0, 0, 0, 0.7);
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    filter 120ms ease;
+}
+.gm-placa-lente.on::before {
+  background: radial-gradient(circle at 50% 42%, #ffdc92 0%, #f0ad4a 58%, #b96c1c 100%);
+  box-shadow:
+    0 0 0 2px #160d06,
+    0 0 14px 4px rgba(255, 168, 60, 0.32),
+    inset 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.gm-placa-lente svg {
+  position: relative;
+  width: 25px;
+  height: 25px;
+  color: rgba(255, 214, 150, 0.22);
+}
+.gm-placa-lente.on svg {
+  color: #3a1a07;
+}
+.gm-placa-lente:disabled {
+  cursor: default;
+}
+.gm-placa-lente:active:not(:disabled)::before {
+  filter: brightness(0.8);
+}
+.gm-placa-lente:focus-visible {
+  outline: 4px solid rgba(255, 210, 122, 0.9);
+  outline-offset: -8px;
+}
+
+/* ---------- La hoja para organizar las carpetas (CarpetasMesa) ---------- */
+.cm-hoja {
+  display: grid;
+  gap: 14px;
+}
+.cm-atras {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 0;
+}
+.cm-flecha {
+  width: 20px;
+  height: 20px;
+}
+.cm-ico {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  fill: var(--laton);
+}
+.cm-titulo {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--f-display);
+  font-size: 24px;
+  line-height: 1.15;
+  color: var(--texto);
+  overflow-wrap: anywhere;
+}
+.cm-lista,
+.cm-canciones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.cm-carpeta {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.cm-carpeta-abrir {
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--linea);
+  background: color-mix(in oklab, var(--superficie-2) 70%, transparent);
+  color: var(--texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cm-carpeta-nombre {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-carpeta-abrir small {
+  flex: none;
+  color: var(--texto-3);
+  font-size: 13px;
+}
+.cm-orden {
+  flex: none;
+  width: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid var(--linea);
+  background: transparent;
+  color: var(--texto-2);
+  cursor: pointer;
+}
+.cm-orden:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.cm-cancion {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.cm-cancion:has(input:checked) {
+  background: color-mix(in oklab, var(--laton) 16%, transparent);
+}
+.cm-cancion input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  accent-color: var(--laton);
+}
+.cm-cancion span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cm-fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.cm-pie {
+  position: sticky;
+  bottom: 0;
+  padding: 10px 0 2px;
+  background: linear-gradient(to bottom, transparent, var(--superficie) 30%);
+}
+.cm-form {
+  display: grid;
+  gap: 10px;
+}
+.cm-form label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--texto-2);
+}
+.cm-form input {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--linea);
+  background: rgba(18, 10, 6, 0.6);
+  color: var(--texto);
+  font: inherit;
+  font-size: 16px;
+}
+.cm-aviso {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--linea);
+  background: color-mix(in oklab, var(--superficie-2) 60%, transparent);
+}
+.cm-aviso p {
+  margin: 0;
+  color: var(--texto-2);
+  line-height: 1.4;
+}
+.cm-aviso .boton-secundario.peligro {
+  color: var(--peligro);
+  border-color: color-mix(in oklab, var(--peligro) 55%, transparent);
+}
+.cm-destinos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cm-chip-nueva {
+  border-style: dashed;
+}
+.cm-de h4 {
+  margin: 4px 0 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--texto-3);
+}
+
 /* Al poner una canción, la luz de la ventana da un destello */
 .gm-placa-destello {
   position: absolute;

@@ -325,6 +325,7 @@ export default function Pistas() {
           recargar();
         }}
         onRenombrada={recargar}
+        onCambiadas={recargar}
         mesaAlEntrar={mesaAlEntrar}
         canciones={canciones ?? []}
         onAbrirOtra={(c) => {
