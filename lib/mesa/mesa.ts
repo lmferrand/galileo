@@ -3,8 +3,9 @@
 // distorsión → ecualizador → chorus → delay → reverb → panorama → volumen. Al final, el volumen
 // general y un limitador (nunca satura) hacia la salida (los cascos de la interfaz).
 // El retraso al oírte en los cascos: lo pone sobre todo el aparato (y mucho más unos cascos
-// Bluetooth). La Mesa no le suma nada que se pueda evitar: el limitador no espera a ver venir los
-// picos (public/limitador.worklet.js) y se le pide al navegador la entrada más rápida que tenga.
+// Bluetooth). La Mesa no le suma nada que se pueda evitar: ni el compresor de las entradas ni el
+// limitador esperan a ver venir los picos (public/compresor.worklet.js y limitador.worklet.js; los
+// del navegador esperan ~6 ms cada uno) y se le pide al navegador la entrada más rápida que tenga.
 // Para cantar a tiempo se puede dejar de oírse en los cascos (lib/mesa/escucha): REC graba igual.
 // Vive fuera de la pantalla (un único objeto) para que siga sonando con su hoja cerrada.
 
@@ -129,7 +130,8 @@ export class Canal {
   /** Lo que sale del canal (tras ecualizador, efectos y fader): para ver si tapa a otro */
   readonly espectro: AnalyserNode;
   private puerta: AudioWorkletNode | null;
-  private compresor: DynamicsCompressorNode;
+  /** El de la Mesa sin espera (AudioWorklet) o, en las pistas del reproductor, el del navegador */
+  private compresor: DynamicsCompressorNode | AudioWorkletNode;
   private maquillaje: GainNode;
   private bComp: Bloque;
   private preDist: GainNode;
@@ -155,9 +157,11 @@ export class Canal {
   private panorama: StereoPannerNode;
   private volumen: GainNode;
 
+  /** `compresorSinEspera`: el compresor que no retrasa (hace falta haber cargado compresor.worklet.js) */
   constructor(
     private ctx: AudioContext,
     conPuerta: boolean,
+    compresorSinEspera = false,
   ) {
     const c = ctx;
     this.entrada = c.createGain();
@@ -167,10 +171,25 @@ export class Canal {
 
     this.puerta = conPuerta ? new AudioWorkletNode(c, "puerta-ruido", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] }) : null;
 
-    this.compresor = c.createDynamicsCompressor();
-    this.compresor.knee.value = 10;
-    this.compresor.attack.value = 0.004;
-    this.compresor.release.value = 0.18;
+    if (compresorSinEspera) {
+      // Ataque más corto que el 0,004 del navegador: el suyo cuenta hasta bajar 10 dB. Así comprime lo
+      // mismo (medido con notas de prueba: menos de 1 dB de diferencia en cualquier cantidad)
+      this.compresor = new AudioWorkletNode(c, "compresor-mesa", {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+        channelCount: 1,
+        channelCountMode: "explicit",
+        processorOptions: { ataque: 0.002, suelta: 0.18 },
+      });
+      this.compresor.parameters.get("rodilla")!.value = 10;
+    } else {
+      const comp = c.createDynamicsCompressor();
+      comp.knee.value = 10;
+      comp.attack.value = 0.004;
+      comp.release.value = 0.18;
+      this.compresor = comp;
+    }
     this.maquillaje = c.createGain();
     this.compresor.connect(this.maquillaje);
     this.bComp = new Bloque(c, this.compresor, this.maquillaje);
@@ -243,8 +262,10 @@ export class Canal {
       poner(this.puerta.parameters.get("umbral")!, a.puerta.umbral, c);
     }
 
-    poner(this.compresor.threshold, -10 - a.compresor.cantidad * 40, c);
-    poner(this.compresor.ratio, 2 + a.compresor.cantidad * 6, c);
+    const umbral = this.compresor instanceof AudioWorkletNode ? this.compresor.parameters.get("umbral")! : this.compresor.threshold;
+    const razon = this.compresor instanceof AudioWorkletNode ? this.compresor.parameters.get("razon")! : this.compresor.ratio;
+    poner(umbral, -10 - a.compresor.cantidad * 40, c);
+    poner(razon, 2 + a.compresor.cantidad * 6, c);
     poner(this.maquillaje.gain, db(a.compresor.cantidad * 12), c);
     this.bComp.insercion(a.compresor.activo);
 
@@ -378,6 +399,12 @@ export class Mesa {
     } catch {
       sinEspera = false;
     }
+    let compresorSinEspera = true;
+    try {
+      await ctx.audioWorklet.addModule("/compresor.worklet.js");
+    } catch {
+      compresorSinEspera = false;
+    }
 
     const pista = this.flujo.getAudioTracks()[0];
     this.nombreEntrada = pista?.label ?? "";
@@ -399,7 +426,7 @@ export class Mesa {
     this.salida = limitador;
 
     this.canales = [0, 1].map((i) => {
-      const canal = new Canal(ctx, conPuerta);
+      const canal = new Canal(ctx, conPuerta, compresorSinEspera);
       separador.connect(canal.entrada, i);
       canal.salida.connect(this.general!);
       return canal;
