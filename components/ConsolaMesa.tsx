@@ -39,7 +39,7 @@ import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesM
 import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
 import CarpetasMesa from "./CarpetasMesa";
 import { guardarCuentaMesa, leerCuentaMesa, SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
-import { guardarEscucha, leerEscucha, RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA } from "@/lib/mesa/escucha";
+import { guardarEscucha, guardarModoGrabar, leerEscucha, leerModoGrabar, RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA, type ModoGrabar } from "@/lib/mesa/escucha";
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
 import { useHidratado } from "@/lib/hidratado";
 
@@ -270,9 +270,32 @@ export default function ConsolaMesa({
     [],
   );
 
-  const encender = async () => {
+  // ---------- Dos maneras de grabar: con interfaz de audio o sin ella (lib/mesa/escucha) ----------
+  // La primera vez que se van a encender las entradas (con INPUT, con REC o al ajustar la ganancia)
+  // la Mesa pregunta cómo vas a grabar; lo que se iba a hacer se hace al elegir (en ese mismo toque:
+  // el iPhone solo deja abrir el micro desde un toque).
+  const [modoCambiado, setModoCambiado] = useState<ModoGrabar | null>(null);
+  const modo: ModoGrabar | null = modoCambiado ?? (hidratado ? leerModoGrabar() : null);
+  const [pideModo, setPideModo] = useState<{ que: "encender" } | { que: "rec" } | { que: "ganancia"; canal: 0 | 1 } | null>(null);
+  const ponerModo = (m: ModoGrabar) => {
+    setModoCambiado(m);
+    guardarModoGrabar(m);
+    cambiarEscucha(m === "interfaz");
+  };
+  const elegirModo = (m: ModoGrabar) => {
+    const pendiente = pideModo;
+    ponerModo(m);
+    setPideModo(null);
+    if (pendiente?.que === "encender") void encender(true);
+    else if (pendiente?.que === "rec") void pulsarRec(true);
+    else if (pendiente?.que === "ganancia") void ajustarGanancia(pendiente.canal, true);
+  };
+
+  /** `elegido`: el modo de grabar se acaba de elegir (no hay que preguntarlo) */
+  const encender = async (elegido = false) => {
     if (mesa.grabando) await parar();
     if (encendida) return mesa.apagar();
+    if (!elegido && !modo) return setPideModo({ que: "encender" });
     const r = await mesa.encender(conSolo(ajustes));
     if (r === "encendida") setRetraso(mesa.retrasoMs());
   };
@@ -420,10 +443,11 @@ export default function ConsolaMesa({
     };
     paso();
   };
-  const pulsarRec = async () => {
+  const pulsarRec = async (elegido = false) => {
     if (grabando) return parar();
     if (cuenta !== null) return cancelarCuenta();
     if (mesa.estado !== "encendida") {
+      if (!elegido && !modo) return setPideModo({ que: "rec" });
       const r = await mesa.encender(conSolo(ajustes));
       if (r !== "encendida") return;
       setRetraso(mesa.retrasoMs());
@@ -639,10 +663,11 @@ export default function ConsolaMesa({
     if (relojAuto.current) clearInterval(relojAuto.current);
     relojAuto.current = null;
   };
-  const ajustarGanancia = async (canal: 0 | 1) => {
+  const ajustarGanancia = async (canal: 0 | 1, elegido = false) => {
     pararAuto();
     setAbierta(null);
     if (mesa.estado !== "encendida") {
+      if (!elegido && !modo) return setPideModo({ que: "ganancia", canal });
       const r = await mesa.encender(conSolo(ajustes));
       if (r !== "encendida") return setAutoGanancia({ canal, quedan: 0, nivel: 0, error: "No se ha podido abrir la entrada: mira el permiso del micro." });
       setRetraso(mesa.retrasoMs());
@@ -809,7 +834,7 @@ export default function ConsolaMesa({
         ? "Cargando la canción… sonará en cuanto esté lista"
         : "Cargando la canción…"
       : encendida
-      ? `${estadoTexto}${!oirse ? " · sin oírte en los cascos" : retraso !== null ? ` · retraso ≈ ${retraso} ms` : ""}`
+      ? `${estadoTexto}${!oirse ? (modo === "sin" ? " · sin interfaz: no te oyes al grabar" : " · sin oírte en los cascos") : retraso !== null ? ` · retraso ≈ ${retraso} ms` : ""}`
       : estado !== "apagada"
         ? estadoTexto
         : conPistas
@@ -1057,6 +1082,33 @@ export default function ConsolaMesa({
         />
       )}
 
+      {pideModo && (
+        <div className="hoja-fondo" onClick={() => setPideModo(null)}>
+          <div className="hoja" role="dialog" aria-modal="true" aria-label="Cómo vas a grabar" onClick={(e) => e.stopPropagation()}>
+            <div className="hoja-asa" aria-hidden="true" />
+            <header className="hoja-cabecera">
+              <h2>¿Cómo vas a grabar?</h2>
+              <button type="button" className="boton-texto" onClick={() => setPideModo(null)}>
+                Ahora no
+              </button>
+            </header>
+            <div className="hoja-cuerpo modo-hoja">
+              <button type="button" className="modo-opcion" onClick={() => elegirModo("interfaz")}>
+                <strong>Con interfaz de audio</strong>
+                <span>La guitarra, el bajo o el micro van enchufados a una interfaz. Te oyes mientras tocas o cantas, con tus efectos.</span>
+              </button>
+              <button type="button" className="modo-opcion" onClick={() => elegirModo("sin")}>
+                <strong>Sin interfaz de audio</strong>
+                <span>Con el micrófono del móvil o del ordenador. No te oyes mientras grabas: tu voz llegaría tarde y complica ir a tiempo. Al parar, escuchas la toma con la canción.</span>
+              </button>
+              <p className="toma-ayuda">
+                Sin interfaz, ponte cascos para oír la canción: si suena por el altavoz, el micrófono la graba también. Se recuerda en este aparato y se cambia en los efectos de cada entrada.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {verTomas && tomas.length > 0 && (
         <div className="hoja-fondo" onClick={() => setVerTomas(false)}>
           <div className="hoja" role="dialog" aria-modal="true" aria-label="Tus tomas" onClick={(e) => e.stopPropagation()}>
@@ -1068,6 +1120,7 @@ export default function ConsolaMesa({
               </button>
             </header>
             <div className="hoja-cuerpo toma-hoja">
+              {modo === "sin" && <p className="toma-ayuda toma-oir">Pulsa «Escuchar» para oír cómo ha quedado{pistas ? ", con la canción" : ""}.</p>}
               {preparada && (
                 <button type="button" className="boton-principal ancho" onClick={entregarToma}>
                   Guardar o compartir «{preparada.nombre}»
@@ -1135,6 +1188,14 @@ export default function ConsolaMesa({
             <div className="hoja-cuerpo mesa-hoja">
               {abierta.tipo === "entrada" && (
                 <section className="escucha-cascos" aria-live="polite">
+                  <div className="segmentado modo-grabar" role="group" aria-label="Cómo grabas">
+                    <button type="button" aria-pressed={modo === "interfaz"} onClick={() => ponerModo("interfaz")}>
+                      Con interfaz de audio
+                    </button>
+                    <button type="button" aria-pressed={modo === "sin"} onClick={() => ponerModo("sin")}>
+                      Sin interfaz
+                    </button>
+                  </div>
                   <button type="button" className={`interruptor escucha-interruptor${oirse ? " on" : ""}`} role="switch" aria-checked={oirse} onClick={() => cambiarEscucha(!oirse)}>
                     <span className="interruptor-pista" aria-hidden="true">
                       <span className="interruptor-bola" />
@@ -1146,7 +1207,9 @@ export default function ConsolaMesa({
                       ? `${encendida && retraso !== null ? `Te oyes con unos ${retraso} ms de retraso${retraso >= RETRASO_BLUETOOTH ? " (¿cascos Bluetooth? Con cable baja mucho)" : ""}. ` : ""}${
                           retraso === null || retraso >= RETRASO_QUE_SE_NOTA ? "Si te cuesta cantar o tocar a tiempo, apágalo: " : "Si aun así te cuesta ir a tiempo, apágalo: "
                         }te oirás sin retraso con la escucha directa de tu interfaz («direct monitor») o apartando un poco un auricular. REC graba igual.`
-                      : "No te oyes en los cascos: óyete con la escucha directa de tu interfaz («direct monitor») o apartando un poco un auricular. La canción suena igual y REC graba lo que tocas, con sus efectos."}
+                      : modo === "sin"
+                        ? "Sin interfaz no te oyes mientras grabas: tu voz llegaría tarde y complica ir a tiempo. La canción suena igual; al parar REC, escuchas la toma con la canción, con tus efectos ya puestos."
+                        : "No te oyes en los cascos: óyete con la escucha directa de tu interfaz («direct monitor») o apartando un poco un auricular. La canción suena igual y REC graba lo que tocas, con sus efectos."}
                   </p>
                 </section>
               )}

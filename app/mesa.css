@@ -2266,6 +2266,54 @@
   justify-self: start;
   min-height: 44px;
 }
+.escucha-cascos .modo-grabar {
+  margin-top: 0;
+}
+/* «¿Cómo vas a grabar?»: con interfaz de audio o sin ella */
+.modo-hoja {
+  display: grid;
+  gap: 12px;
+}
+.modo-opcion {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--superficie-2);
+  color: var(--texto);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    transform 90ms ease;
+}
+.modo-opcion strong {
+  font-size: 17px;
+}
+.modo-opcion span {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--texto-2);
+}
+.modo-opcion:active {
+  transform: scale(0.99);
+}
+.modo-opcion:focus-visible {
+  outline: 2px solid var(--laton-claro);
+  outline-offset: 2px;
+}
+@media (hover: hover) {
+  .modo-opcion:hover {
+    border-color: var(--laton);
+  }
+}
+.modo-hoja .toma-ayuda,
+.toma-oir {
+  margin: 0;
+  text-align: left;
+}
 .auto-hoja {
   display: grid;
   gap: 12px;
