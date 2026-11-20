@@ -23,6 +23,8 @@ import { VERSION_PULSO } from "@/lib/pistas/pulso";
 import { Posicion, usePosicion } from "@/lib/pistas/posicion";
 import { bucleDeCompases, compasesDe, moverBucle, type Bucle } from "@/lib/pistas/compases";
 import PracticaBucle, { type Practica } from "./PracticaBucle";
+import SelectorFormato from "./SelectorFormato";
+import { leerFormato, useFormato, type Formato } from "@/lib/pistas/formato";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
 
@@ -40,8 +42,8 @@ const VEL_MAX = 1;
 const TROZO_MINIMO = 1; // segundos
 
 type Guardado =
-  | { estado: "preparando" }
-  | { estado: "listo"; blob: Blob; nombre: string }
+  | { estado: "preparando"; pct?: number }
+  | { estado: "listo"; blob: Blob; nombre: string; aviso?: string }
   | { estado: "hecho"; texto: string }
   | { estado: "error"; texto: string };
 
@@ -540,14 +542,14 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   const prepararMezcla = async () => {
     setGuardado({ estado: "preparando" });
     try {
-      const blob = await mezclarCancion(cancion, efectivas);
-      const archivo = nombreArchivo({ ...cancion, nombre }, efectivas);
+      const { blob, formato: salio, aviso } = await mezclarCancion(cancion, efectivas, undefined, leerFormato(), (hecho) => setGuardado({ estado: "preparando", pct: Math.round(hecho * 100) }));
+      const archivo = nombreArchivo({ ...cancion, nombre }, efectivas, salio);
       if (esMovil()) {
         // En el móvil el menú de compartir necesita un toque nuevo.
-        setGuardado({ estado: "listo", blob, nombre: archivo });
+        setGuardado({ estado: "listo", blob, nombre: archivo, aviso });
       } else {
         const r = await guardarArchivo(blob, archivo);
-        setGuardado({ estado: "hecho", texto: r === "descargado" ? `Descargado: ${archivo}` : `Listo: ${archivo}` });
+        setGuardado({ estado: "hecho", texto: `${r === "descargado" ? `Descargado: ${archivo}` : `Listo: ${archivo}`}${aviso ? ` · ${aviso}` : ""}` });
       }
     } catch (e) {
       setGuardado({ estado: "error", texto: (e as Error).message || "No se ha podido preparar la mezcla." });
@@ -618,9 +620,9 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     },
     pararToma: () => rep.current?.pararToma(),
     tomas: { lista: tomasCancion, tope: MAX_TOMAS_CANCION, anadir: anadirToma, onVolumen: volumenToma, onSilencio: silencioToma, borrar: borrarTomaAnadida },
-    mezclaConToma: async (toma: Toma) => {
-      const blob = await mezclarCancion(cancion, efectivas, { muestras: tomaA(toma, FRECUENCIA), desde: (toma.desde ?? 0) * FRECUENCIA });
-      return { blob, nombre: nombreArchivo({ ...cancion, nombre }, efectivas).replace(/.wav$/, " + mi toma.wav") };
+    mezclaConToma: async (toma: Toma, formato: Formato, alProgreso?: (hecho: number) => void) => {
+      const a = await mezclarCancion(cancion, efectivas, { muestras: tomaA(toma, FRECUENCIA), desde: (toma.desde ?? 0) * FRECUENCIA }, formato, alProgreso);
+      return { ...a, nombre: nombreArchivo({ ...cancion, nombre }, efectivas, a.formato).replace(/\.(\w+)$/, " + mi toma.$1") };
     },
     aplicar: (i, a) => rep.current?.aplicarPista(i, a),
     volumenGeneral: (v) => rep.current?.volumenGeneral(v),
@@ -647,6 +649,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     },
   };
   const queda = describirMezcla(efectivas);
+  const formato = useFormato();
 
   if (soloMesa) {
     return (
@@ -1044,14 +1047,17 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
                 </button>
               ) : (
                 <button type="button" className="boton-principal ancho" onClick={prepararMezcla} disabled={cargando || guardado?.estado === "preparando"}>
-                  {guardado?.estado === "preparando" ? "Preparando la mezcla…" : "Guardar mi mezcla"}
+                  {guardado?.estado === "preparando" ? (formato === "mp3" ? `Preparando el MP3…${guardado.pct ? ` ${guardado.pct} %` : ""}` : "Preparando la mezcla…") : "Guardar mi mezcla"}
                 </button>
               )}
               <p className="practica-ayuda">
                 {guardado?.estado === "hecho" || guardado?.estado === "error"
                   ? guardado.texto
-                  : `Se guarda como está ahora (${queda}), a velocidad normal, en un archivo WAV.`}
+                  : guardado?.estado === "listo" && guardado.aviso
+                    ? guardado.aviso
+                    : `Se guarda como está ahora (${queda}), a velocidad normal, en un archivo ${formato === "mp3" ? "MP3" : "WAV"}.`}
               </p>
+              <SelectorFormato />
             </section>
           </>
         )}

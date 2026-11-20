@@ -31,8 +31,10 @@ import {
   type AjustesMesa,
 } from "@/lib/mesa/ajustes";
 import { mesa } from "@/lib/mesa/mesa";
-import { duracionToma, wavDeToma, type Toma } from "@/lib/mesa/toma";
-import { guardarArchivo } from "@/lib/pistas/exportar";
+import { duracionToma, type Toma } from "@/lib/mesa/toma";
+import { archivoDeToma, guardarArchivo } from "@/lib/pistas/exportar";
+import { leerFormato, type Formato } from "@/lib/pistas/formato";
+import SelectorFormato from "./SelectorFormato";
 import { esMovil } from "@/lib/pistas/aparato";
 import { formatoTiempo, FRECUENCIA } from "@/lib/pistas/tipos";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo } from "@/lib/metronomo";
@@ -82,8 +84,8 @@ export interface PistasMesa {
   pararToma: () => void;
   /** Tus tomas añadidas a la canción */
   tomas: TomasDeCancion;
-  /** La canción entera (como suena ahora) con la toma encima, en WAV */
-  mezclaConToma: (t: Toma) => Promise<{ blob: Blob; nombre: string }>;
+  /** La canción entera (como suena ahora) con la toma encima, en el formato pedido (`aviso`: si el MP3 no se ha podido hacer y va en WAV) */
+  mezclaConToma: (t: Toma, formato: Formato, alProgreso?: (hecho: number) => void) => Promise<{ blob: Blob; nombre: string; aviso?: string }>;
   /** Ecualizador, efectos y panorama de una pista */
   aplicar: (i: number, a: AjustesCanal) => void;
   volumenGeneral: (v: number) => void;
@@ -558,17 +560,20 @@ export default function ConsolaMesa({
   const guardarToma = async (g: TomaGuardada, conCancion: boolean) => {
     setEstadoToma(conCancion ? `Preparando la canción con la ${g.nombre.toLowerCase()}…` : `Preparando la ${g.nombre.toLowerCase()}…`);
     try {
-      const archivo =
+      const formato = leerFormato();
+      const preparando = conCancion ? `Preparando la canción con la ${g.nombre.toLowerCase()}…` : `Preparando la ${g.nombre.toLowerCase()}…`;
+      const avance = (hecho: number) => setEstadoToma(`${preparando} ${Math.round(hecho * 100)} %`);
+      const archivo: { blob: Blob; nombre: string; aviso?: string } =
         conCancion && pistas
-          ? await pistas.mezclaConToma(g.toma).then((a) => ({ ...a, nombre: a.nombre.replace(/ \+ mi toma\.wav$/, ` + ${g.nombre.toLowerCase()}.wav`) }))
-          : { blob: wavDeToma(g.toma), nombre: `${g.nombre}.wav` };
+          ? await pistas.mezclaConToma(g.toma, formato, avance).then((a) => ({ ...a, nombre: a.nombre.replace(/ \+ mi toma(\.\w+)$/, ` + ${g.nombre.toLowerCase()}$1`) }))
+          : await archivoDeToma(g.toma, formato, avance).then((a) => ({ blob: a.blob, nombre: `${g.nombre}.${a.formato}`, aviso: a.aviso }));
       if (esMovil()) {
         // En el móvil el menú de compartir necesita un toque nuevo
-        setPreparada({ id: g.id, ...archivo });
-        setEstadoToma(null);
+        setPreparada({ id: g.id, blob: archivo.blob, nombre: archivo.nombre });
+        setEstadoToma(archivo.aviso ?? null);
       } else {
         const r = await guardarArchivo(archivo.blob, archivo.nombre);
-        setEstadoToma(r === "cancelado" ? null : `Descargado: ${archivo.nombre}`);
+        setEstadoToma(r === "cancelado" ? null : `Descargado: ${archivo.nombre}${archivo.aviso ? ` · ${archivo.aviso}` : ""}`);
       }
     } catch (e) {
       setEstadoToma((e as Error).message || "No se ha podido preparar el archivo.");
@@ -1351,10 +1356,11 @@ export default function ConsolaMesa({
               {tomas.length > 0 && (
                 <p className="toma-ayuda">
                   {pistas
-                    ? `${tomas.length === 1 ? "Esta se guarda" : "Estas se guardan"} solo mientras estés en la Mesa (las ${MAX_TOMAS} últimas). «Añadir a la canción» la deja con la canción para siempre, como una pista más. «Exportar» saca un archivo WAV: con la canción entera o la toma sola.`
-                    : `Se guardan las ${MAX_TOMAS} últimas mientras estés en la Mesa. «Guardar» saca la toma en un archivo WAV.`}
+                    ? `${tomas.length === 1 ? "Esta se guarda" : "Estas se guardan"} solo mientras estés en la Mesa (las ${MAX_TOMAS} últimas). «Añadir a la canción» la deja con la canción para siempre, como una pista más. «Exportar» saca un archivo: con la canción entera o la toma sola.`
+                    : `Se guardan las ${MAX_TOMAS} últimas mientras estés en la Mesa. «Guardar» saca la toma en un archivo.`}
                 </p>
               )}
+              {tomas.length > 0 && <SelectorFormato />}
               {pistas && tomas.length > 0 && (
                 <button type="button" className="boton-texto toma-calibrar" onClick={abrirCalibrar}>
                   ¿No cae a tiempo con la canción? Calibrar el retraso

@@ -372,6 +372,31 @@ a.marca {
 .mezclas::-webkit-scrollbar {
   display: none;
 }
+/* MP3 o WAV al exportar (SelectorFormato) */
+.formato {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 10px;
+}
+.formato-titulo {
+  font-weight: 700;
+  font-size: 14px;
+}
+.formato .formato-opciones {
+  margin-top: 0;
+  min-width: 150px;
+}
+.formato .formato-opciones button {
+  min-height: 36px;
+  padding: 6px 10px;
+}
+.formato-nota {
+  font-size: 13px;
+  color: var(--texto-3);
+}
+
 /* Para practicar un pasaje: el bucle por compases y el entrenador de velocidad (PracticaBucle) */
 .pb {
   display: grid;

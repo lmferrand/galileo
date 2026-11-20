@@ -6,7 +6,7 @@
 // canción, repetir un trozo o tocar más lento. Lleva ya los efectos con que se grabó; aquí solo
 // tiene volumen y silencio.
 
-import { tomaA, type Toma } from "../mesa/toma";
+import { tomaInt16, type Toma } from "../mesa/toma";
 import { guardarTomaCancion, leerAudioToma, leerCancion } from "./almacen";
 import { FRECUENCIA, type TomaCancion } from "./tipos";
 import { crearWav, leerWav } from "./wav";
@@ -37,21 +37,10 @@ export async function leerTomasDeCancion(id: string): Promise<TomaLista[]> {
   return listas;
 }
 
-/** Lo grabado en la Mesa, ya recortado, a la frecuencia de la canción y en Int16. */
-function aInt16(toma: Toma): Int16Array {
-  const f = tomaA(toma, FRECUENCIA);
-  const s = new Int16Array(f.length);
-  for (let i = 0; i < f.length; i++) {
-    const v = Math.round(f[i] * 32767);
-    s[i] = v > 32767 ? 32767 : v < -32768 ? -32768 : v;
-  }
-  return s;
-}
-
 /** Añade a la canción una toma grabada con ella. Devuelve su ficha y su sonido para ponerla a sonar ya. */
 export async function anadirTomaACancion(id: string, toma: Toma, nombre: string): Promise<TomaLista> {
   if (toma.desde === null) throw new Error("Esta toma se grabó sin canción: no se puede añadir a una.");
-  const datos = aInt16(toma);
+  const datos = tomaInt16(toma, FRECUENCIA);
   if (datos.length < 2) throw new Error("La toma está vacía.");
   const ficha: TomaCancion = {
     id: `${Date.now().toString(36)}${Math.floor(Math.random() * 1296).toString(36)}`,

@@ -1,13 +1,14 @@
 // Clavija: comprime una pista (Int16 estéreo intercalado, 44,1 kHz) a MP3
 // para subirla a la nube. Usa lamejs (LGPL) desde jsDelivr.
 //
-// Recibe: { datos: Int16Array, kbps }   Envía: { tipo: 'hecho', mp3: ArrayBuffer } | { tipo: 'error', mensaje }
+// Recibe: { datos: Int16Array, kbps, progreso? }   Envía: { tipo: 'hecho', mp3: ArrayBuffer } | { tipo: 'error', mensaje }
+// Con `progreso`, también { tipo: 'progreso', hecho: 0–1 } de vez en cuando (al exportar un MP3 largo).
 
 import { Mp3Encoder } from "https://cdn.jsdelivr.net/npm/@breezystack/lamejs@1.2.7/+esm";
 
 self.onmessage = (e) => {
   try {
-    const { datos, kbps } = e.data;
+    const { datos, kbps, progreso } = e.data;
     const frames = datos.length >> 1;
     const L = new Int16Array(frames);
     const R = new Int16Array(frames);
@@ -18,7 +19,8 @@ self.onmessage = (e) => {
     const enc = new Mp3Encoder(2, 44100, kbps || 112);
     const partes = [];
     let total = 0;
-    for (let i = 0; i < frames; i += 1152) {
+    for (let i = 0, vuelta = 0; i < frames; i += 1152, vuelta++) {
+      if (progreso && vuelta % 150 === 0) self.postMessage({ tipo: "progreso", hecho: i / frames });
       const b = enc.encodeBuffer(L.subarray(i, i + 1152), R.subarray(i, i + 1152));
       if (b.length) {
         partes.push(b);

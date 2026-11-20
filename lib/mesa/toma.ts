@@ -33,6 +33,17 @@ export function tomaA(t: Toma, frecuencia: number): Float32Array {
   return out;
 }
 
+/** La toma ya recortada, a otra frecuencia y en Int16 (intercalada): para guardarla o comprimirla. */
+export function tomaInt16(t: Toma, frecuencia: number): Int16Array {
+  const f = tomaA(t, frecuencia);
+  const s = new Int16Array(f.length);
+  for (let i = 0; i < f.length; i++) {
+    const v = Math.round(f[i] * 32767);
+    s[i] = v > 32767 ? 32767 : v < -32768 ? -32768 : v;
+  }
+  return s;
+}
+
 /** Solo la toma, en WAV */
 export function wavDeToma(t: Toma): Blob {
   const frames = t.muestras.length / 2 - t.recorte;
