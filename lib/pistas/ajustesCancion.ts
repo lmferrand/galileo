@@ -18,6 +18,10 @@ export interface ClickCancion {
   compas: number;
   /** Tempo medio, para enseñarlo */
   bpm: number;
+  /** Con qué versión del análisis se sacó (VERSION_PULSO de lib/pistas/pulso); sin número, la primera */
+  v?: number;
+  /** Lo has retocado a mano (el compás, el 1, el doble o la mitad): no se vuelve a sacar solo */
+  mano?: boolean;
 }
 
 export interface AjustesCancion {
@@ -70,14 +74,35 @@ export function pulsoDoble(c: ClickCancion): ClickCancion {
     const sig = c.golpes[i + 1];
     if (sig !== undefined) golpes.push(Math.round(((g + sig) / 2) * 1000) / 1000);
   });
-  return { ...c, golpes, uno: (2 * c.uno) % c.compas, bpm: Math.round(c.bpm * 20) / 10 };
+  return { ...c, golpes, uno: (2 * c.uno) % c.compas, bpm: Math.round(c.bpm * 20) / 10, mano: true };
 }
 
 /** El pulso a la mitad: uno de cada dos, quedándose con los que caen en el 1. */
 export function pulsoMitad(c: ClickCancion): ClickCancion {
   const par = c.uno % 2;
   const golpes = c.golpes.filter((_, i) => i % 2 === par);
-  return { ...c, golpes, uno: ((c.uno - par) / 2) % c.compas, bpm: Math.round(c.bpm * 5) / 10 };
+  return { ...c, golpes, uno: ((c.uno - par) / 2) % c.compas, bpm: Math.round(c.bpm * 5) / 10, mano: true };
+}
+
+/** El 1, un golpe más allá. */
+export function moverUno(c: ClickCancion): ClickCancion {
+  return { ...c, uno: (c.uno + 1) % c.compas, mano: true };
+}
+
+/** Otro compás (el 1 se queda en el golpe más cercano que quepa). */
+export function ponerCompas(c: ClickCancion, compas: number): ClickCancion {
+  return { ...c, compas, uno: c.uno % compas, mano: true };
+}
+
+/**
+ * ¿Hay que volver a sacarlo? Sí, si lo sacó un análisis anterior al de ahora (`version`) y no lo has
+ * retocado. Los de antes de llevar número no dicen si se retocaron: uno que no va de 4 se retocó
+ * seguro (entonces siempre salía de 4) y se respeta.
+ */
+export function pulsoAnticuado(c: ClickCancion, version: number): boolean {
+  if (c.mano) return false;
+  if (c.v === undefined) return c.compas === 4;
+  return c.v < version;
 }
 
 function leerClick(c: unknown): ClickCancion | null {
@@ -91,7 +116,7 @@ function leerClick(c: unknown): ClickCancion | null {
   const uno = typeof p.uno === "number" ? ((Math.round(p.uno) % compas) + compas) % compas : 0;
   const medio = (golpes[golpes.length - 1] - golpes[0]) / (golpes.length - 1);
   const bpm = typeof p.bpm === "number" && Number.isFinite(p.bpm) ? p.bpm : Math.round(600 / medio) / 10;
-  return { golpes, uno, compas, bpm };
+  return { golpes, uno, compas, bpm, ...(typeof p.v === "number" ? { v: p.v } : {}), ...(p.mano === true ? { mano: true } : {}) };
 }
 
 export function guardarAjustesCancion(id: string, a: AjustesCancion) {

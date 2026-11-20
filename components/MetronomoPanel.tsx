@@ -6,7 +6,7 @@
 import { useRef, type CSSProperties } from "react";
 import { BPM_MAX, BPM_MIN, type Compas } from "@/lib/metronomo";
 
-const COMPASES: { valor: Compas; nombre: string }[] = [
+export const COMPASES: { valor: Compas; nombre: string }[] = [
   { valor: 2, nombre: "2/4" },
   { valor: 3, nombre: "3/4" },
   { valor: 4, nombre: "4/4" },

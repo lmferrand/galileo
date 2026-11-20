@@ -130,17 +130,22 @@ export async function leerPistasDeCancion(cancion: Cancion, vivo: () => boolean 
 /** El pulso de la canción, sacado de su pista de batería (para el click del directo y el metrónomo
  *  de la Mesa). Se calcula en otro hilo; si el navegador no puede, aquí mismo. */
 export async function pulsoDeCancion(cancion: Cancion): Promise<ClickCancion | null> {
-  const audios = await leerAudios(cancion.id, ["bateria"]);
+  const audios = await leerAudios(cancion.id, ["bateria", "bajo"]);
   if (!audios.bateria) return null;
-  const datos = await leerWav(audios.bateria, cancion.frames);
+  // La batería da los golpes y el compás; el bajo ayuda a saber cuál es el 1 (si no se puede leer,
+  // se saca sin él)
+  const leer = () =>
+    Promise.all([leerWav(audios.bateria, cancion.frames), audios.bajo ? leerWav(audios.bajo, cancion.frames).catch(() => null) : Promise.resolve(null)]);
+  const [datos, bajo] = await leer();
   try {
-    return await pulsoEnOtroHilo(datos);
+    return await pulsoEnOtroHilo(datos, bajo);
   } catch {
-    return sacarPulso(await leerWav(audios.bateria, cancion.frames), FRECUENCIA);
+    const [d, b] = await leer();
+    return sacarPulso(d, FRECUENCIA, { bajo: b });
   }
 }
 
-function pulsoEnOtroHilo(datos: Int16Array): Promise<ClickCancion | null> {
+function pulsoEnOtroHilo(datos: Int16Array, bajo: Int16Array | null): Promise<ClickCancion | null> {
   return new Promise((ok, mal) => {
     let w: Worker;
     try {
@@ -165,7 +170,7 @@ function pulsoEnOtroHilo(datos: Int16Array): Promise<ClickCancion | null> {
       acabar();
       mal(e);
     };
-    // Se pasa sin copiar (si falla, se vuelve a leer la batería)
-    w.postMessage({ datos, frecuencia: FRECUENCIA }, [datos.buffer]);
+    // Se pasan sin copiar (si falla, se vuelven a leer)
+    w.postMessage({ datos, bajo, frecuencia: FRECUENCIA }, bajo ? [datos.buffer, bajo.buffer] : [datos.buffer]);
   });
 }

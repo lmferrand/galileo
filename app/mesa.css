@@ -1789,6 +1789,28 @@
   justify-self: start;
   min-height: 44px;
 }
+/* Con canción: los puntos del compás (se enciende el que suena), el compás y los retoques */
+.mm-cancion .mm-puntos,
+.mm-cancion .mm-compas {
+  margin-top: 0;
+  justify-self: stretch;
+}
+.mm-retoques {
+  justify-self: stretch;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.mm-retoques .boton-secundario {
+  min-height: 44px;
+  padding: 10px 12px;
+}
+.mm-retoques .boton-secundario:disabled {
+  opacity: 0.45;
+}
+.mm-ayuda {
+  margin: 0;
+}
 .mm-interruptor:disabled {
   opacity: 0.5;
 }

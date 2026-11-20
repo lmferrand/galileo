@@ -17,7 +17,8 @@ import { formatoTiempo, FRECUENCIA, PISTAS, type Cancion, type Pista } from "@/l
 import { tomaA, type Toma } from "@/lib/mesa/toma";
 import { ondaDe } from "@/lib/pistas/onda";
 import { leerPistasDeCancion, pulsoDeCancion } from "@/lib/pistas/cargar";
-import { ajustesPorDefecto, guardarAjustesCancion, leerAjustesCancion, nombreNuevo, NOMBRES_PARTES, pulsoDoble, pulsoMitad, type ClickCancion, type Marca } from "@/lib/pistas/ajustesCancion";
+import { ajustesPorDefecto, guardarAjustesCancion, leerAjustesCancion, moverUno, nombreNuevo, NOMBRES_PARTES, ponerCompas, pulsoAnticuado, pulsoDoble, pulsoMitad, type ClickCancion, type Marca } from "@/lib/pistas/ajustesCancion";
+import { VERSION_PULSO } from "@/lib/pistas/pulso";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 
 
@@ -256,37 +257,49 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     guardarAjustesCancion(cancion.id, { volumen, silencio, velocidad, tono, marcas, click });
   }, [cancion.id, volumen, silencio, velocidad, tono, marcas, click]);
 
-  // ---- El click: el pulso sale de la batería ----
+  // ---- El click: el pulso sale de la batería (los golpes y el compás) y del bajo (el 1) ----
+  // La canción que hay ahora: si se cambia mientras se busca el pulso de otra, ese ya no vale
+  const idVivo = useRef(cancion.id);
+  useEffect(() => {
+    idVivo.current = cancion.id;
+  }, [cancion.id]);
   // `oir`: que suene ya (al pedirlo con el botón); el que busca solo la Mesa no lo enciende.
   const sacarElPulso = async (oir = true) => {
+    const id = cancion.id;
+    const habia = click;
     setBuscandoPulso("buscando");
     await new Promise((r) => setTimeout(r, 40)); // que se vea «Buscando…» antes de la cuenta
+    let p: ClickCancion | null = null;
     try {
-      const p = await pulsoDeCancion(cancion);
-      if (p) {
-        setClick(p);
-        if (oir) setOirClick(true);
-        setBuscandoPulso("no");
-      } else setBuscandoPulso("sin");
+      p = await pulsoDeCancion(cancion);
     } catch {
-      setBuscandoPulso("sin");
+      /* sin pulso */
     }
+    if (idVivo.current !== id) return;
+    if (p) {
+      setClick(p);
+      if (oir) setOirClick(true);
+      setBuscandoPulso("no");
+    } else if (habia) {
+      // No sale otro: se queda el que había (apuntado como visto, para no buscarlo cada vez)
+      setClick({ ...habia, v: VERSION_PULSO });
+      setBuscandoPulso("no");
+    } else setBuscandoPulso("sin");
   };
-  // En la Mesa, el metrónomo va con el ritmo de la canción: si aún no lo tiene, se busca solo (en otro
-  // hilo, un momento después de abrirla para no estorbar a la entrada)
+  // En la Mesa, el metrónomo va con el ritmo y el compás de la canción: si aún no los tiene (o los
+  // sacó un análisis anterior, que no miraba el compás ni el bajo), se buscan solos (en otro hilo, un
+  // momento después de abrirla para no estorbar a la entrada)
+  const faltaPulso = !click || pulsoAnticuado(click, VERSION_PULSO);
   useEffect(() => {
-    if (!verMesa || cargando || click || buscandoPulso !== "no") return;
+    if (!verMesa || cargando || !faltaPulso || buscandoPulso !== "no") return;
     const t = setTimeout(() => void sacarElPulso(false), 1200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verMesa, cargando, click, buscandoPulso]);
+  }, [verMesa, cargando, faltaPulso, buscandoPulso]);
   const SIGUIENTE_COMPAS: Record<number, number> = { 4: 3, 3: 2, 2: 6, 6: 4 };
-  const cambiarCompas = () =>
-    setClick((c) => {
-      if (!c) return c;
-      const compas = SIGUIENTE_COMPAS[c.compas] ?? 4;
-      return { ...c, compas, uno: c.uno % compas };
-    });
+  const cambiarCompas = () => setClick((c) => (c ? ponerCompas(c, SIGUIENTE_COMPAS[c.compas] ?? 4) : c));
+  const puedeDoble = !!click && click.bpm * 2 <= 260;
+  const puedeMitad = !!click && click.bpm / 2 >= 40 && click.golpes.length >= 8;
 
   // ---- Partes de la canción (marcas) ----
   const marcar = (nombre: string) => {
@@ -463,6 +476,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
       oir: oirClick,
       onOir: setOirClick,
       onBuscar: () => void sacarElPulso(false),
+      onCompas: (compas) => setClick((c) => (c ? ponerCompas(c, compas) : c)),
+      onMoverUno: () => setClick((c) => (c ? moverUno(c) : c)),
+      onDoble: () => setClick((c) => (c && puedeDoble ? pulsoDoble(c) : c)),
+      onMitad: () => setClick((c) => (c && puedeMitad ? pulsoMitad(c) : c)),
+      puedeDoble,
+      puedeMitad,
       tocarConCuenta: async (segundos) => {
         const r = rep.current;
         if (!r || cargando) return 0;
@@ -753,16 +772,16 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
                 {click ? (
                   <div className="click-botones">
                     <output className="click-tempo">{Math.round(click.bpm)} BPM</output>
-                    <button type="button" className="chip" onClick={() => setClick({ ...click, uno: (click.uno + 1) % click.compas })}>
+                    <button type="button" className="chip" onClick={() => setClick(moverUno(click))}>
                       Mover el 1
                     </button>
                     <button type="button" className="chip" onClick={cambiarCompas}>
                       Compás de {click.compas}
                     </button>
-                    <button type="button" className="chip" onClick={() => setClick(pulsoDoble(click))} disabled={click.bpm * 2 > 260} aria-label="Pulso al doble de rápido">
+                    <button type="button" className="chip" onClick={() => setClick(pulsoDoble(click))} disabled={!puedeDoble} aria-label="Pulso al doble de rápido">
                       Al doble
                     </button>
-                    <button type="button" className="chip" onClick={() => setClick(pulsoMitad(click))} disabled={click.bpm / 2 < 40 || click.golpes.length < 8} aria-label="Pulso a la mitad">
+                    <button type="button" className="chip" onClick={() => setClick(pulsoMitad(click))} disabled={!puedeMitad} aria-label="Pulso a la mitad">
                       A la mitad
                     </button>
                     <button type="button" className={`interruptor-mini ${oirClick ? "on" : ""}`} role="switch" aria-checked={oirClick} onClick={() => setOirClick((o) => !o)} disabled={cargando}>

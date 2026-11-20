@@ -1028,6 +1028,8 @@ export default function ConsolaMesa({
       {verMetro && (
         <MetronomoMesa
           cancion={metroCancion}
+          segundo={pistas?.transporte.segundo}
+          tocando={pistas?.transporte.tocando}
           bpm={metroAj.bpm}
           compas={metroAj.compas}
           sonando={sonandoLibre}
