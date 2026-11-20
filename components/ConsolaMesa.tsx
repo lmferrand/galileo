@@ -15,6 +15,8 @@ import MesaFoto, { ALTO_MESA, ANCHO_MESA, type CanalFoto } from "./MesaFoto";
 import CanalGrande from "./CanalGrande";
 import AyudaMesa from "./AyudaMesa";
 import GrabadoraMesa, { ALTO_CINTA, ANCHO_CINTA, anguloVu, VU_REPOSO, VUS } from "./GrabadoraMesa";
+import type { CancionesPlaca } from "./PlacaCanciones";
+import type { Cancion } from "@/lib/pistas/tipos";
 import { type Transporte } from "./TransporteMesa";
 import {
   AJUSTES_INICIALES,
@@ -123,6 +125,9 @@ function Pieza({
   );
 }
 
+/** Se ha puesto otra canción desde la placa con la grabadora en grande (ver «parte») */
+let seguirEnLaCinta = false;
+
 const LECTURA_MS = 1400;
 /** Dónde queda el pico más fuerte de lo que tocas tras el ajuste automático del TRIM (dBFS) */
 const PICO_OBJETIVO = -9;
@@ -153,7 +158,17 @@ const PISTA_DE_CANAL = [0, 3, 2, 1, 4, 5];
 // El selector de pistas en el escritorio: su foto mide 277×145
 const APARATO = { ancho: 277, alto: 145 };
 
-export default function ConsolaMesa({ pistas, alAbrirSelector }: { pistas?: PistasMesa; /** El aparato del escritorio abre el selector de pistas */ alAbrirSelector?: () => void }) {
+export default function ConsolaMesa({
+  pistas,
+  alAbrirSelector,
+  canciones,
+}: {
+  pistas?: PistasMesa;
+  /** El aparato del escritorio abre el selector de pistas */
+  alAbrirSelector?: () => void;
+  /** Para el selector de la placa de la grabadora */
+  canciones?: CancionesPlaca;
+}) {
   const hidratado = useHidratado();
   const estado = useEstadoMesa();
   const n = pistas?.nombres.length ?? 0;
@@ -561,7 +576,12 @@ export default function ConsolaMesa({ pistas, alAbrirSelector }: { pistas?: Pist
   // Pantalla bajita (el móvil tumbado): juntas no se ven; primero las dos en pequeño y, al tocar
   // una, esa a toda pantalla («Volver» regresa a las dos)
   const partido = H < 520;
-  const [parte, setParte] = useState<"las-dos" | "cinta" | "mesa">("las-dos");
+  // Al poner otra canción desde la placa de la grabadora, la Mesa se vuelve a montar con ella: si
+  // estabas viendo la grabadora en grande, sigue en grande
+  const [parte, setParte] = useState<"las-dos" | "cinta" | "mesa">(() => (seguirEnLaCinta ? "cinta" : "las-dos"));
+  useEffect(() => {
+    seguirEnLaCinta = false;
+  }, []);
   // En la mesa en grande, tocar un canal lo abre a toda pantalla (CanalGrande)
   const [canalAbierto, setCanalAbierto] = useState<number | null>(null);
   const vista = partido ? (parte === "mesa" && canalAbierto !== null ? "canal" : parte) : "juntas";
@@ -745,6 +765,13 @@ export default function ConsolaMesa({ pistas, alAbrirSelector }: { pistas?: Pist
     contador: grabando && !conPistas ? transcurrido : null,
     rec: { grabando: !!grabando || cuenta !== null, ocupado: estado === "abriendo", onPulsar: () => void pulsarRec() },
     toma: tomas.length > 0 && !grabando && cuenta === null ? () => setVerTomas(true) : null,
+    canciones: canciones && {
+      ...canciones,
+      onElegir: (c: Cancion) => {
+        seguirEnLaCinta = parte === "cinta";
+        canciones.onElegir(c);
+      },
+    },
   };
   const propsMesa = {
     canales: [entrada(0), entrada(1), ...PISTA_DE_CANAL.map(pista)],

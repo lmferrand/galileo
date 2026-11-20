@@ -7,11 +7,13 @@
 // canción. Abajo, 10 VU: los 8 canales de la mesa y la salida (L y R); sus agujas las mueve
 // ConsolaMesa sin pasar por React (data-vu). De la foto se borraron las agujas pintadas y se alargó
 // por debajo de los VU: ahí va la pantalla de la canción (la onda, para elegir un trozo y repetirlo)
-// y los avisos (el mando que se mueve, las entradas). REC graba lo que tocas (ConsolaMesa).
+// y los avisos (el mando que se mueve, las entradas). REC graba lo que tocas (ConsolaMesa). En la placa
+// de metal del centro, el selector de canciones (PlacaCanciones).
 
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { accesible, useArrastre, type PropsMando } from "./MandosMesa";
 import TransporteMesa, { type Transporte } from "./TransporteMesa";
+import PlacaCanciones, { type CancionesPlaca } from "./PlacaCanciones";
 
 export const ANCHO_CINTA = 2000;
 export const ALTO_CINTA = 787;
@@ -164,9 +166,11 @@ interface Props {
   contador: number | null;
   /** Hay una toma: abrirla (escuchar, guardar, borrar) */
   toma: (() => void) | null;
+  /** Las canciones para el selector de la placa (sin ellas, desde el afinador: «Sin cinta») */
+  canciones?: CancionesPlaca;
 }
 
-export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma }: Props) {
+export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, canciones }: Props) {
   // Al ir atrás o adelante, las bobinas corren un momento
   const [corriendo, setCorriendo] = useState<"atras" | "adelante" | null>(null);
   const [fin, setFin] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -276,6 +280,8 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma }:
             desactivado: sin,
           }}
         />
+
+        <PlacaCanciones canciones={canciones} />
 
         {/* Debajo de los VU, la pantalla de la canción (o solo los avisos, sin canción) */}
         <div className="gm-pantalla" style={enCaja(PANTALLA)}>

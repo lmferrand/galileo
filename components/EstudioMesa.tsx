@@ -186,7 +186,11 @@ export default function EstudioMesa({
         <div className="estudio-consola">
           {/* Dentro de la consola no hay ✕: se sale hacia atrás (canal → mesa → las dos → estudio) */}
           <Arriba onEstudio={() => setFase("volviendo")} />
-          <ConsolaMesa pistas={pistas} alAbrirSelector={selector ? () => setVerSelector(true) : undefined} />
+          <ConsolaMesa
+            pistas={pistas}
+            alAbrirSelector={selector ? () => setVerSelector(true) : undefined}
+            canciones={selector ? { lista: selector.canciones, actual: selector.actual, onElegir: selector.onElegir } : undefined}
+          />
           {verSelector && selector && (
             <SelectorPistas
               canciones={selector.canciones}
