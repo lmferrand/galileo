@@ -4,8 +4,10 @@
 // una ventana con luz por detrás, como el dial de una radio antigua, y dentro un tambor con los
 // títulos que gira al arrastrarlo (o con la rueda del ratón y las flechas). La que queda entre las
 // dos flechitas rojas es la elegida. Los tres botones redondos de debajo de la placa son «anterior»,
-// «poner esta» (se enciende cuando la elegida no es la que suena) y «siguiente». Tocar la del centro
-// también la pone. Sin canciones (la Mesa del afinador) la luz está apagada: «Sin cinta».
+// «poner esta» (se enciende cuando la elegida no es la que suena) y «siguiente». Tocar la ventana
+// (sin arrastrar) también pone la del centro. Lo que es un toque o un arrastre se mide en píxeles de
+// la pantalla: en el móvil la grabadora va pequeña y, medido en la foto, cualquier temblor del dedo
+// era un arrastre y la canción no se ponía. Sin canciones (la Mesa del afinador) la luz está apagada: «Sin cinta».
 // Medidas en píxeles de la foto (public/mesa/grabadora.webp, 2000×787).
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
@@ -29,6 +31,8 @@ const FILA = 34;
 const RADIO = 52;
 const PASO = (36 * Math.PI) / 180;
 const CENTRO = VENTANA.h / 2;
+/** Lo que se puede mover el dedo (px de pantalla) y seguir siendo un toque */
+const TOQUE_PX = 10;
 
 export default function PlacaCanciones({ canciones }: { canciones?: CancionesPlaca }) {
   // En el orden del selector de pistas: por grupos (artistas, álbumes…) y dentro por título
@@ -70,8 +74,12 @@ export default function PlacaCanciones({ canciones }: { canciones?: CancionesPla
     };
     anim.current = requestAnimationFrame(paso);
   };
+  // Un destello en la ventana al poner una canción (se nota que la ha cogido)
+  const [destello, setDestello] = useState(0);
   const poner = () => {
-    if (elegida && canciones && otra) canciones.onElegir(elegida);
+    if (!elegida || !canciones || !otra) return;
+    setDestello((d) => d + 1);
+    canciones.onElegir(elegida);
   };
 
   // Arrastrar el tambor: hacia arriba, las siguientes
@@ -84,22 +92,21 @@ export default function PlacaCanciones({ canciones }: { canciones?: CancionesPla
   const alMover = (e: PointerEvent<HTMLDivElement>) => {
     const a = arrastre.current;
     if (!a || a.id !== e.pointerId) return;
-    // La ventana va escalada: se pasa a píxeles de la foto
+    // En píxeles de la pantalla: un toque puede temblar un poco sin ser un arrastre
+    const dy = e.clientY - a.y0;
+    if (Math.abs(dy) > TOQUE_PX) a.movido = true;
+    // Una canción por cada FILA de la foto, pero nunca menos de 18 px de dedo
     const escala = e.currentTarget.getBoundingClientRect().height / VENTANA.h || 1;
-    const dy = (e.clientY - a.y0) / escala;
-    if (Math.abs(dy) > 5) a.movido = true;
-    if (a.movido) setPos(Math.max(-0.4, Math.min(ultimo + 0.4, a.pos0 - dy / (FILA * 0.9))));
+    const porFila = Math.max(18, FILA * 0.9 * escala);
+    if (a.movido) setPos(Math.max(-0.4, Math.min(ultimo + 0.4, a.pos0 - dy / porFila)));
   };
   const alSoltar = (e: PointerEvent<HTMLDivElement>) => {
     const a = arrastre.current;
     if (!a || a.id !== e.pointerId) return;
     arrastre.current = null;
     if (a.movido) return irA(pos);
-    // Un toque: en el centro la pone; arriba o abajo, gira hasta esa
-    const r = e.currentTarget.getBoundingClientRect();
-    const y = ((e.clientY - r.top) / r.height) * VENTANA.h - CENTRO;
-    if (Math.abs(y) < 15) poner();
-    else irA(Math.round(pos) + Math.sign(y));
+    // Un toque: pone la del centro
+    poner();
   };
   const rueda = useRef(0);
   const alRueda = (e: WheelEvent<HTMLDivElement>) => {
@@ -129,10 +136,11 @@ export default function PlacaCanciones({ canciones }: { canciones?: CancionesPla
   return (
     <>
       <div className={`gm-placa${hay ? " encendida" : ""}`} style={enCaja(VENTANA.x, VENTANA.y, VENTANA.w, VENTANA.h)}>
+        {destello > 0 && <span key={destello} className="gm-placa-destello" aria-hidden="true" />}
         <div
           className="gm-placa-tambor"
           role="listbox"
-          aria-label={hay ? "Canciones: gira para elegir y toca la del centro para ponerla" : "Sin canciones"}
+          aria-label={hay ? "Canciones: gira para elegir y toca para poner la del centro" : "Sin canciones"}
           aria-activedescendant={elegida ? `gm-placa-${Math.round(pos)}` : undefined}
           tabIndex={hay ? 0 : -1}
           onPointerDown={alBajar}

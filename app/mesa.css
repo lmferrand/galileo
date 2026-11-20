@@ -1192,6 +1192,29 @@
   font-size: 26px;
   color: rgba(255, 214, 150, 0.3);
 }
+/* Al poner una canción, la luz de la ventana da un destello */
+.gm-placa-destello {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(90% 80% at 50% 50%, rgba(255, 244, 210, 0.85), rgba(255, 200, 110, 0) 75%);
+  animation: gm-placa-destello 520ms ease-out forwards;
+}
+@keyframes gm-placa-destello {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gm-placa-destello {
+    animation-duration: 1ms;
+  }
+}
 /* Las flechitas rojas del dial, a los lados de la franja */
 .gm-placa-aguja {
   position: absolute;
