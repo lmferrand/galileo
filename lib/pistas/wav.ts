@@ -72,11 +72,31 @@ async function descodificar(buffer: ArrayBuffer, frames?: number): Promise<Int16
   const n = frames ?? audio.length;
   const m = Math.min(n, audio.length);
   const salida = new Int16Array(n * 2);
-  for (let k = 0; k < m; k++) {
-    const l = L[k] > 1 ? 1 : L[k] < -1 ? -1 : L[k];
-    const r = R[k] > 1 ? 1 : R[k] < -1 ? -1 : R[k];
-    salida[2 * k] = l < 0 ? l * 32768 : l * 32767;
-    salida[2 * k + 1] = r < 0 ? r * 32768 : r * 32767;
+  // A trozos, cediendo el paso entre uno y otro: de golpe, cada pista dejaba la pantalla quieta un
+  // cuarto de segundo en el móvil (se notaba al cambiar de canción en la Mesa)
+  for (let ini = 0; ini < m; ini += TROZO) {
+    const fin = Math.min(m, ini + TROZO);
+    for (let k = ini; k < fin; k++) {
+      const l = L[k] > 1 ? 1 : L[k] < -1 ? -1 : L[k];
+      const r = R[k] > 1 ? 1 : R[k] < -1 ? -1 : R[k];
+      salida[2 * k] = l < 0 ? l * 32768 : l * 32767;
+      salida[2 * k + 1] = r < 0 ? r * 32768 : r * 32767;
+    }
+    if (fin < m) await ceder();
   }
   return salida;
+}
+
+/** Muestras que se convierten seguidas (~0,4 s de audio: un par de milisegundos) */
+const TROZO = 1 << 14;
+
+/** Deja pintar y atender toques antes de seguir. */
+function ceder(): Promise<void> {
+  const s = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler;
+  if (s?.yield) return s.yield();
+  return new Promise((ok) => {
+    const c = new MessageChannel();
+    c.port1.onmessage = () => ok();
+    c.port2.postMessage(0);
+  });
 }

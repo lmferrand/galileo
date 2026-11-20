@@ -49,6 +49,8 @@ const PESO_MODELO = "285 MB";
 export default function Pistas() {
   const [canciones, setCanciones] = useState<Cancion[] | null>(null);
   const [abierta, setAbierta] = useState<Cancion | null>(null);
+  // La clave del reproductor mientras se cambia de canción desde la Mesa (null: la de la canción)
+  const [claveAbierta, setClaveAbierta] = useState<string | null>(null);
   // Elegida desde el selector de pistas de la Mesa: se abre ya en la Mesa
   const [mesaAlEntrar, setMesaAlEntrar] = useState(false);
   const [sep, setSep] = useState<EstadoSeparacion>({ trabajo: null, error: null, terminada: null, enCola: [], tanda: { total: 0, hechas: 0 } });
@@ -89,6 +91,7 @@ export default function Pistas() {
   useLayoutEffect(
     () => () => {
       setAbierta(null);
+      setClaveAbierta(null);
       setMesaAlEntrar(false);
       setDirecto(null);
       setHoja(null);
@@ -313,10 +316,11 @@ export default function Pistas() {
   if (abierta) {
     return (
       <Reproduccion
-        key={abierta.id}
+        key={claveAbierta ?? abierta.id}
         cancion={abierta}
         onVolver={() => {
           setAbierta(null);
+          setClaveAbierta(null);
           setMesaAlEntrar(false);
           recargar();
         }}
@@ -324,6 +328,8 @@ export default function Pistas() {
         mesaAlEntrar={mesaAlEntrar}
         canciones={canciones ?? []}
         onAbrirOtra={(c) => {
+          // Desde la placa de la Mesa: misma clave, así la Mesa no se desmonta (cambia la canción por dentro)
+          setClaveAbierta((k) => k ?? abierta.id);
           setMesaAlEntrar(true);
           setAbierta(c);
         }}

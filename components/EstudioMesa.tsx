@@ -8,7 +8,7 @@
 // Las canciones se eligen en la placa de metal de la grabadora (PlacaCanciones): elegir otra la pone
 // en la Mesa sin salir de ella.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHorizontal } from "@/lib/horizontal";
 import ConsolaMesa, { type PistasMesa } from "./ConsolaMesa";
 import Navegacion from "./Navegacion";
@@ -70,7 +70,8 @@ export default function EstudioMesa({
   const [tam, setTam] = useState<{ w: number; h: number } | null>(null);
   const [fase, setFase] = useState<Fase>(enConsola ? "consola" : "estudio");
 
-  useEffect(() => {
+  // Se mide antes de pintar: si no, el primer fotograma sale vacío (negro) y parece que parpadea
+  useLayoutEffect(() => {
     const el = caja.current;
     if (!el) return;
     el.focus();

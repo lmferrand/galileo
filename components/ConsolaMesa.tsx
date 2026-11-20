@@ -43,6 +43,8 @@ import { useHidratado } from "@/lib/hidratado";
 
 /** Las pistas de la canción que suena en Pistas, para tenerlas como canales 3 a 8. */
 export interface PistasMesa {
+  /** La canción (al cambiarla, la Mesa no se desmonta: ver «Otra canción» más abajo) */
+  id: string;
   nombres: string[];
   /** «la voz», «el bajo»… (para el título de sus efectos) */
   conArticulo: string[];
@@ -329,6 +331,24 @@ export default function ConsolaMesa({
   const relojCuenta = useRef<ReturnType<typeof setTimeout>[]>([]);
   const numeroToma = useRef(0);
   const tocandoCancion = pistas?.transporte.tocando ?? false;
+  // Otra canción (elegida en la placa): la consola sigue montada, pero lo grabado era sobre la otra:
+  // se deja de grabar y la lista de tomas empieza de nuevo
+  const idCancion = pistas?.id;
+  const idVisto = useRef(idCancion);
+  useEffect(() => {
+    if (idVisto.current === idCancion) return;
+    idVisto.current = idCancion;
+    relojCuenta.current.forEach(clearTimeout);
+    relojCuenta.current = [];
+    setCuenta(null);
+    setGrabando(null);
+    sonoGrabando.current = false;
+    if (mesa.grabando) void mesa.pararToma();
+    setTomas([]);
+    setVerTomas(false);
+    setPreparada(null);
+    setEstadoToma(null);
+  }, [idCancion]);
 
   const parar = async () => {
     const g = grabando;

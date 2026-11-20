@@ -1063,9 +1063,11 @@
   background: rgba(255, 200, 90, 0.2);
   box-shadow: 0 0 18px 3px rgba(255, 190, 60, 0.45);
 }
-/* Sin canción, las teclas de la cinta se apagan (tocar sigue oscura, como siempre que no suena) */
+/* Sin canción, las teclas de la cinta se apagan (tocar sigue oscura, como siempre que no suena).
+   Al cambiar de canción se apagan mientras carga: con retraso, para que una carga corta no parpadee */
 .gm-tecla:disabled:not(.gm-tocar) {
   background: rgba(10, 8, 6, 0.42);
+  transition-delay: 0.5s;
 }
 /* Las ruedas naranjas (velocidad y mover la canción) */
 .mf-oro {

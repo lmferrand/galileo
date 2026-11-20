@@ -33,7 +33,8 @@ export default function PaginaMesa() {
     <main className="app app-mesa">
       {cancion ? (
         <Reproduccion
-          key={cancion.id}
+          // Siempre la misma: al cambiar de canción la Mesa no se desmonta (cambia por dentro)
+          key="mesa"
           cancion={cancion}
           soloMesa
           mesaAlEntrar

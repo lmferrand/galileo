@@ -99,6 +99,35 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   const [onda, setOnda] = useState<Float32Array | null>(null);
   // Un «Solo» en una entrada de la Mesa: las pistas sin «Solo» se callan
   const [soloFuera, setSoloFuera] = useState(false);
+  // Otra canción sin desmontar (elegida en la placa de la Mesa): la Mesa se queda montada y lo de la
+  // canción se pone como lo dejó la última vez. Desmontar la Mesa entera daba un tirón y un fogonazo
+  // oscuro. (Se cambia aquí mismo, al pintar: así nada llega a guardarse con la canción equivocada.)
+  const [idActual, setIdActual] = useState(cancion.id);
+  if (cancion.id !== idActual) {
+    const a = leerAjustesCancion(cancion.id, PISTAS.length);
+    setIdActual(cancion.id);
+    setCargando(true);
+    setError(null);
+    setTocando(false);
+    setSegundo(0);
+    setVolumen(a.volumen);
+    setSilencio(a.silencio);
+    setSolo(PISTAS.map(() => false));
+    setVelocidad(a.velocidad);
+    setTono(a.tono);
+    setMarcas(a.marcas);
+    setClick(a.click);
+    setBuscandoPulso("no");
+    setDesde(null);
+    setHasta(null);
+    setRepetir(false);
+    setNombre(cancion.nombre);
+    setEditando(false);
+    setBorrador(cancion.nombre);
+    setVerCredito(false);
+    setGuardado(null);
+    setOnda(null);
+  }
   const cerrarMesa = useCallback(() => {
     setVerMesa(false);
     setMesaDirecta(false);
@@ -116,7 +145,6 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   const algunSolo = solo.some(Boolean);
   const efectivas = PISTAS.map((_, i) => (silencio[i] || ((algunSolo || soloFuera) && !solo[i]) ? 0 : volumen[i] * volumen[i]));
   const claveGanancias = efectivas.join(",");
-  const gananciasIniciales = useRef(efectivas);
   const trozoValido = desde !== null && hasta !== null && hasta - desde >= TROZO_MINIMO;
   // Luz de cada foco del escenario: apagado si la pista no suena, y más tenue con menos volumen.
   const luces = PISTAS.map((_, i) => (efectivas[i] === 0 ? 0 : 0.35 + 0.65 * Math.min(1, volumen[i])));
@@ -149,7 +177,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
         if (!datos || !vivo) return;
         // Antes de cargar: al reproductor las pistas pasan al hilo de audio y dejan de valer aquí
         setOnda(ondaDe(datos, cancion.frames));
-        await r.cargar(datos, cancion.frames, gananciasIniciales.current);
+        await r.cargar(datos, cancion.frames, efectivas);
         if (vivo) setCargando(false);
       } catch (e) {
         if (vivo) setError((e as Error).message || "No se han podido abrir las pistas.");
@@ -355,6 +383,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
 
   const pct = (s: number) => `${(Math.min(s, cancion.duracion) / Math.max(1, cancion.duracion)) * 100}%`;
   const pistasMesa: PistasMesa = {
+    id: cancion.id,
     nombres: PISTAS.map((p) => p.nombre),
     conArticulo: PISTAS.map((p) => p.conArticulo),
     volumen,
