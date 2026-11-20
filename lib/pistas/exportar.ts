@@ -2,12 +2,14 @@
 // puesto en cada una y lo convierte en un WAV para llevártelo.
 
 import { leerPistasDeCancion } from "./cargar";
+import { gananciaDeToma, leerTomasDeCancion } from "./tomas";
 import { FRECUENCIA, PISTAS, type Cancion } from "./tipos";
 import { crearWav } from "./wav";
 
 const IDS = PISTAS.map((p) => p.id);
 
 /**
+ * La canción como suena: sus pistas con su volumen y tus tomas añadidas (lib/pistas/tomas) con el suyo.
  * `encima`: lo que grabaste en la Mesa (intercalado, −1 a 1, ya a FRECUENCIA), que se suma a la
  * canción desde el fotograma `desde`.
  */
@@ -22,6 +24,14 @@ export async function mezclarCancion(cancion: Cancion, ganancias: number[], enci
     const datos = pistas[s];
     const n = Math.min(datos.length, suma.length);
     for (let i = 0; i < n; i++) suma[i] += datos[i] * g;
+  }
+  // Tus tomas añadidas, cada una desde su sitio
+  for (const { ficha, datos } of await leerTomasDeCancion(cancion.id).catch(() => [])) {
+    const g = gananciaDeToma(ficha);
+    if (g < 0.0001) continue;
+    const ini = Math.max(0, ficha.desde) * 2;
+    const n = Math.min(datos.length, suma.length - ini);
+    for (let i = 0; i < n; i++) suma[ini + i] += datos[i] * g;
   }
   if (encima) {
     const ini = Math.max(0, Math.round(encima.desde)) * 2;

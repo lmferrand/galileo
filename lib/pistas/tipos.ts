@@ -13,6 +13,19 @@ export const PISTAS: { id: Pista; nombre: string; /** «la voz», «el bajo»…
 
 export const FRECUENCIA = 44100;
 
+/** Una toma tuya añadida a la canción: suena con ella desde su sitio (lib/pistas/tomas) */
+export interface TomaCancion {
+  id: string;
+  nombre: string;
+  /** Fotograma de la canción (a FRECUENCIA) en que empieza */
+  desde: number;
+  frames: number;
+  /** De 0 a 1,5 (1 = como se grabó) */
+  volumen: number;
+  silencio: boolean;
+  creada: number;
+}
+
 export interface Cancion {
   id: string;
   nombre: string;
@@ -31,6 +44,8 @@ export interface Cancion {
   nube?: boolean;
   /** Su grupo en el selector de pistas (artista, álbum, proyecto…); sin poner, uno automático (lib/pistas/grupos). */
   grupo?: string;
+  /** Tus tomas añadidas a la canción (su audio va aparte, en el almacén del aparato) */
+  tomas?: TomaCancion[];
 }
 
 export function formatoTiempo(segundos: number): string {

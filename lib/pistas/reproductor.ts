@@ -59,9 +59,10 @@ export class Reproductor {
         }
         const nodo = new AudioWorkletNode(ctx, "mezclador-pistas", {
           numberOfInputs: 0,
-          numberOfOutputs: PISTAS.length + 1,
-          outputChannelCount: [...PISTAS.map(() => 2), 1],
-          processorOptions: { conClick: true },
+          // Las pistas, tus tomas añadidas (juntas) y el click
+          numberOfOutputs: PISTAS.length + 2,
+          outputChannelCount: [...PISTAS.map(() => 2), 2, 1],
+          processorOptions: { conClick: true, conTomas: true },
         });
         // Cada pista a su canal; todas al general y al limitador (nunca satura)
         const general = ctx.createGain();
@@ -84,7 +85,9 @@ export class Reproductor {
         union.connect(ctx.destination);
         const clickVolumen = ctx.createGain();
         clickVolumen.gain.value = this.volClick;
-        nodo.connect(clickVolumen, PISTAS.length);
+        nodo.connect(clickVolumen, PISTAS.length + 1);
+        // Tus tomas añadidas: ya llevan sus efectos, van derechas al general de la canción
+        nodo.connect(general, PISTAS.length);
         this.medidor = medidor;
         this.mono = mono;
         this.union = union;
@@ -208,6 +211,29 @@ export class Reproductor {
       izq: picoDe(l, this.datos),
       der: picoDe(r, this.datos),
     };
+  }
+
+  // ---------- Tus tomas añadidas a la canción (lib/pistas/tomas) ----------
+  /** Todas de una vez, al abrir la canción (después de `cargar`). Se transfieren: dejan de valer fuera. */
+  ponerTomas(tomas: { id: string; datos: Int16Array; desde: number; ganancia: number }[]) {
+    this.nodo?.port.postMessage(
+      { tipo: "tomas", lista: tomas.map((t) => ({ id: t.id, datos: t.datos, desde: t.desde, g: t.ganancia })) },
+      tomas.map((t) => t.datos.buffer),
+    );
+  }
+
+  /** Una toma más (se transfiere). */
+  ponerToma(t: { id: string; datos: Int16Array; desde: number; ganancia: number }) {
+    this.nodo?.port.postMessage({ tipo: "toma", id: t.id, datos: t.datos, desde: t.desde, g: t.ganancia }, [t.datos.buffer]);
+  }
+
+  /** Su volumen (0 = callada). */
+  gananciaToma(id: string, ganancia: number) {
+    this.nodo?.port.postMessage({ tipo: "toma-g", id, g: ganancia });
+  }
+
+  quitarToma(id: string) {
+    this.nodo?.port.postMessage({ tipo: "toma-fuera", id });
   }
 
   // ---------- Escuchar una toma de la Mesa con la canción ----------

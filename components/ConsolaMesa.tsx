@@ -16,7 +16,7 @@ import CanalGrande from "./CanalGrande";
 import AyudaMesa from "./AyudaMesa";
 import GrabadoraMesa, { ALTO_CINTA, ANCHO_CINTA, anguloVu, VU_REPOSO, VUS } from "./GrabadoraMesa";
 import type { CancionesPlaca } from "./PlacaCanciones";
-import type { Cancion } from "@/lib/pistas/tipos";
+import type { Cancion, TomaCancion } from "@/lib/pistas/tipos";
 import { type Transporte } from "./TransporteMesa";
 import {
   AJUSTES_INICIALES,
@@ -34,7 +34,7 @@ import { mesa } from "@/lib/mesa/mesa";
 import { duracionToma, wavDeToma, type Toma } from "@/lib/mesa/toma";
 import { guardarArchivo } from "@/lib/pistas/exportar";
 import { esMovil } from "@/lib/pistas/aparato";
-import { formatoTiempo } from "@/lib/pistas/tipos";
+import { formatoTiempo, FRECUENCIA } from "@/lib/pistas/tipos";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo } from "@/lib/metronomo";
 import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
 import CarpetasMesa from "./CarpetasMesa";
@@ -43,6 +43,18 @@ import { guardarEscucha, guardarModoGrabar, leerEscucha, leerModoGrabar, RETRASO
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
 import { Posicion } from "@/lib/pistas/posicion";
 import { useHidratado } from "@/lib/hidratado";
+
+/** Tus tomas añadidas a la canción: suenan con ella, como una pista más (lib/pistas/tomas) */
+export interface TomasDeCancion {
+  lista: TomaCancion[];
+  /** Cuántas caben */
+  tope: number;
+  /** Añade a la canción una toma grabada con ella; devuelve el motivo si no se puede */
+  anadir: (t: Toma, nombre: string) => Promise<string | null>;
+  onVolumen: (id: string, v: number) => void;
+  onSilencio: (id: string) => void;
+  borrar: (id: string) => Promise<void>;
+}
 
 /** Las pistas de la canción que suena en Pistas, para tenerlas como canales 3 a 8. */
 export interface PistasMesa {
@@ -66,6 +78,8 @@ export interface PistasMesa {
   /** Escuchar la toma de REC con la canción, desde donde empezó */
   escucharToma: (t: Toma) => void;
   pararToma: () => void;
+  /** Tus tomas añadidas a la canción */
+  tomas: TomasDeCancion;
   /** La canción entera (como suena ahora) con la toma encima, en WAV */
   mezclaConToma: (t: Toma) => Promise<{ blob: Blob; nombre: string }>;
   /** Ecualizador, efectos y panorama de una pista */
@@ -563,12 +577,31 @@ export default function ConsolaMesa({
       setEstadoToma(r === "compartido" ? "Guardado." : `Descargado: ${preparada.nombre}`);
     }
   };
+  const anadidas = pistas?.tomas.lista ?? [];
   const borrarToma = (id: number) => {
     pararEscucha();
     if (preparada?.id === id) setPreparada(null);
     const quedan = tomas.filter((x) => x.id !== id);
     setTomas(quedan);
-    if (quedan.length === 0) setVerTomas(false);
+    if (quedan.length === 0 && anadidas.length === 0) setVerTomas(false);
+  };
+  // Añadir una toma a la canción: se queda con ella y suena como una pista más
+  const [anadiendo, setAnadiendo] = useState<number | null>(null);
+  const anadirACancion = async (g: TomaGuardada) => {
+    if (!pistas || anadiendo !== null) return;
+    pararEscucha();
+    setAnadiendo(g.id);
+    setEstadoToma(`Añadiendo la ${g.nombre.toLowerCase()} a la canción…`);
+    // Un nombre que no esté ya («Tu toma 2» si la 1 sigue ahí, aunque se hayan borrado otras)
+    const usados = new Set(pistas.tomas.lista.map((t) => t.nombre));
+    let numero = 1;
+    while (usados.has(`Tu toma ${numero}`)) numero++;
+    const motivo = await pistas.tomas.anadir(g.toma, `Tu toma ${numero}`);
+    setAnadiendo(null);
+    if (motivo) return setEstadoToma(motivo);
+    if (preparada?.id === g.id) setPreparada(null);
+    setTomas((ts) => ts.filter((x) => x.id !== g.id));
+    setEstadoToma("Añadida: ya suena con la canción, también fuera de la Mesa.");
   };
 
   // ---------- Aviso de mezcla: cuando un instrumento tapa a otro ----------
@@ -911,7 +944,7 @@ export default function ConsolaMesa({
     aviso,
     contador: grabando && !conPistas ? transcurrido : null,
     rec: { grabando: !!grabando || cuenta !== null, ocupado: estado === "abriendo" || !!pistas?.transporte.cargando, onPulsar: () => void pulsarRec() },
-    toma: tomas.length > 0 && !grabando && cuenta === null ? () => setVerTomas(true) : null,
+    toma: (tomas.length > 0 || anadidas.length > 0) && !grabando && cuenta === null ? () => setVerTomas(true) : null,
     metronomo: teclaMetro,
     onOrganizar: canciones ? () => setVerCarpetas(true) : undefined,
     alLeer: leer,
@@ -1129,7 +1162,7 @@ export default function ConsolaMesa({
         </div>
       )}
 
-      {verTomas && tomas.length > 0 && (
+      {verTomas && (tomas.length > 0 || anadidas.length > 0) && (
         <div className="hoja-fondo" onClick={() => setVerTomas(false)}>
           <div className="hoja" role="dialog" aria-modal="true" aria-label="Tus tomas" onClick={(e) => e.stopPropagation()}>
             <div className="hoja-asa" aria-hidden="true" />
@@ -1140,7 +1173,7 @@ export default function ConsolaMesa({
               </button>
             </header>
             <div className="hoja-cuerpo toma-hoja">
-              {modo === "sin" && <p className="toma-ayuda toma-oir">Pulsa «Escuchar» para oír cómo ha quedado{pistas ? ", con la canción" : ""}.</p>}
+              {modo === "sin" && tomas.length > 0 && <p className="toma-ayuda toma-oir">Pulsa «Escuchar» para oír cómo ha quedado{pistas ? ", con la canción" : ""}.</p>}
               {preparada && (
                 <button type="button" className="boton-principal ancho" onClick={entregarToma}>
                   Guardar o compartir «{preparada.nombre}»
@@ -1161,12 +1194,17 @@ export default function ConsolaMesa({
                           Escuchar
                         </button>
                         {pistas && g.toma.desde !== null && (
+                          <button type="button" className="boton-principal toma-boton" onClick={() => void anadirACancion(g)} disabled={ocupado || anadiendo !== null}>
+                            Añadir a la canción
+                          </button>
+                        )}
+                        {pistas && g.toma.desde !== null && (
                           <button type="button" className="boton-secundario toma-boton" onClick={() => void guardarToma(g, true)} disabled={ocupado}>
-                            Con la canción
+                            Exportar con la canción
                           </button>
                         )}
                         <button type="button" className="boton-secundario toma-boton" onClick={() => void guardarToma(g, false)} disabled={ocupado}>
-                          {pistas ? "Solo la toma" : "Guardar"}
+                          {pistas ? "Exportar sola" : "Guardar"}
                         </button>
                         <button type="button" className="boton-texto peligro toma-boton" onClick={() => borrarToma(g.id)} aria-label={`Borrar la ${g.nombre.toLowerCase()}`}>
                           Borrar
@@ -1177,9 +1215,52 @@ export default function ConsolaMesa({
                 })}
               </ul>
               {estadoToma && <p className="toma-estado">{estadoToma}</p>}
-              <p className="toma-ayuda">
-                Se guardan las {MAX_TOMAS} últimas mientras estés en la Mesa. «Con la canción» guarda la canción entera con tu toma; «Solo la toma», solo lo que tocaste. En WAV.
-              </p>
+              {tomas.length > 0 && (
+                <p className="toma-ayuda">
+                  {pistas
+                    ? `${tomas.length === 1 ? "Esta se guarda" : "Estas se guardan"} solo mientras estés en la Mesa (las ${MAX_TOMAS} últimas). «Añadir a la canción» la deja con la canción para siempre, como una pista más. «Exportar» saca un archivo WAV: con la canción entera o la toma sola.`
+                    : `Se guardan las ${MAX_TOMAS} últimas mientras estés en la Mesa. «Guardar» saca la toma en un archivo WAV.`}
+                </p>
+              )}
+              {pistas && anadidas.length > 0 && (
+                <section className="tomas-anadidas" aria-label="Tomas añadidas a la canción">
+                  <h3>Añadidas a la canción</h3>
+                  <ul className="tomas-lista">
+                    {anadidas.map((t) => (
+                      <li key={t.id} className={`toma-fila toma-anadida${t.silencio ? " callada" : ""}`}>
+                        <span className="toma-nombre">{t.nombre}</span>
+                        <span className="toma-dur">
+                          desde {formatoTiempo(t.desde / FRECUENCIA)} · dura {formatoTiempo(t.frames / FRECUENCIA)}
+                        </span>
+                        <span className="toma-botones">
+                          <button type="button" className="boton-secundario toma-boton" aria-pressed={t.silencio} onClick={() => pistas.tomas.onSilencio(t.id)}>
+                            {t.silencio ? "Callada" : "Suena"}
+                          </button>
+                          <button type="button" className="boton-texto peligro toma-boton" onClick={() => void pistas.tomas.borrar(t.id)} aria-label={`Borrar ${t.nombre} de la canción`}>
+                            Borrar
+                          </button>
+                        </span>
+                        <label className="toma-volumen">
+                          <span>Volumen</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={1.5}
+                            step={0.01}
+                            value={Math.min(1.5, t.volumen)}
+                            onChange={(e) => pistas.tomas.onVolumen(t.id, Number(e.target.value))}
+                            aria-label={`Volumen de ${t.nombre}`}
+                          />
+                          <output>{Math.round(t.volumen * 100)} %</output>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="toma-ayuda">
+                    Suenan con la canción desde su sitio (también en Pistas y al exportar la mezcla). Caben {pistas.tomas.tope}. Llevan los efectos con que las grabaste.
+                  </p>
+                </section>
+              )}
             </div>
           </div>
         </div>

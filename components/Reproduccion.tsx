@@ -9,11 +9,12 @@ import Escenario from "./Escenario";
 import EstudioMesa from "./EstudioMesa";
 import type { PistasMesa } from "./ConsolaMesa";
 import { useHorizontal } from "@/lib/horizontal";
-import { renombrarCancion } from "@/lib/pistas/almacen";
+import { actualizarCancion, borrarTomaCancion, renombrarCancion } from "@/lib/pistas/almacen";
+import { anadirTomaACancion, gananciaDeToma, leerTomasDeCancion, MAX_TOMAS_CANCION } from "@/lib/pistas/tomas";
 import { Reproductor } from "@/lib/pistas/reproductor";
 import { separadaConRoformer } from "@/lib/pistas/importar";
 import { describirMezcla, guardarArchivo, mezclarCancion, nombreArchivo } from "@/lib/pistas/exportar";
-import { formatoTiempo, FRECUENCIA, PISTAS, type Cancion, type Pista } from "@/lib/pistas/tipos";
+import { formatoTiempo, FRECUENCIA, PISTAS, type Cancion, type Pista, type TomaCancion } from "@/lib/pistas/tipos";
 import { tomaA, type Toma } from "@/lib/mesa/toma";
 import { ondaDe } from "@/lib/pistas/onda";
 import { leerPistasDeCancion, pulsoDeCancion } from "@/lib/pistas/cargar";
@@ -94,6 +95,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   // Por dónde va la canción: no es estado de esta pantalla (se repintaría entera 10 veces por
   // segundo, con la Mesa dentro); la leen de aquí las piezas que la enseñan (lib/pistas/posicion)
   const [posicion] = useState(() => new Posicion());
+  // Tus tomas añadidas a la canción (lib/pistas/tomas): suenan con ella, como una pista más
+  const [tomasCancion, setTomasCancion] = useState<TomaCancion[]>([]);
+  /** La lista al día, para los mandos (el estado va un paso por detrás dentro de un mismo toque) */
+  const tomasAhora = useRef<TomaCancion[]>([]);
+  /** El guardado de sus fichas que espera (mover un volumen no escribe en cada paso) */
+  const fichasPendientes = useRef<{ t: ReturnType<typeof setTimeout>; escribir: () => void } | null>(null);
   // Lo que la canción recuerda de la última vez (mezcla, velocidad, marcas de sus partes)
   const [inicial] = useState(() => (typeof window === "undefined" ? ajustesPorDefecto(PISTAS.length) : leerAjustesCancion(cancion.id, PISTAS.length)));
   const [volumen, setVolumen] = useState<number[]>(() => inicial.volumen);
@@ -145,6 +152,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     setCargando(true);
     setError(null);
     setTocando(false);
+    setTomasCancion([]);
     setVolumen(a.volumen);
     setSilencio(a.silencio);
     setSolo(PISTAS.map(() => false));
@@ -200,6 +208,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     rep.current = r;
     tocarAlCargar.current = false;
     posicion.poner(0);
+    tomasAhora.current = [];
     let vivo = true;
     r.alCambiar = ({ tocando: t, segundo: s }) => {
       if (t !== ultimo.current.tocando || Math.abs(s - ultimo.current.segundo) >= 0.1) {
@@ -216,6 +225,12 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
         setOnda(ondaDe(datos, cancion.frames));
         await r.cargar(datos, cancion.frames, efectivas);
         if (!vivo) return;
+        // Tus tomas añadidas: al reproductor, después de las pistas (si alguna falla, sin ella)
+        const guardadas = await leerTomasDeCancion(cancion.id).catch(() => []);
+        if (!vivo) return;
+        if (guardadas.length) r.ponerTomas(guardadas.map(({ ficha, datos: d }) => ({ id: ficha.id, datos: d, desde: ficha.desde, ganancia: gananciaDeToma(ficha) })));
+        tomasAhora.current = guardadas.map((g) => g.ficha);
+        setTomasCancion(tomasAhora.current);
         setCargando(false);
         if (tocarAlCargar.current) {
           tocarAlCargar.current = false;
@@ -228,6 +243,11 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     })();
     return () => {
       vivo = false;
+      // Lo que quedara por guardar de las tomas de esta canción, ya
+      if (fichasPendientes.current) {
+        clearTimeout(fichasPendientes.current.t);
+        fichasPendientes.current.escribir();
+      }
       r.cerrar();
       rep.current = null;
     };
@@ -325,6 +345,61 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verMesa, cargando, faltaPulso, buscandoPulso]);
   const SIGUIENTE_COMPAS: Record<number, number> = { 4: 3, 3: 2, 2: 6, 6: 4 };
+  // ---- Tus tomas añadidas a la canción ----
+  const ponerTomas = (lista: TomaCancion[]) => {
+    tomasAhora.current = lista;
+    setTomasCancion(lista);
+  };
+  /** Guarda las fichas (volumen, silencio) en el aparato; con `espera`, cuando dejes de mover el mando. */
+  const apuntarFichas = (lista: TomaCancion[], espera = 0) => {
+    const id = cancion.id;
+    if (fichasPendientes.current) clearTimeout(fichasPendientes.current.t);
+    const escribir = () => {
+      fichasPendientes.current = null;
+      void actualizarCancion(id, { tomas: lista }).catch(() => undefined);
+    };
+    if (!espera) return escribir();
+    fichasPendientes.current = { t: setTimeout(escribir, espera), escribir };
+  };
+  /** Antes de añadir o borrar: que lo pendiente quede escrito (y no pise después la lista nueva) */
+  const soltarFichas = () => {
+    const p = fichasPendientes.current;
+    if (!p) return;
+    clearTimeout(p.t);
+    p.escribir();
+  };
+  const cambiarToma = (idToma: string, cambio: (t: TomaCancion) => TomaCancion, espera = 0) => {
+    const lista = tomasAhora.current.map((t) => (t.id === idToma ? cambio(t) : t));
+    ponerTomas(lista);
+    const t = lista.find((x) => x.id === idToma);
+    if (t) rep.current?.gananciaToma(idToma, gananciaDeToma(t));
+    apuntarFichas(lista, espera);
+  };
+  const volumenToma = (idToma: string, v: number) => cambiarToma(idToma, (t) => ({ ...t, volumen: Math.max(0, Math.min(1.5, v)) }), 400);
+  const silencioToma = (idToma: string) => cambiarToma(idToma, (t) => ({ ...t, silencio: !t.silencio }));
+  /** Añade a la canción una toma grabada con ella. Devuelve el motivo si no se puede. */
+  const anadirToma = async (toma: Toma, nombreToma: string): Promise<string | null> => {
+    if (tomasAhora.current.length >= MAX_TOMAS_CANCION) return `Ya hay ${MAX_TOMAS_CANCION} tomas añadidas a esta canción: borra alguna para añadir otra.`;
+    const id = cancion.id;
+    soltarFichas();
+    try {
+      const { ficha, datos } = await anadirTomaACancion(id, toma, nombreToma);
+      if (idVivo.current !== id) return null;
+      rep.current?.ponerToma({ id: ficha.id, datos, desde: ficha.desde, ganancia: gananciaDeToma(ficha) });
+      ponerTomas([...tomasAhora.current, ficha]);
+      return null;
+    } catch (e) {
+      return (e as Error).message || "No se ha podido añadir la toma.";
+    }
+  };
+  const borrarTomaAnadida = async (idToma: string) => {
+    const id = cancion.id;
+    soltarFichas();
+    rep.current?.quitarToma(idToma);
+    ponerTomas(tomasAhora.current.filter((t) => t.id !== idToma));
+    await borrarTomaCancion(id, idToma).catch(() => undefined);
+  };
+
   const cambiarCompas = () => setClick((c) => (c ? ponerCompas(c, SIGUIENTE_COMPAS[c.compas] ?? 4) : c));
   const puedeDoble = !!click && click.bpm * 2 <= 260;
   const puedeMitad = !!click && click.bpm / 2 >= 40 && click.golpes.length >= 8;
@@ -489,6 +564,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
       r.tocarToma(tomaA(toma, FRECUENCIA), FRECUENCIA);
     },
     pararToma: () => rep.current?.pararToma(),
+    tomas: { lista: tomasCancion, tope: MAX_TOMAS_CANCION, anadir: anadirToma, onVolumen: volumenToma, onSilencio: silencioToma, borrar: borrarTomaAnadida },
     mezclaConToma: async (toma: Toma) => {
       const blob = await mezclarCancion(cancion, efectivas, { muestras: tomaA(toma, FRECUENCIA), desde: (toma.desde ?? 0) * FRECUENCIA });
       return { blob, nombre: nombreArchivo({ ...cancion, nombre }, efectivas).replace(/.wav$/, " + mi toma.wav") };
@@ -699,6 +775,36 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
                   </div>
                 );
               })}
+              {/* Tus tomas añadidas en la Mesa: suenan con la canción, como una pista más */}
+              {tomasCancion.map((t) => (
+                <div key={t.id} className={`canal canal-toma ${t.silencio || t.volumen < 0.005 ? "apagado" : ""}`}>
+                  <div className="canal-cabeza">
+                    <span className="canal-nombre">
+                      {t.nombre} <small>desde {formatoTiempo(t.desde / FRECUENCIA)}</small>
+                    </span>
+                    <button
+                      type="button"
+                      className="canal-boton silencio"
+                      aria-pressed={t.silencio}
+                      onClick={() => silencioToma(t.id)}
+                      aria-label={t.silencio ? `Volver a oír ${t.nombre}` : `Quitar ${t.nombre}`}
+                    >
+                      {t.silencio ? <IconoMudo /> : <IconoSuena />}
+                    </button>
+                  </div>
+                  <input
+                    type="range"
+                    className="cuerda-volumen"
+                    min={0}
+                    max={1.5}
+                    step={0.01}
+                    value={Math.min(1.5, t.volumen)}
+                    onChange={(e) => volumenToma(t.id, Number(e.target.value))}
+                    aria-label={`Volumen de ${t.nombre}`}
+                    style={{ "--hecho": `${(Math.min(1.5, t.volumen) / 1.5) * 100}%` } as CSSProperties}
+                  />
+                </div>
+              ))}
             </section>
 
             <button type="button" className="boton-mesa-pistas" onClick={() => setVerMesa(true)}>

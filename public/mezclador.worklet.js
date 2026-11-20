@@ -11,6 +11,9 @@
 // El tono: cada trozo se lee r veces más deprisa (r = 2^(semitonos/12)), así sube o
 // baja el tono, y los trozos se siguen colocando al ritmo de la velocidad: el tempo
 // no cambia.
+// Tus tomas añadidas a la canción (lib/pistas/tomas): salen juntas por una salida más, después de
+// las pistas. Cada una empieza en su fotograma de la canción y se lee con el mismo encaje que las
+// pistas: va clavada con ellas al pausar, saltar, repetir un trozo o tocar más lento.
 // El click (para el directo): sale por una salida más, la última. Suena en cada golpe de la lista
 // que se sacó de la batería (lib/pistas/pulso), mirando el segundo de la canción que suena en cada
 // muestra: así va clavado con cualquier velocidad y sigue al batería si acelera o frena.
@@ -30,9 +33,13 @@ class MezcladorPistas extends AudioWorkletProcessor {
     super();
     // Una salida por pista (y, si se pide, una más para el click)
     const conClick = !!(opciones && opciones.processorOptions && opciones.processorOptions.conClick);
+    const conTomas = !!(opciones && opciones.processorOptions && opciones.processorOptions.conTomas);
     const NS = Math.max(1, ((opciones && opciones.numberOfOutputs) || 1) - (conClick ? 1 : 0));
     this.ns = NS;
     this.salidaClick = conClick ? NS : -1;
+    // La salida de las tomas: la última antes del click
+    this.salidaTomas = conTomas && NS > 1 ? NS - 1 : -1;
+    this.tomas = []; // { id, datos, frames, desde, g, gObjetivo }
     this.segFifo = new Float32Array(FIFO); // el segundo de la canción de cada muestra que sale
     this.click = { activo: false, golpes: new Float64Array(0), uno: 0, compas: 4 };
     this.golpe = null; // cuántos golpes de la lista han pasado ya
@@ -87,6 +94,7 @@ class MezcladorPistas extends AudioWorkletProcessor {
   mensaje(m) {
     switch (m.tipo) {
       case "cargar":
+        this.tomas = [];
         this.pistas = m.pistas;
         this.frames = m.frames;
         this.paso = m.frecuencia / sampleRate;
@@ -95,7 +103,26 @@ class MezcladorPistas extends AudioWorkletProcessor {
         this.reiniciar(0);
         this.avisar();
         break;
+      case "tomas":
+        // Todas de una vez (al abrir la canción)
+        this.tomas = (m.lista || []).map((t) => ({ id: t.id, datos: t.datos, frames: t.datos.length >> 1, desde: t.desde, g: t.g, gObjetivo: t.g }));
+        break;
+      case "toma": {
+        // Una más (o la misma, cambiada)
+        const nueva = { id: m.id, datos: m.datos, frames: m.datos.length >> 1, desde: m.desde, g: m.g, gObjetivo: m.g };
+        this.tomas = [...this.tomas.filter((t) => t.id !== m.id), nueva];
+        break;
+      }
+      case "toma-g": {
+        const t = this.tomas.find((x) => x.id === m.id);
+        if (t) t.gObjetivo = m.g;
+        break;
+      }
+      case "toma-fuera":
+        this.tomas = this.tomas.filter((t) => t.id !== m.id);
+        break;
       case "vaciar":
+        this.tomas = [];
         this.pistas = [];
         this.frames = 0;
         this.tocando = false;
@@ -182,6 +209,33 @@ class MezcladorPistas extends AudioWorkletProcessor {
     for (let s = 0; s < this.ns; s++) {
       const TL = this.trozoL[s];
       const TR = this.trozoR[s];
+      if (s === this.salidaTomas) {
+        // Tus tomas: cada una desde su fotograma, sumadas
+        TL.fill(0, 0, cuantos);
+        TR.fill(0, 0, cuantos);
+        const ts = this.tomas;
+        for (let j = 0; j < ts.length; j++) {
+          const t = ts[j];
+          if (t.g < 0.0001) continue;
+          const dt = t.datos;
+          const Ft = t.frames;
+          const d0 = t.desde;
+          // ¿Cae algo de ella en este trozo?
+          if ((n0 + (cuantos - 1) * r) * paso - d0 < 0 || n0 * paso - d0 >= Ft - 1) continue;
+          const kt = t.g / 32768;
+          for (let i = 0; i < cuantos; i++) {
+            const p = (n0 + i * r) * paso - d0;
+            if (p >= 0 && p < Ft - 1) {
+              const q = p | 0;
+              const f = p - q;
+              const a = q * 2;
+              TL[i] += kt * (dt[a] + (dt[a + 2] - dt[a]) * f);
+              TR[i] += kt * (dt[a + 1] + (dt[a + 3] - dt[a + 1]) * f);
+            }
+          }
+        }
+        continue;
+      }
       const d = ps[s];
       const g = this.g[s];
       if (!d || g < 0.0001) {
@@ -283,6 +337,7 @@ class MezcladorPistas extends AudioWorkletProcessor {
 
   generar() {
     for (let s = 0; s < 8; s++) this.g[s] += (this.gObjetivo[s] - this.g[s]) * 0.6;
+    for (let j = 0; j < this.tomas.length; j++) this.tomas[j].g += (this.tomas[j].gObjetivo - this.tomas[j].g) * 0.6;
 
     if (this.bucle && this.analisis >= this.bucle.b) {
       // Vuelta al principio del trozo: el solape funde el final con el inicio.
