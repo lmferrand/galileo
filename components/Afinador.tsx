@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Roseta from "./Roseta";
 import Pala from "./Pala";
 import Hoja from "./Hoja";
@@ -24,6 +24,7 @@ import { sonarInstrumento } from "@/lib/sonidos";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
 import { tocarArpegio, tocarNota } from "@/lib/tono";
+import { usePestanaVisible } from "@/lib/pestana";
 import { guardarPreferencias, leerPreferencias, PREFERENCIAS_INICIALES, type Preferencias } from "@/lib/preferencias";
 
 const TOLERANCIA = 4; // cents
@@ -80,16 +81,45 @@ export default function Afinador() {
   const bloqueo = useRef<WakeLock | null>(null);
   const temporizadores = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Preferencias guardadas: se leen después de hidratar para no descuadrar el HTML.
+  // Preferencias guardadas: se leen después de hidratar para no descuadrar el HTML. Esto vuelve a
+  // pasar cada vez que vuelves a la pestaña: si no han cambiado se deja el mismo objeto, así no se
+  // repinta todo el afinador (era parte del tirón al volver).
   useEffect(() => {
-    setPrefs(leerPreferencias());
-    setMetro(leerAjustesMetronomo());
+    const igual = <T,>(antes: T, ahora: T) => (JSON.stringify(antes) === JSON.stringify(ahora) ? antes : ahora);
+    setPrefs((p) => igual(p, leerPreferencias()));
+    setMetro((m) => igual(m, leerAjustesMetronomo()));
     setListo(true);
     return () => {
       metronomo.current?.cerrar();
+      metronomo.current = null;
       looperRef.current?.cerrar();
+      looperRef.current = null;
     };
   }, []);
+
+  usePestanaVisible("afinar");
+  // Al ocultarse (cambias de pestaña; ver next.config.ts) la pantalla no se desmonta y conserva su
+  // estado. Lo que antes se perdía al salir se deja como al entrar: el micro, el metrónomo y el looper
+  // ya se han apagado en sus efectos; aquí se pone su estado a juego, se cierran las hojas y se acaban
+  // las transiciones a medias (sus temporizadores se han cancelado).
+  useLayoutEffect(
+    () => () => {
+      setEstado("parado");
+      setSenal((v) => (v.lectura === null && v.auto === null ? v : { lectura: null, auto: null }));
+      setHoja(null);
+      setCelebrando(false);
+      setTonoEn(null);
+      setSubeLaPala(false);
+      setEleccion((e) => (e.fase === "saliendo" ? { fase: "no", id: null } : e.fase === "volviendo" ? { fase: "si", id: null } : e));
+      setMetroSonando(false);
+      setMetroGolpe((g) => (g.tiempo === -1 ? g : { tiempo: -1, n: g.n }));
+      setLooper(null);
+      setLooperEstado((e) => (e.fase === "apagado" && !e.capas && !e.error ? e : { fase: "apagado", capas: 0, largo: 0, error: null }));
+      bloqueo.current?.release().catch(() => undefined);
+      bloqueo.current = null;
+    },
+    [],
+  );
 
   const abrirLooper = () => {
     if (!looperRef.current) {

@@ -117,6 +117,14 @@ export default function Roseta({ cents, afinada, brillo, apagada, children }: Pr
   const aguja = useRef<SVGGElement>(null);
   const aro = useRef<SVGGElement>(null);
   const [angulo, setAngulo] = useState(0);
+  // La entrada del mosaico (CSS) dura como mucho 1,4 s; luego se quita para que no se repita al
+  // volver de otra pestaña (la pantalla se queda montada, oculta).
+  const [entrando, setEntrando] = useState(true);
+  useEffect(() => {
+    if (!entrando) return;
+    const t = setTimeout(() => setEntrando(false), 1500);
+    return () => clearTimeout(t);
+  }, [entrando]);
   const sonando = c !== null;
 
   useEffect(() => {
@@ -161,7 +169,7 @@ export default function Roseta({ cents, afinada, brillo, apagada, children }: Pr
   };
 
   return (
-    <div className={`roseta ${afinada ? "es-afinada" : ""} ${brillo ? "es-brillo" : ""} ${apagada ? "es-apagada" : ""}`}>
+    <div className={`roseta ${entrando ? "entrando" : ""} ${afinada ? "es-afinada" : ""} ${brillo ? "es-brillo" : ""} ${apagada ? "es-apagada" : ""}`}>
       <svg viewBox="0 0 400 400" aria-hidden="true" className="roseta-svg">
         <defs>
           <radialGradient id="boca" cx="50%" cy="42%" r="60%">

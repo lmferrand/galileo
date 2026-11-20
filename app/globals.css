@@ -331,6 +331,10 @@ p {
 
 .tesela {
   transition: fill 90ms linear, opacity 300ms ease;
+}
+/* La entrada del mosaico solo al aparecer la roseta (Roseta quita «entrando» al acabar). Así, al
+   volver de otra pestaña no se crean otra vez sus 72 animaciones: eso daba un tirón. */
+.roseta.entrando .tesela {
   animation: tesela-entra 700ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
   animation-delay: calc(var(--i, 0) * 14ms + 120ms);
 }
@@ -849,8 +853,8 @@ p {
 .app.con-estudio {
   overflow-y: clip;
 }
-html:has(.app.con-estudio),
-html:has(.app.con-estudio) body {
+html:is([data-pestana="afinar"], :not([data-pestana])):has(.app.con-estudio),
+html:is([data-pestana="afinar"], :not([data-pestana])):has(.app.con-estudio) body {
   overscroll-behavior-y: none;
 }
 @keyframes pala-entra {
@@ -1754,10 +1758,10 @@ li.actual .nota-chip {
 html .app-pistas.con-escenario {
   height: calc(100svh + var(--hueco-abajo, 0px));
 }
-html.hueco:has(.app.con-estudio),
-html.hueco:has(.app.con-estudio) body,
-html.hueco:has(.con-escenario),
-html.hueco:has(.con-escenario) body {
+html.hueco:is([data-pestana="afinar"], :not([data-pestana])):has(.app.con-estudio),
+html.hueco:is([data-pestana="afinar"], :not([data-pestana])):has(.app.con-estudio) body,
+html.hueco:is([data-pestana="pistas"], :not([data-pestana])):has(.con-escenario),
+html.hueco:is([data-pestana="pistas"], :not([data-pestana])):has(.con-escenario) body {
   overflow: hidden;
 }
 /* Lo que va fijo abajo (botones y hojas) se pega al borde real: --hueco-fijo es lo que le
@@ -1769,8 +1773,8 @@ html.hueco:has(.con-escenario) body {
 
 /* iPhone con la app abierta desde el icono: la pantalla útil acaba un poco antes del
    borde de abajo. El estudio se pinta también por debajo y, si queda hueco, es oscuro. */
-html:has(.app.con-estudio),
-html:has(.con-escenario) {
+html:is([data-pestana="afinar"], :not([data-pestana])):has(.app.con-estudio),
+html:is([data-pestana="pistas"], :not([data-pestana])):has(.con-escenario) {
   background: #120a06;
 }
 .fondo-estudio {
@@ -2007,7 +2011,7 @@ html.hueco {
     background: #120a06;
   }
 }
-html:has(.app.con-estudio) body {
+html:is([data-pestana="afinar"], :not([data-pestana])):has(.app.con-estudio) body {
   background: #120a06;
 }
 .barra-abajo .haz {

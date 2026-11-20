@@ -1251,8 +1251,8 @@ a.marca {
   color-scheme: dark;
   color: var(--texto);
 }
-html:has(.app-pistas),
-html:has(.app-pistas) body {
+html:is([data-pestana="pistas"], :not([data-pestana])):has(.app-pistas),
+html:is([data-pestana="pistas"], :not([data-pestana])):has(.app-pistas) body {
   background: #120a06;
 }
 /* Solo una sombra arriba (para leer el título) y otra abajo; el centro, limpio */
@@ -1361,14 +1361,14 @@ html.hueco .app-pistas:not(.con-escenario) {
   overscroll-behavior: contain;
   padding-bottom: calc(max(24px, env(safe-area-inset-bottom)) + 24px);
 }
-html.hueco:has(.app-pistas:not(.con-escenario)),
-html.hueco:has(.app-pistas:not(.con-escenario)) body {
+html.hueco:is([data-pestana="pistas"], :not([data-pestana])):has(.app-pistas:not(.con-escenario)),
+html.hueco:is([data-pestana="pistas"], :not([data-pestana])):has(.app-pistas:not(.con-escenario)) body {
   overflow: hidden;
   height: 100%;
 }
 /* Y si aun así asomara algo, que sea del color de la madera, no negro */
-html:has(.app-pistas),
-html:has(.app-pistas) body {
+html:is([data-pestana="pistas"], :not([data-pestana])):has(.app-pistas),
+html:is([data-pestana="pistas"], :not([data-pestana])):has(.app-pistas) body {
   background: #2a160c;
 }
 .fondo-estudio.vertical .fondo-velo {

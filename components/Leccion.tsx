@@ -14,6 +14,7 @@ import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from
 import { frecuenciaDe, midiDe, nombreNota, partesNota, type Notacion } from "@/lib/notas";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 import { tocarNota } from "@/lib/tono";
+import Estrella from "./Estrella";
 
 interface Props {
   leccion: TipoLeccion;
@@ -225,7 +226,7 @@ export default function Leccion({ leccion, notacion, la4, onSalir, onCambiar, on
             <p className="estrellas" aria-label={`${fin.estrellas} de 3 estrellas`}>
               {[1, 2, 3].map((k) => (
                 <span key={k} className={k <= fin.estrellas ? "llena" : ""}>
-                  ★
+                  <Estrella />
                 </span>
               ))}
             </p>

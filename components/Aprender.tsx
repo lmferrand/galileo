@@ -3,7 +3,7 @@
 // «Aprender»: el curso de guitarra. El mapa con las unidades y sus lecciones (estrellas, las que
 // están por abrir con candado y la siguiente en latón) y, al tocar una, la lección.
 
-import { useCallback, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import Navegacion from "./Navegacion";
 import FondoEstudio from "./FondoEstudio";
@@ -12,6 +12,8 @@ import { CURSO, TODAS } from "@/lib/aprender/curso";
 import { abierta, laSiguiente, leerProgreso, type Progreso } from "@/lib/aprender/progreso";
 import { leerPreferencias, PREFERENCIAS_INICIALES } from "@/lib/preferencias";
 import { useHidratado } from "@/lib/hidratado";
+import { usePestanaVisible } from "@/lib/pestana";
+import Estrella from "./Estrella";
 
 export default function Aprender() {
   const hidratado = useHidratado();
@@ -22,6 +24,16 @@ export default function Aprender() {
   const prefs = hidratado ? leerPreferencias() : PREFERENCIAS_INICIALES;
   const siguiente = laSiguiente(progreso);
   const recargar = useCallback(() => setProgreso(leerProgreso()), []);
+  usePestanaVisible("aprender");
+  // Al ocultarse (cambias de pestaña; ver next.config.ts) se sale de la lección, como antes: su
+  // micro ya se ha cerrado y al volver se ve el mapa del curso.
+  useLayoutEffect(
+    () => () => {
+      setLeccionId(null);
+      setProgreso(null);
+    },
+    [],
+  );
 
   const leccion = leccionId ? TODAS.find((l) => l.id === leccionId) : null;
   if (leccion) {
@@ -87,7 +99,7 @@ export default function Aprender() {
                     <span className="leccion-boton-estrellas" aria-hidden="true">
                       {[1, 2, 3].map((k) => (
                         <span key={k} className={k <= estrellas ? "llena" : ""}>
-                          ★
+                          <Estrella />
                         </span>
                       ))}
                     </span>

@@ -22,8 +22,8 @@
   min-height: 100svh;
   padding-bottom: max(32px, env(safe-area-inset-bottom));
 }
-html:has(.app-aprender),
-html:has(.app-aprender) body {
+html:is([data-pestana="aprender"], :not([data-pestana])):has(.app-aprender),
+html:is([data-pestana="aprender"], :not([data-pestana])):has(.app-aprender) body {
   background: #120a06;
 }
 /* iPhone en modo app: la pantalla mide hasta el borde real y se desplaza por dentro (como Pistas) */
@@ -34,8 +34,8 @@ html.hueco .app-aprender:not(.en-leccion) {
   overscroll-behavior: contain;
   padding-bottom: calc(max(24px, env(safe-area-inset-bottom)) + 24px);
 }
-html.hueco:has(.app-aprender),
-html.hueco:has(.app-aprender) body {
+html.hueco:is([data-pestana="aprender"], :not([data-pestana])):has(.app-aprender),
+html.hueco:is([data-pestana="aprender"], :not([data-pestana])):has(.app-aprender) body {
   overflow: hidden;
   height: 100%;
 }
@@ -194,7 +194,7 @@ html.hueco:has(.app-aprender) body {
   padding-bottom: calc(var(--abajo-seguro) + 8px);
   background: radial-gradient(ellipse at 50% 30%, #3a2014 0%, #1d100c 60%, #120a06 100%);
 }
-html:has(.en-leccion) body {
+html:is([data-pestana="aprender"], :not([data-pestana])):has(.en-leccion) body {
   background: #120a06;
 }
 .leccion-arriba {
@@ -454,4 +454,15 @@ html:has(.en-leccion) body {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 12px;
   }
+}
+
+/* Las estrellas van dibujadas (components/Estrella.tsx), no con «★»: el carácter obligaba al móvil a
+   cargar otra fuente la primera vez que se abría Aprender. */
+.estrella {
+  display: inline-block;
+  width: 1.05em;
+  height: 1.05em;
+  margin: 0 1px;
+  vertical-align: -0.15em;
+  fill: currentColor;
 }

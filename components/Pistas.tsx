@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Navegacion from "./Navegacion";
 import Reproduccion from "./Reproduccion";
 import FondoEstudio from "./FondoEstudio";
@@ -29,6 +29,7 @@ import {
 import { esMovil as esAparatoMovil } from "@/lib/pistas/aparato";
 import { formatoMB, formatoTiempo, PISTAS, type Cancion } from "@/lib/pistas/tipos";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
+import { usePestanaVisible } from "@/lib/pestana";
 import { cargarEjemplo, ID_EJEMPLO, PESO_EJEMPLO } from "@/lib/pistas/ejemplo";
 
 const IDS = PISTAS.map((p) => p.id);
@@ -80,6 +81,20 @@ export default function Pistas() {
   const [mandando, setMandando] = useState<{ nombre: string; hechas: number; total: number; fase: FaseMandando } | null>(null);
   // Si al elegir había gráfica gratis (se mira al abrir la hoja: lee lo guardado en el aparato)
   const [conNube, setConNube] = useState(false);
+
+  usePestanaVisible("pistas");
+  // Al ocultarse (cambias de pestaña; ver next.config.ts) se vuelve a la lista, como antes: el
+  // reproductor y el directo ya han parado su sonido, y las hojas se cierran. La lista se queda montada.
+  useLayoutEffect(
+    () => () => {
+      setAbierta(null);
+      setMesaAlEntrar(false);
+      setDirecto(null);
+      setHoja(null);
+      setPorSeparar(null);
+    },
+    [],
+  );
 
   const recargar = useCallback(async () => {
     try {

@@ -78,6 +78,7 @@ export default function FondoEstudio({
 
     // Lo que se escribe va SOLO en las capas que se mueven: en <html> obligaba a recalcular la
     // página entera en cada fotograma y en Android (giroscopio siempre activo) todo iba a tirones.
+    // La pala de esta misma pantalla: las otras pestañas siguen en la página, ocultas.
     let escrito = "";
     const paso = () => {
       raf = 0;
@@ -91,7 +92,7 @@ export default function FondoEstudio({
         el.style.setProperty("--gx", `${gx}px`);
         el.style.setProperty("--gy", `${gy}px`);
         // La pala, un poco al revés (profundidad), con su transform directo: nada más se recalcula.
-        const marco = document.querySelector<HTMLElement>(".app.con-estudio .pala-marco");
+        const marco = el.closest(".app.con-estudio")?.querySelector<HTMLElement>(".pala-marco");
         if (marco) marco.style.transform = `translate3d(${(gx * -0.22).toFixed(1)}px, ${(gy * -0.22).toFixed(1)}px, 0)`;
       }
       if (Math.abs(objetivo.x - actual.x) > 0.002 || Math.abs(objetivo.y - actual.y) > 0.002) raf = requestAnimationFrame(paso);
@@ -108,7 +109,7 @@ export default function FondoEstudio({
       window.removeEventListener("deviceorientation", alGirar);
       window.removeEventListener("clavija:movimiento", escuchar);
       cancelAnimationFrame(raf);
-      const marco = document.querySelector<HTMLElement>(".app.con-estudio .pala-marco");
+      const marco = el.closest(".app.con-estudio")?.querySelector<HTMLElement>(".pala-marco");
       if (marco) marco.style.transform = "";
     };
   }, []);
