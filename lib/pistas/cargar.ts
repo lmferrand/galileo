@@ -32,10 +32,45 @@ export async function leerPistasDeCancion(cancion: Cancion, vivo: () => boolean 
   return limpias.some((p) => p.length === 0) ? leer() : limpias;
 }
 
-/** El pulso de la canción, sacado de su pista de batería (para el click del directo). */
+/** El pulso de la canción, sacado de su pista de batería (para el click del directo y el metrónomo
+ *  de la Mesa). Se calcula en otro hilo; si el navegador no puede, aquí mismo. */
 export async function pulsoDeCancion(cancion: Cancion): Promise<ClickCancion | null> {
   const audios = await leerAudios(cancion.id, ["bateria"]);
   if (!audios.bateria) return null;
   const datos = await leerWav(audios.bateria, cancion.frames);
-  return sacarPulso(datos, FRECUENCIA);
+  try {
+    return await pulsoEnOtroHilo(datos);
+  } catch {
+    return sacarPulso(await leerWav(audios.bateria, cancion.frames), FRECUENCIA);
+  }
+}
+
+function pulsoEnOtroHilo(datos: Int16Array): Promise<ClickCancion | null> {
+  return new Promise((ok, mal) => {
+    let w: Worker;
+    try {
+      w = new Worker(new URL("./pulso.worker.ts", import.meta.url), { type: "module" });
+    } catch (e) {
+      mal(e);
+      return;
+    }
+    const acabar = () => {
+      clearTimeout(tope);
+      w.terminate();
+    };
+    const tope = setTimeout(() => {
+      acabar();
+      mal(new Error("El pulso tarda demasiado"));
+    }, 90_000);
+    w.onmessage = (e: MessageEvent<ClickCancion | null>) => {
+      acabar();
+      ok(e.data);
+    };
+    w.onerror = (e) => {
+      acabar();
+      mal(e);
+    };
+    // Se pasa sin copiar (si falla, se vuelve a leer la batería)
+    w.postMessage({ datos, frecuencia: FRECUENCIA }, [datos.buffer]);
+  });
 }

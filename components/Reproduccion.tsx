@@ -213,20 +213,29 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   }, [cancion.id, volumen, silencio, velocidad, tono, marcas, click]);
 
   // ---- El click: el pulso sale de la batería ----
-  const sacarElPulso = async () => {
+  // `oir`: que suene ya (al pedirlo con el botón); el que busca solo la Mesa no lo enciende.
+  const sacarElPulso = async (oir = true) => {
     setBuscandoPulso("buscando");
     await new Promise((r) => setTimeout(r, 40)); // que se vea «Buscando…» antes de la cuenta
     try {
       const p = await pulsoDeCancion(cancion);
       if (p) {
         setClick(p);
-        setOirClick(true);
+        if (oir) setOirClick(true);
         setBuscandoPulso("no");
       } else setBuscandoPulso("sin");
     } catch {
       setBuscandoPulso("sin");
     }
   };
+  // En la Mesa, el metrónomo va con el ritmo de la canción: si aún no lo tiene, se busca solo (en otro
+  // hilo, un momento después de abrirla para no estorbar a la entrada)
+  useEffect(() => {
+    if (!verMesa || cargando || click || buscandoPulso !== "no") return;
+    const t = setTimeout(() => void sacarElPulso(false), 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verMesa, cargando, click, buscandoPulso]);
   const SIGUIENTE_COMPAS: Record<number, number> = { 4: 3, 3: 2, 2: 6, 6: 4 };
   const cambiarCompas = () =>
     setClick((c) => {
@@ -392,6 +401,19 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     volumenGeneral: (v) => rep.current?.volumenGeneral(v),
     niveles: () => rep.current?.niveles() ?? { pistas: [], general: 0 },
     espectros: () => rep.current?.espectros() ?? null,
+    metronomo: {
+      pulso: click,
+      buscando: buscandoPulso === "buscando",
+      sinPulso: buscandoPulso === "sin",
+      oir: oirClick,
+      onOir: setOirClick,
+      onBuscar: () => void sacarElPulso(false),
+      tocarConCuenta: async (segundos) => {
+        const r = rep.current;
+        if (!r || cargando) return 0;
+        return r.tocar({ cuenta: true, segundosCuenta: segundos, forzarCuenta: true });
+      },
+    },
   };
   const queda = describirMezcla(efectivas);
 
@@ -689,7 +711,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
                     </button>
                   </div>
                 ) : (
-                  <button type="button" className="chip" onClick={sacarElPulso} disabled={cargando || buscandoPulso === "buscando"}>
+                  <button type="button" className="chip" onClick={() => void sacarElPulso()} disabled={cargando || buscandoPulso === "buscando"}>
                     {buscandoPulso === "buscando" ? "Buscando el pulso…" : "Sacar el pulso de la batería"}
                   </button>
                 )}

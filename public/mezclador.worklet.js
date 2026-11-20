@@ -103,7 +103,10 @@ class MezcladorPistas extends AudioWorkletProcessor {
       case "tocar":
         if (this.analisis >= this.total() - 1) this.reiniciar(this.bucle ? this.bucle.a : 0);
         this.tocando = true;
-        if (m.cuenta && this.click.activo) this.empezarCuenta();
+        // La cuenta de entrada: con el click puesto o, si se fuerza (al grabar en la Mesa), aunque no lo esté
+        if (m.cuenta && (this.click.activo || m.forzar) && this.click.golpes.length > 1) this.empezarCuenta(m.segundos || 0);
+        // Lo que dura (en segundos de reloj): la Mesa lo necesita para cuadrar la toma
+        this.port.postMessage({ tipo: "cuenta", segundos: this.previa ? (this.previa.hasta - this.previa.t) / this.velocidad : 0 });
         this.avisar();
         break;
       case "pausar":
@@ -148,18 +151,20 @@ class MezcladorPistas extends AudioWorkletProcessor {
     }
   }
 
-  /** Un compás de click antes de que entre la canción, al tempo del golpe siguiente. */
-  empezarCuenta() {
+  /** Un compás de click antes de que entre la canción, al tempo del golpe siguiente. Con `segundos`,
+   *  los golpes que quepan en ese tiempo (al menos 2), en la rejilla de la canción. */
+  empezarCuenta(segundos) {
     const g = this.click.golpes;
     const pos = this.analisis / sampleRate;
     const k = contar(g, pos - 0.002);
     if (k >= g.length) return; // ya no quedan golpes
     const spb = k + 1 < g.length ? g[k + 1] - g[k] : g[k] - g[k - 1];
     if (!(spb > 0.15 && spb < 2.5)) return;
-    const n = this.click.compas;
+    const n = segundos > 0 ? Math.max(2, Math.round((segundos * this.velocidad) / spb)) : this.click.compas;
     const golpes = new Float64Array(n);
     for (let j = 0; j < n; j++) golpes[j] = g[k] - (n - j) * spb;
-    this.previa = { t: golpes[0], hasta: pos, golpes };
+    // k0: el número que tendría el primero en la lista de la canción (para acentuar sus «1»)
+    this.previa = { t: golpes[0], hasta: pos, golpes, k0: k - n };
     this.golpe = 0; // que suene ya el primero
   }
 
@@ -390,7 +395,7 @@ MezcladorPistas.prototype.escribirClick = function (salida, cuantos, enCuenta) {
   const DURA = Math.round(0.035 * sampleRate);
   for (let i = 0; i < cuantos; i++) {
     let v = 0;
-    if (c.activo) {
+    if (c.activo || enCuenta) {
       const seg = this.segBloque[i];
       const k = this.golpe;
       if (k === null || (k > 0 && lista[k - 1] > seg + 0.05)) {
@@ -403,7 +408,8 @@ MezcladorPistas.prototype.escribirClick = function (salida, cuantos, enCuenta) {
         // Solo si se acaba de pasar un golpe (no al saltar)
         if (j - k === 1 && seg - lista[k] < 0.05) {
           this.sonando = 0;
-          this.acento = enCuenta ? k === 0 : (((k - c.uno) % c.compas) + c.compas) % c.compas === 0;
+          const num = enCuenta ? this.previa.k0 + k : k;
+          this.acento = (((num - c.uno) % c.compas) + c.compas) % c.compas === 0;
         }
       }
       if (this.sonando >= 0 && this.sonando < DURA) {

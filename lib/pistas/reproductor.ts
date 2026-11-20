@@ -100,6 +100,10 @@ export class Reproductor {
           const m = e.data;
           if (m.tipo === "pos") this.alCambiar({ tocando: m.tocando, segundo: m.frame / FRECUENCIA });
           else if (m.tipo === "fin") this.alCambiar({ tocando: false, segundo: this.frames / FRECUENCIA });
+          else if (m.tipo === "cuenta") {
+            this.esperandoCuenta?.(m.segundos || 0);
+            this.esperandoCuenta = null;
+          }
         };
         this.ctx = ctx;
         this.nodo = nodo;
@@ -124,9 +128,13 @@ export class Reproductor {
     );
   }
 
+  private esperandoCuenta: ((segundos: number) => void) | null = null;
+
   /** Llamar desde un toque: el iPhone solo deja sonar después de uno. Con `cuenta` y el click
-   *  puesto, suena un compás de click antes de que entre la canción. */
-  async tocar(opciones?: { cuenta?: boolean }) {
+   *  puesto, suena un compás de click antes de que entre la canción (con `forzarCuenta`, aunque el
+   *  click esté quitado; con `segundosCuenta`, los golpes que quepan en ese tiempo). Devuelve lo que
+   *  dura la cuenta en segundos (0 si no hay). */
+  async tocar(opciones?: { cuenta?: boolean; segundosCuenta?: number; forzarCuenta?: boolean }): Promise<number> {
     await this.preparar();
     try {
       const sesion = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
@@ -137,7 +145,12 @@ export class Reproductor {
       /* navegador sin audioSession */
     }
     await this.ctx!.resume().catch(() => undefined);
-    this.nodo!.port.postMessage({ tipo: "tocar", cuenta: !!opciones?.cuenta });
+    const cuenta = new Promise<number>((ok) => {
+      this.esperandoCuenta = ok;
+      setTimeout(() => ok(0), 600);
+    });
+    this.nodo!.port.postMessage({ tipo: "tocar", cuenta: !!opciones?.cuenta, segundos: opciones?.segundosCuenta ?? 0, forzar: !!opciones?.forzarCuenta });
+    return cuenta;
   }
 
   pausar() {
@@ -256,7 +269,8 @@ export class Reproductor {
       clickVolumen.connect(union, 0, 1);
     } else {
       medidor.connect(ctx.destination);
-      if (this.ruta === "juntos") clickVolumen.connect(ctx.destination);
+      // El click está callado si no se ha puesto, salvo en la cuenta de entrada al grabar en la Mesa
+      clickVolumen.connect(ctx.destination);
     }
   }
 

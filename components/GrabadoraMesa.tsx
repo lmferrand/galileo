@@ -168,9 +168,11 @@ interface Props {
   toma: (() => void) | null;
   /** Las canciones para el selector de la placa (sin ellas, desde el afinador: «Sin cinta») */
   canciones?: CancionesPlaca;
+  /** La tecla del metrónomo de la Mesa: su tempo, si suena y abrir su hoja */
+  metronomo?: { texto: string; on: boolean; onAbrir: () => void };
 }
 
-export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, canciones }: Props) {
+export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, canciones, metronomo }: Props) {
   // Al ir atrás o adelante, las bobinas corren un momento
   const [corriendo, setCorriendo] = useState<"atras" | "adelante" | null>(null);
   const [fin, setFin] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -190,6 +192,22 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
         <circle cx="15.5" cy="12" r="2" />
         <path d="M8.5 14h7" />
       </svg>
+    </button>
+  ) : null;
+  // El metrónomo: un metrónomo de pirámide con su tempo debajo, junto a las teclas de la pantalla
+  const teclaMetro: ReactNode = metronomo ? (
+    <button
+      type="button"
+      className={`tecla pc-tecla gm-tecla-metro${metronomo.on ? " on" : ""}`}
+      onClick={metronomo.onAbrir}
+      aria-label={`Metrónomo, ${metronomo.texto} por minuto${metronomo.on ? ", sonando" : ""}`}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8.6 2.8h6.8l3.8 18.4H4.8z" />
+        <path d="M6.2 16.4h11.6" />
+        <path d="M12 16.4 16.2 5.6" />
+      </svg>
+      <span className="gm-metro-bpm">{metronomo.texto}</span>
     </button>
   ) : null;
   const parada = !!t && !t.tocando && segundo > 0.05;
@@ -286,9 +304,20 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
         {/* Debajo de los VU, la pantalla de la canción (o solo los avisos, sin canción) */}
         <div className="gm-pantalla" style={enCaja(PANTALLA)}>
           {t ? (
-            <TransporteMesa t={t} conCinta aviso={aviso} extra={teclaToma} />
+            <TransporteMesa
+              t={t}
+              conCinta
+              aviso={aviso}
+              extra={
+                <>
+                  {teclaMetro}
+                  {teclaToma}
+                </>
+              }
+            />
           ) : (
             <div className="gm-sin-cancion">
+              {teclaMetro}
               {teclaToma}
               <div className="pc-pantalla gm-solo-aviso" role="status">
                 <span>{aviso}</span>

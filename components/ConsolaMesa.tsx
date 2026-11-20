@@ -35,7 +35,9 @@ import { duracionToma, wavDeToma, type Toma } from "@/lib/mesa/toma";
 import { guardarArchivo } from "@/lib/pistas/exportar";
 import { esMovil } from "@/lib/pistas/aparato";
 import { formatoTiempo } from "@/lib/pistas/tipos";
-import { leerAjustesMetronomo } from "@/lib/metronomo";
+import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo } from "@/lib/metronomo";
+import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
+import { guardarCuentaMesa, leerCuentaMesa, SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
 import { useHidratado } from "@/lib/hidratado";
 
@@ -68,6 +70,8 @@ export interface PistasMesa {
   niveles: () => { pistas: number[]; general: number; izq?: number; der?: number };
   /** Espectro de cada pista tras su fader (dB por banda; hz = lo que mide cada banda) */
   espectros: () => { datos: Float32Array<ArrayBuffer>[]; hz: number } | null;
+  /** El metrónomo con el ritmo de la canción (y la cuenta antes de grabar en ese ritmo) */
+  metronomo: MetronomoCancion;
 }
 
 type Abierta = { tipo: "entrada" | "pista"; i: number };
@@ -269,11 +273,51 @@ export default function ConsolaMesa({
     if (r === "encendida") setRetraso(mesa.retrasoMs());
   };
 
+  // ---------- El metrónomo de la Mesa ----------
+  // Con canción va con su ritmo (el click del reproductor, sacado de la batería: ver MetronomoMesa);
+  // sin canción, el tempo y el compás que pongas (los mismos que el metrónomo del afinador).
+  const [verMetro, setVerMetro] = useState(false);
+  const [metroCambiado, setMetroCambiado] = useState<AjustesMetronomo | null>(null);
+  const metroAj: AjustesMetronomo = metroCambiado ?? (hidratado ? leerAjustesMetronomo() : { bpm: 90, compas: 4 });
+  const [cuentaCambiada, setCuentaCambiada] = useState<boolean | null>(null);
+  const conCuenta = cuentaCambiada ?? (hidratado ? leerCuentaMesa() : true);
+  const metroLibre = useRef<Metronomo | null>(null);
+  const [sonandoLibre, setSonandoLibre] = useState(false);
+  const metroCancion = pistas?.metronomo ?? null;
+  const metroListo = () => {
+    if (!metroLibre.current) metroLibre.current = new Metronomo();
+    metroLibre.current.bpm = metroAj.bpm;
+    metroLibre.current.compas = metroAj.compas;
+    return metroLibre.current;
+  };
+  const alternarMetro = () => {
+    const m = metroListo();
+    if (m.sonando) m.parar();
+    else m.empezar();
+    setSonandoLibre(m.sonando);
+  };
+  const cambiarMetro = (cambio: Partial<AjustesMetronomo>) => {
+    const nuevo = { ...metroAj, ...cambio };
+    setMetroCambiado(nuevo);
+    guardarAjustesMetronomo(nuevo);
+    if (metroLibre.current) {
+      metroLibre.current.bpm = nuevo.bpm;
+      metroLibre.current.compas = nuevo.compas;
+    }
+  };
+  const teclaMetro = {
+    texto: metroCancion ? (metroCancion.pulso ? String(Math.round(metroCancion.pulso.bpm)) : metroCancion.buscando ? "…" : "–") : String(metroAj.bpm),
+    on: metroCancion ? metroCancion.oir && !!metroCancion.pulso : sonandoLibre,
+    onAbrir: () => setVerMetro(true),
+  };
+
   // ---------- REC: grabar lo que tocas ----------
-  // REC: cuenta atrás de 4 golpes (al tempo del metrónomo) y empieza a grabar donde esté la canción
-  // (y la pone a sonar); se para con REC, con la pausa o cuando la canción acaba. Sin canción, graba
-  // hasta volver a pulsar REC. Cada toma va a la lista (las últimas MAX_TOMAS) para elegir la mejor.
-  const [grabando, setGrabando] = useState<{ desde: number | null } | null>(null);
+  // REC: una cuenta de unos 3 s (se puede quitar en el metrónomo) y empieza a grabar donde esté la
+  // canción (y la pone a sonar). Con el ritmo de la canción, la cuenta la da el reproductor en su
+  // rejilla y la canción entra a tiempo; la toma empieza al pulsar y luego se le quita lo que dura la
+  // cuenta. Se para con REC, con la pausa o cuando la canción acaba. Sin canción, graba hasta volver a
+  // pulsar REC. Cada toma va a la lista (las últimas MAX_TOMAS) para elegir la mejor.
+  const [grabando, setGrabando] = useState<{ desde: number | null; cuenta?: number } | null>(null);
   const [cuenta, setCuenta] = useState<number | null>(null);
   const [transcurrido, setTranscurrido] = useState(0);
   const [tomas, setTomas] = useState<TomaGuardada[]>([]);
@@ -288,6 +332,9 @@ export default function ConsolaMesa({
 
   const parar = async () => {
     const g = grabando;
+    relojCuenta.current.forEach(clearTimeout);
+    relojCuenta.current = [];
+    setCuenta(null);
     setGrabando(null);
     sonoGrabando.current = false;
     const datos = await mesa.pararToma();
@@ -295,12 +342,15 @@ export default function ConsolaMesa({
     if (t?.tocando) t.onAlternar();
     if (!g || !datos || datos.muestras.length < datos.frecuencia * 2 * 0.3) return;
     // Lo que tardó la canción en salir y lo que tardó tu sonido en volver: eso sobra al principio
+    // y, con la cuenta del reproductor, lo que duró la cuenta (la canción entró al acabar)
     const retrasoTotal = g.desde === null ? 0 : (ultimasPistas.current?.retrasoSalida() ?? 0) + mesa.retrasoEntrada();
+    const recorte = Math.round((retrasoTotal + (g.cuenta ?? 0)) * datos.frecuencia);
+    if (datos.muestras.length / 2 < recorte + datos.frecuencia * 0.3) return; // se paró en la cuenta
     numeroToma.current += 1;
     const nueva: TomaGuardada = {
       id: numeroToma.current,
       nombre: `Toma ${numeroToma.current}`,
-      toma: { ...datos, desde: g.desde, recorte: Math.round(retrasoTotal * datos.frecuencia) },
+      toma: { ...datos, desde: g.desde, recorte },
     };
     setEstadoToma(tomas.length >= MAX_TOMAS ? `Se guardan las ${MAX_TOMAS} últimas: la más antigua se ha quitado.` : null);
     setTomas((ts) => [nueva, ...ts].slice(0, MAX_TOMAS));
@@ -319,6 +369,24 @@ export default function ConsolaMesa({
     setGrabando({ desde: t ? t.segundo : null });
     if (t && !t.tocando) t.onAlternar();
   };
+  /** La cuenta atrás en la pantalla (3, 2, 1) y, al acabar, `alAcabar` */
+  const verCuentaAtras = (segundos: number, alAcabar?: () => void) => {
+    relojCuenta.current.forEach(clearTimeout);
+    const fin = performance.now() + segundos * 1000;
+    const paso = () => {
+      const queda = (fin - performance.now()) / 1000;
+      if (queda <= 0.03) {
+        relojCuenta.current = [];
+        setCuenta(null);
+        alAcabar?.();
+        return;
+      }
+      // 3, 2, 1 (aunque al ritmo de la canción dure un poco más o un poco menos de 3 s)
+      setCuenta(Math.max(1, Math.min(SEGUNDOS_CUENTA, Math.ceil(queda - 0.2))));
+      relojCuenta.current = [setTimeout(paso, Math.min(100, queda * 1000))];
+    };
+    paso();
+  };
   const pulsarRec = async () => {
     if (grabando) return parar();
     if (cuenta !== null) return cancelarCuenta();
@@ -327,19 +395,35 @@ export default function ConsolaMesa({
       if (r !== "encendida") return;
       setRetraso(mesa.retrasoMs());
     }
-    // Cuenta atrás: 4 golpes al tempo del metrónomo (el primero, más agudo)
-    const golpe = 60 / leerAjustesMetronomo().bpm;
-    const ctx = mesa.ctx;
-    if (ctx) for (let k = 0; k < 4; k++) clic(ctx, ctx.currentTime + 0.05 + k * golpe, k === 0);
-    setCuenta(4);
-    relojCuenta.current = [1, 2, 3].map((k) => setTimeout(() => setCuenta(4 - k), (0.05 + k * golpe) * 1000));
-    relojCuenta.current.push(
-      setTimeout(() => {
-        relojCuenta.current = [];
-        setCuenta(null);
-        void empezarGrabar();
-      }, (0.05 + 4 * golpe) * 1000),
-    );
+    if (!conCuenta) return void empezarGrabar();
+    const t = ultimasPistas.current?.transporte;
+    const metro = ultimasPistas.current?.metronomo;
+    // Con el ritmo de la canción: la cuenta, en su rejilla, la da el reproductor
+    if (t && metro?.pulso) {
+      if (!(await mesa.empezarToma())) return;
+      const desde = t.segundo;
+      setTranscurrido(0);
+      setGrabando({ desde, cuenta: 0 });
+      const segundos = await metro.tocarConCuenta(SEGUNDOS_CUENTA);
+      setGrabando((g) => (g ? { ...g, cuenta: segundos } : g));
+      if (segundos > 0) verCuentaAtras(segundos);
+      return;
+    }
+    // Sin el ritmo de la canción: unos 3 s de golpes al tempo del metrónomo (acento en cada 1 del compás)
+    const golpe = 60 / metroAj.bpm;
+    const n = Math.max(2, Math.round(SEGUNDOS_CUENTA / golpe));
+    let antes = 0.05;
+    if (!t && sonandoLibre) {
+      // El metrónomo ya suena: vuelve a empezar y la cuenta son sus primeros golpes (sigue al grabar)
+      const m = metroListo();
+      m.parar();
+      m.empezar();
+      antes = 0.08;
+    } else {
+      const ctx = mesa.ctx;
+      if (ctx) for (let k = 0; k < n; k++) clic(ctx, ctx.currentTime + antes + k * golpe, k % metroAj.compas === 0);
+    }
+    verCuentaAtras(antes + n * golpe, () => void empezarGrabar());
   };
   // Con canción: al pararse la canción (pausa, parar o se acaba) se para la toma
   useEffect(() => {
@@ -358,6 +442,7 @@ export default function ConsolaMesa({
   useEffect(
     () => () => {
       relojCuenta.current.forEach(clearTimeout);
+      metroLibre.current?.cerrar();
       if (mesa.grabando) void mesa.pararToma();
       void sonandoSola.current?.close().catch(() => undefined);
     },
@@ -745,6 +830,7 @@ export default function ConsolaMesa({
     contador: grabando && !conPistas ? transcurrido : null,
     rec: { grabando: !!grabando || cuenta !== null, ocupado: estado === "abriendo", onPulsar: () => void pulsarRec() },
     toma: tomas.length > 0 && !grabando && cuenta === null ? () => setVerTomas(true) : null,
+    metronomo: teclaMetro,
     canciones: canciones && {
       ...canciones,
       onElegir: (c: Cancion) => {
@@ -903,6 +989,27 @@ export default function ConsolaMesa({
             </div>
           </div>
         </div>
+      )}
+
+      {verMetro && (
+        <MetronomoMesa
+          cancion={metroCancion}
+          bpm={metroAj.bpm}
+          compas={metroAj.compas}
+          sonando={sonandoLibre}
+          alGolpe={(aviso) => {
+            if (metroLibre.current) metroLibre.current.alGolpe = aviso;
+          }}
+          onBpm={(bpm) => cambiarMetro({ bpm })}
+          onCompas={(compas) => cambiarMetro({ compas })}
+          onAlternar={alternarMetro}
+          cuenta={conCuenta}
+          onCuenta={(si) => {
+            setCuentaCambiada(si);
+            guardarCuentaMesa(si);
+          }}
+          onCerrar={() => setVerMetro(false)}
+        />
       )}
 
       {verTomas && tomas.length > 0 && (
