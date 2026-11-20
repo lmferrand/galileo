@@ -2,9 +2,14 @@
 // sus dos entradas y cada una pasa por su canal: ganancia → puerta de ruido → compresor →
 // distorsión → ecualizador → chorus → delay → reverb → panorama → volumen. Al final, el volumen
 // general y un limitador (nunca satura) hacia la salida (los cascos de la interfaz).
+// El retraso al oírte en los cascos: lo pone sobre todo el aparato (y mucho más unos cascos
+// Bluetooth). La Mesa no le suma nada que se pueda evitar: el limitador no espera a ver venir los
+// picos (public/limitador.worklet.js) y se le pide al navegador la entrada más rápida que tenga.
+// Para cantar a tiempo se puede dejar de oírse en los cascos (lib/mesa/escucha): REC graba igual.
 // Vive fuera de la pantalla (un único objeto) para que siga sonando con su hoja cerrada.
 
 import { pedirAudio } from "../entrada";
+import { leerEscucha } from "./escucha";
 import { conMaestros, generalEntradas, type AjustesCanal, type AjustesMesa } from "./ajustes";
 
 export type EstadoMesa = "apagada" | "abriendo" | "encendida" | "denegada" | "error" | "sin-soporte";
@@ -285,6 +290,17 @@ export class Canal {
   }
 }
 
+/** El limitador del navegador (espera ~6 ms a ver venir los picos): solo si no hay AudioWorklet */
+function limitadorDelNavegador(ctx: AudioContext): DynamicsCompressorNode {
+  const l = ctx.createDynamicsCompressor();
+  l.threshold.value = -3;
+  l.ratio.value = 20;
+  l.knee.value = 0;
+  l.attack.value = 0.001;
+  l.release.value = 0.1;
+  return l;
+}
+
 type Oyente = (e: EstadoMesa) => void;
 
 export class Mesa {
@@ -302,6 +318,9 @@ export class Mesa {
   private medidoresLado: [AnalyserNode, AnalyserNode] | null = null;
   /** La salida de la Mesa (ya limitada): de aquí se graba la toma */
   private salida: AudioNode | null = null;
+  /** Lo que va a los cascos (después de donde se graba): a 0 para no oírse */
+  private escucha: GainNode | null = null;
+  private escuchar = true;
   private grabador: AudioWorkletNode | null = null;
   private trozosToma: Float32Array[] = [];
   private oyentes = new Set<Oyente>();
@@ -337,7 +356,8 @@ export class Mesa {
     try {
       const pedido = pedirAudio();
       const audio = typeof pedido.audio === "object" ? pedido.audio : {};
-      this.flujo = await navigator.mediaDevices.getUserMedia({ audio: { ...audio, channelCount: { ideal: 2 } } });
+      // `latency`: la entrada con el búfer más corto que tenga (donde el navegador lo deja elegir)
+      this.flujo = await navigator.mediaDevices.getUserMedia({ audio: { ...audio, channelCount: { ideal: 2 }, latency: { ideal: 0 } } as MediaTrackConstraints });
     } catch (e) {
       const nombre = (e as DOMException)?.name;
       await ctx.close().catch(() => undefined);
@@ -352,6 +372,12 @@ export class Mesa {
     } catch {
       conPuerta = false;
     }
+    let sinEspera = true;
+    try {
+      await ctx.audioWorklet.addModule("/limitador.worklet.js");
+    } catch {
+      sinEspera = false;
+    }
 
     const pista = this.flujo.getAudioTracks()[0];
     this.nombreEntrada = pista?.label ?? "";
@@ -361,15 +387,14 @@ export class Mesa {
     this.fuente.connect(separador);
 
     this.general = ctx.createGain();
-    const limitador = ctx.createDynamicsCompressor();
-    limitador.threshold.value = -3;
-    limitador.ratio.value = 20;
-    limitador.knee.value = 0;
-    limitador.attack.value = 0.001;
-    limitador.release.value = 0.1;
+    const limitador = sinEspera ? new AudioWorkletNode(ctx, "limitador-mesa", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] }) : limitadorDelNavegador(ctx);
     this.medidorGeneral = ctx.createAnalyser();
     this.medidorGeneral.fftSize = 1024;
-    this.general.connect(limitador).connect(this.medidorGeneral).connect(ctx.destination);
+    // Los cascos, después de donde se graba: sin oírse, REC graba igual
+    this.escuchar = leerEscucha();
+    this.escucha = ctx.createGain();
+    this.escucha.gain.value = this.escuchar ? 1 : 0;
+    this.general.connect(limitador).connect(this.medidorGeneral).connect(this.escucha).connect(ctx.destination);
     this.medidoresLado = medidoresPorLado(ctx, limitador);
     this.salida = limitador;
 
@@ -383,6 +408,17 @@ export class Mesa {
     this.aplicar(ajustes);
     this.cambiar("encendida");
     return this.estado;
+  }
+
+  /** Oírse (o no) en los cascos: lo que tocas sigue entrando, midiéndose y grabándose. */
+  oirse(si: boolean) {
+    this.escuchar = si;
+    if (this.escucha && this.ctx) poner(this.escucha.gain, si ? 1 : 0, this.ctx);
+  }
+
+  /** ¿Te oyes en los cascos? */
+  get oyendose() {
+    return this.escuchar;
   }
 
   aplicar(a: AjustesMesa) {
@@ -468,6 +504,7 @@ export class Mesa {
       this.trozosToma = [];
     }
     this.salida = null;
+    this.escucha = null;
     this.canales.forEach((c) => c.parar());
     this.canales = [];
     this.flujo?.getTracks().forEach((p) => p.stop());

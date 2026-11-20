@@ -2250,6 +2250,22 @@
 .auto-ganancia {
   margin-bottom: 12px;
 }
+/* Oírte en los cascos (arriba de la hoja de cada entrada) */
+.escucha-cascos {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--linea);
+}
+.escucha-cascos .toma-ayuda {
+  margin: 0;
+  text-align: left;
+}
+.escucha-interruptor {
+  justify-self: start;
+  min-height: 44px;
+}
 .auto-hoja {
   display: grid;
   gap: 12px;

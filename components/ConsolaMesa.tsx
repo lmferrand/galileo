@@ -39,6 +39,7 @@ import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesM
 import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
 import CarpetasMesa from "./CarpetasMesa";
 import { guardarCuentaMesa, leerCuentaMesa, SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
+import { guardarEscucha, leerEscucha, RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA } from "@/lib/mesa/escucha";
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
 import { useHidratado } from "@/lib/hidratado";
 
@@ -286,6 +287,14 @@ export default function ConsolaMesa({
   const metroAj: AjustesMetronomo = metroCambiado ?? (hidratado ? leerAjustesMetronomo() : { bpm: 90, compas: 4 });
   const [cuentaCambiada, setCuentaCambiada] = useState<boolean | null>(null);
   const conCuenta = cuentaCambiada ?? (hidratado ? leerCuentaMesa() : true);
+  // Oírte en los cascos (se puede apagar para cantar o tocar sin el retraso: REC graba igual)
+  const [escuchaCambiada, setEscuchaCambiada] = useState<boolean | null>(null);
+  const oirse = escuchaCambiada ?? (hidratado ? leerEscucha() : true);
+  const cambiarEscucha = (si: boolean) => {
+    setEscuchaCambiada(si);
+    guardarEscucha(si);
+    mesa.oirse(si);
+  };
   const metroLibre = useRef<Metronomo | null>(null);
   const [sonandoLibre, setSonandoLibre] = useState(false);
   const metroCancion = pistas?.metronomo ?? null;
@@ -800,7 +809,7 @@ export default function ConsolaMesa({
         ? "Cargando la canción… sonará en cuanto esté lista"
         : "Cargando la canción…"
       : encendida
-      ? `${estadoTexto}${retraso !== null ? ` · retraso ≈ ${retraso} ms` : ""}`
+      ? `${estadoTexto}${!oirse ? " · sin oírte en los cascos" : retraso !== null ? ` · retraso ≈ ${retraso} ms` : ""}`
       : estado !== "apagada"
         ? estadoTexto
         : conPistas
@@ -1124,6 +1133,23 @@ export default function ConsolaMesa({
               </button>
             </header>
             <div className="hoja-cuerpo mesa-hoja">
+              {abierta.tipo === "entrada" && (
+                <section className="escucha-cascos" aria-live="polite">
+                  <button type="button" className={`interruptor escucha-interruptor${oirse ? " on" : ""}`} role="switch" aria-checked={oirse} onClick={() => cambiarEscucha(!oirse)}>
+                    <span className="interruptor-pista" aria-hidden="true">
+                      <span className="interruptor-bola" />
+                    </span>
+                    <span>Oírme en los cascos</span>
+                  </button>
+                  <p className="toma-ayuda">
+                    {oirse
+                      ? `${encendida && retraso !== null ? `Te oyes con unos ${retraso} ms de retraso${retraso >= RETRASO_BLUETOOTH ? " (¿cascos Bluetooth? Con cable baja mucho)" : ""}. ` : ""}${
+                          retraso === null || retraso >= RETRASO_QUE_SE_NOTA ? "Si te cuesta cantar o tocar a tiempo, apágalo: " : "Si aun así te cuesta ir a tiempo, apágalo: "
+                        }te oirás sin retraso con la escucha directa de tu interfaz («direct monitor») o apartando un poco un auricular. REC graba igual.`
+                      : "No te oyes en los cascos: óyete con la escucha directa de tu interfaz («direct monitor») o apartando un poco un auricular. La canción suena igual y REC graba lo que tocas, con sus efectos."}
+                  </p>
+                </section>
+              )}
               {abierta.tipo === "entrada" && (
                 <button type="button" className="boton-secundario ancho auto-ganancia" onClick={() => void ajustarGanancia(abierta.i as 0 | 1)}>
                   Ajustar la ganancia sola (tocas fuerte 5 segundos)
