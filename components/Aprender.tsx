@@ -55,7 +55,7 @@ export default function Aprender() {
   let numero = 0;
   return (
     <main className="app app-aprender">
-      <FondoEstudio foto="/estudio/pistas-2.webp" fotoHorizontal="/estudio/completo-h2.webp" vertical />
+      <FondoEstudio foto="/estudio/pistas-3.webp" fotoHorizontal="/estudio/completo-h3.webp" vertical />
       <header className="cabecera">
         <Navegacion actual="aprender" />
       </header>

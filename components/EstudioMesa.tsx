@@ -36,8 +36,8 @@ interface Foto {
 }
 
 // Dos fotos: la apaisada (PC, iPad tumbado, móvil tumbado) y la vertical (móviles de pie)
-const HORIZONTAL: Foto = { src: "/mesa/estudio3-h.webp", ancho: 1536, alto: 1024, mesa: { x: 355, y: 404, w: 877, h: 596 } };
-const VERTICAL: Foto = { src: "/mesa/estudio3-v.webp", ancho: 1024, alto: 1536, mesa: { x: 190, y: 714, w: 676, h: 514 } };
+const HORIZONTAL: Foto = { src: "/mesa/estudio4-h.webp", ancho: 1536, alto: 1024, mesa: { x: 355, y: 404, w: 877, h: 596 } };
+const VERTICAL: Foto = { src: "/mesa/estudio4-v.webp", ancho: 1024, alto: 1536, mesa: { x: 190, y: 714, w: 676, h: 514 } };
 
 type Fase = "estudio" | "entrando" | "consola" | "volviendo";
 const ACERCARSE_MS = 820;

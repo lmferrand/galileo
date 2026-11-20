@@ -33,7 +33,7 @@ interface Foto {
 }
 
 const VERTICAL: Foto = {
-  src: "/estudio/pistas-2.webp",
+  src: "/estudio/pistas-3.webp",
   ancho: 941,
   alto: 1671,
   pie: 1090,
@@ -49,7 +49,7 @@ const VERTICAL: Foto = {
 };
 
 const HORIZONTAL: Foto = {
-  src: "/estudio/completo-h2.webp",
+  src: "/estudio/completo-h3.webp",
   ancho: 1536,
   alto: 1024,
   pie: 960,
