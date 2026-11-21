@@ -11,10 +11,10 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
 import EfectosMesa, { efectosActivos } from "./EfectosMesa";
-import MesaFoto, { ALTO_MESA, ANCHO_MESA, type CanalFoto } from "./MesaFoto";
+import MesaFoto, { ANCHO_MESA, BISEL_MESA, ZONA_MESA, type CanalFoto } from "./MesaFoto";
 import CanalGrande from "./CanalGrande";
 import AyudaMesa from "./AyudaMesa";
-import GrabadoraMesa, { ALTO_CINTA, ANCHO_CINTA, anguloVu, VU_REPOSO, VUS, ZONA_SELECTOR } from "./GrabadoraMesa";
+import GrabadoraMesa, { ALTO_CINTA, anguloVu, VU_REPOSO, VUS, ZONA_CINTA, ZONA_SELECTOR } from "./GrabadoraMesa";
 import type { CancionesPlaca } from "./PlacaCanciones";
 import type { Cancion, TomaCancion } from "@/lib/pistas/tipos";
 import { type Transporte } from "./TransporteMesa";
@@ -139,30 +139,45 @@ interface Encuadre {
 
 /** La foto del escritorio (public/mesa/escritorio2.webp) */
 const ESCRITORIO = { w: 1671, h: 941 };
-/** Debajo de la grabadora y la mesa vistas de lejos: el sitio del letrero «Toca la grabadora o la mesa…» */
-const HUECO_LETRERO = 34;
+/** Debajo de la grabadora y la mesa vistas de lejos: el letrero «Toca la grabadora o la mesa…» (pisa solo la madera de abajo de la mesa) */
+const HUECO_LETRERO = 14;
+/** El margen de la consola (mesa.css): si mide más, es que ahí el aparato tapa algo (la cámara, la barra) */
+const MARGEN_CONSOLA = 10;
+/** Con la vista en una parte, lo que asoma de la otra (px de pantalla): por esa franja se pasa a ella */
+const ASOMA_MESA = 30;
+const ASOMA_CINTA = 16;
+/** Lo que mide la franja de paso (en píxeles de la mesa): de sobra para todo lo que asome */
+const LARGO_PASO = 420;
 
 /**
  * Pantalla bajita (el móvil tumbado): el escritorio, la grabadora y la mesa van en UNA capa, y lo
  * que cambia al tocar una parte es desde dónde se mira (la cámara): la capa entera se acerca a ella,
  * con el fondo, y todo guarda sus proporciones. Antes la parte tocada se pintaba sola y más grande
  * sobre el mismo fondo: parecía que venía hacia ti en vez de acercarte tú.
- * La capa se pinta al tamaño más grande al que se va a ver la grabadora o la mesa enteras, así
- * acercarse a ellas nunca la amplía (nítida). El selector de canciones sí se amplía: es lo único.
+ * La capa se pinta al tamaño más grande al que se va a ver la grabadora o la mesa, así acercarse a
+ * ellas nunca la amplía (nítida). El selector de canciones sí se amplía: es lo único.
+ * De cerca, cada una se ajusta a la pantalla por lo útil (ZONA_CINTA, ZONA_MESA): su marco de madera
+ * puede quedar fuera. Y siempre asoma un poco de la otra por un borde: por ahí se pasa a ella.
  * Medidas de la capa en sus propios píxeles; cada encuadre, dónde cae en la pantalla y a qué escala.
  */
 function camaraDe({ w, h, x0, y0, ancho, alto }: Tam) {
-  const lejos = Math.min((w * 0.92) / ANCHO_MESA, (h - HUECO_LETRERO) / PIEZA.alto);
-  const mesaCerca = Math.min((w - 8) / ANCHO_MESA, (h - 4) / ALTO_MESA);
-  const cintaCerca = Math.min((w - 16) / ANCHO_CINTA, (h - 8) / ALTO_CINTA);
-  const placaCerca = Math.min((w - 16) / ZONA_SELECTOR.w, (h - 8) / ZONA_SELECTOR.h);
-  const escala = Math.max(mesaCerca, cintaCerca / K_CINTA);
+  // La pantalla entera: el margen de la consola es para el ordenador. Solo se deja libre lo que
+  // tape de verdad el aparato.
+  const tapado = (v: number) => (v > MARGEN_CONSOLA ? v : 0);
+  const u = { x: tapado(x0), y: tapado(y0), w: ancho - tapado(x0) - tapado(ancho - x0 - w), h: alto - tapado(y0) - tapado(alto - y0 - h) };
+  const AIRE = 2;
+  const lejos = Math.min((u.w * 0.92) / ANCHO_MESA, (u.h - AIRE - HUECO_LETRERO) / PIEZA.alto);
+  // (escalas en píxeles de pantalla por píxel de la mesa; la grabadora va a K_CINTA de eso)
+  const cintaCerca = Math.min((u.w - 2 * AIRE) / (ZONA_CINTA.w * K_CINTA), (u.h - AIRE - ASOMA_MESA) / PIEZA.yMesa);
+  const mesaCerca = Math.min((u.w - 2 * AIRE) / ZONA_MESA.w, (u.h - AIRE - ASOMA_CINTA) / ZONA_MESA.h);
+  const placaCerca = Math.min((u.w - 36) / ZONA_SELECTOR.w, (u.h - 28) / ZONA_SELECTOR.h);
+  const escala = Math.max(mesaCerca, cintaCerca);
   // Sin sitio (la consola aún sin tamaño, o escondida): no hay nada que encuadrar
   if (!(lejos > 0 && mesaCerca > 0 && cintaCerca > 0)) return null;
   const z0 = lejos / escala;
   // De lejos, la capa ocupa la pantalla justa
   const escena = { w: ancho / z0, h: alto / z0 };
-  const pieza = { x: (x0 + (w - ANCHO_MESA * lejos) / 2) / z0, y: (y0 + (h - HUECO_LETRERO - PIEZA.alto * lejos) / 2) / z0 };
+  const pieza = { x: (u.x + (u.w - ANCHO_MESA * lejos) / 2) / z0, y: (u.y + (u.h - HUECO_LETRERO - PIEZA.alto * lejos) / 2) / z0 };
   // El escritorio: su foto entera, llenando la pantalla de lejos (lo que sobra asoma al acercarse)
   const k = Math.max(escena.w / ESCRITORIO.w, escena.h / ESCRITORIO.h);
   const fondo = { x: (escena.w - ESCRITORIO.w * k) / 2, y: (escena.h - ESCRITORIO.h * k) / 2, w: ESCRITORIO.w * k, h: ESCRITORIO.h * k };
@@ -170,17 +185,22 @@ function camaraDe({ w, h, x0, y0, ancho, alto }: Tam) {
   const dentro = (v: number, z: number, desde: number, largo: number, pantalla: number) => Math.min(-z * desde, Math.max(pantalla - z * (desde + largo), v));
   const cerca = (z: number, x: number, y: number, ancha: number, alta: number): Encuadre => ({
     z,
-    x: dentro(x0 + (w - ancha * z) / 2 - x * z, z, fondo.x, fondo.w, ancho),
-    y: dentro(y0 + (h - alta * z) / 2 - y * z, z, fondo.y, fondo.h, alto),
+    x: dentro(u.x + (u.w - ancha * z) / 2 - x * z, z, fondo.x, fondo.w, ancho),
+    y: dentro(u.y + (u.h - alta * z) / 2 - y * z, z, fondo.y, fondo.h, alto),
   });
   // Píxeles de la capa por cada píxel de la foto de la grabadora
   const kc = K_CINTA * escala;
   const xCinta = pieza.x + PIEZA.xCinta * escala;
+  const yMesa = pieza.y + PIEZA.yMesa * escala;
+  const zCinta = cintaCerca / escala;
+  const zMesa = mesaCerca / escala;
   const encuadres: Record<Parte, Encuadre> = {
     "las-dos": { z: z0, x: 0, y: 0 },
     placa: cerca(placaCerca / kc, xCinta + ZONA_SELECTOR.x * kc, pieza.y + ZONA_SELECTOR.y * kc, ZONA_SELECTOR.w * kc, ZONA_SELECTOR.h * kc),
-    cinta: cerca(cintaCerca / (K_CINTA * escala), pieza.x + PIEZA.xCinta * escala, pieza.y, ANCHO_CINTA * K_CINTA * escala, ALTO_CINTA * K_CINTA * escala),
-    mesa: cerca(mesaCerca / escala, pieza.x, pieza.y + PIEZA.yMesa * escala, ANCHO_MESA * escala, ALTO_MESA * escala),
+    // La grabadora de arriba abajo y, debajo, lo que asoma de la mesa
+    cinta: cerca(zCinta, xCinta + ZONA_CINTA.x * kc, pieza.y, ZONA_CINTA.w * kc, PIEZA.yMesa * escala + ASOMA_MESA / zCinta),
+    // La mesa hasta el borde de abajo de su panel y, encima, lo que asoma de la grabadora
+    mesa: cerca(zMesa, pieza.x + ZONA_MESA.x * escala, yMesa - ASOMA_CINTA / zMesa, ZONA_MESA.w * escala, ZONA_MESA.h * escala + ASOMA_CINTA / zMesa),
   };
   return { escala, escena, pieza, fondo, encuadres, marco: { left: -x0, top: -y0, width: ancho, height: alto } };
 }
@@ -193,19 +213,22 @@ function Pieza({
   propsMesa,
   tocar,
   activa,
+  paso,
 }: {
   escala: number;
   cinta: RefObject<HTMLDivElement | null>;
   abajo: RefObject<HTMLDivElement | null>;
   propsCinta: Omit<ComponentProps<typeof GrabadoraMesa>, "escala">;
   propsMesa: Omit<ComponentProps<typeof MesaFoto>, "escala">;
-  /**
-   * Móvil: la parte entera es un botón. De lejos, las dos (acercarse a ella); con la grabadora de
-   * cerca, la mesa que asoma por debajo (bajar a ella).
-   */
+  /** Móvil, de lejos: cada parte entera es un botón (acercarse a ella) */
   tocar?: { cinta?: Record<string, unknown>; mesa?: Record<string, unknown> };
   /** Con la vista acercada a una parte (móvil): los mandos de la otra, que asoma, no se tocan */
   activa?: "cinta" | "mesa";
+  /**
+   * Móvil, con la grabadora o la mesa de cerca: la franja por la que asoma la otra (se toca, o se
+   * desliza el dedo desde ella, y la vista pasa a la otra; el gesto lo recoge la capa entera)
+   */
+  paso?: Record<string, unknown>;
 }) {
   return (
     <div className="cf-pieza" style={{ width: ANCHO_MESA * escala, height: PIEZA.alto * escala }}>
@@ -227,6 +250,20 @@ function Pieza({
           <MesaFoto escala={escala} {...propsMesa} />
         </div>
       </div>
+      {paso && activa && (
+        // Con la grabadora: desde su borde de abajo, la mesa que asoma. Con la mesa: la grabadora que
+        // asoma por arriba y el bisel de la mesa (que no tiene mandos).
+        <div
+          className="cf-paso"
+          style={{
+            left: 0,
+            width: ANCHO_MESA * escala,
+            top: (activa === "cinta" ? PIEZA.yMesa - 8 : PIEZA.yMesa - LARGO_PASO) * escala,
+            height: (activa === "cinta" ? LARGO_PASO : LARGO_PASO + BISEL_MESA) * escala,
+          }}
+          {...paso}
+        />
+      )}
     </div>
   );
 }
@@ -237,6 +274,8 @@ const TOCABLE = 'button, a, input, select, textarea, label, [role="button"], [ro
 const AIRE_PX = 14;
 /** Lo que se puede mover el dedo (px de pantalla) y seguir siendo un toque */
 const TOQUE_PX = 10;
+/** Lo que hay que deslizar el dedo, hacia arriba o hacia abajo, para pasar de la grabadora a la mesa (o al revés) */
+const DESLIZAR_PX = 32;
 const ALREDEDOR = [
   [0, 0],
   [1, 0],
@@ -1012,17 +1051,51 @@ export default function ConsolaMesa({
     setCanalAbierto(null);
     decirComoVolver(false);
   };
-  // Con la vista acercada no hay botón de volver: se toca en cualquier sitio que no sea un mando
-  // (como alejarse). Tiene que ser un toque (no un arrastre que acaba ahí) y caer fuera de los mandos.
-  const bajo = useRef<{ x: number; y: number } | null>(null);
-  const alTocarFuera = {
+  // Con la grabadora o la mesa de cerca, la otra asoma por un borde (cf-paso, en Pieza)
+  const otra = vista === "cinta" ? "mesa" : vista === "mesa" ? "cinta" : null;
+  // Los gestos de la vista acercada, sin botones:
+  //  - tocar en cualquier sitio que no sea un mando: volver un paso (como alejarse). Tiene que ser un
+  //    toque (no un arrastre que acaba ahí) y caer fuera de los mandos;
+  //  - pasar de la grabadora a la mesa (o al revés): tocar la franja por la que asoma, o deslizar el
+  //    dedo desde ella, o deslizarlo hacia arriba o hacia abajo en cualquier sitio que no sea un mando.
+  //    Basta el gesto: la vista va sola, no hay que llevarla con el dedo.
+  // Un toque se atiende en el «clic» (lo último que llega) y un deslizamiento al levantar el dedo.
+  // Tras un deslizamiento, el clic que pueda llegar detrás se descarta: con la vista ya cambiada
+  // caería sobre lo que hay ahora bajo el dedo (un canal de la mesa, que se abriría solo).
+  const bajo = useRef<{ x: number; y: number; paso: boolean } | null>(null);
+  const deslizado = useRef(0);
+  const gestos = {
+    onClickCapture: (e: React.MouseEvent) => {
+      if (performance.now() - deslizado.current > 500) return;
+      e.stopPropagation();
+      e.preventDefault();
+    },
     onPointerDown: (e: React.PointerEvent) => {
-      bajo.current = e.isPrimary ? { x: e.clientX, y: e.clientY } : null;
+      const el = e.target as Element;
+      // (de lejos, las partes enteras ya tienen su toque)
+      bajo.current = !e.isPrimary || el.closest(".cf-parte") ? null : { x: e.clientX, y: e.clientY, paso: !!el.closest(".cf-paso") };
+    },
+    onPointerUp: (e: React.PointerEvent) => {
+      const b = bajo.current;
+      if (!b || !e.isPrimary || !otra) return;
+      const dx = Math.abs(e.clientX - b.x);
+      const dy = Math.abs(e.clientY - b.y);
+      // Desde la franja vale deslizar hacia donde sea; fuera de ella, hacia arriba o hacia abajo
+      const desliza = b.paso ? Math.hypot(dx, dy) > TOQUE_PX : dy >= DESLIZAR_PX && dy > 1.5 * dx && esFuera(b.x, b.y);
+      if (!desliza) return;
+      bajo.current = null;
+      deslizado.current = performance.now();
+      irA(otra);
     },
     onClick: (e: React.MouseEvent) => {
       const b = bajo.current;
       bajo.current = null;
       if (vista === "juntas" || vista === "las-dos" || !b) return;
+      // Un toque en la franja por la que asoma la otra parte
+      if (b.paso) {
+        if (otra) irA(otra);
+        return;
+      }
       if (Math.hypot(e.clientX - b.x, e.clientY - b.y) > TOQUE_PX || !esFuera(b.x, b.y)) return;
       atras();
     },
@@ -1257,14 +1330,24 @@ export default function ConsolaMesa({
       }
     },
   });
-  // De lejos, las dos se tocan para acercarse; con la grabadora de cerca, la mesa que asoma por
-  // debajo lleva a ella (la vista baja de la grabadora a la mesa)
-  const tocar =
-    parte === "las-dos"
-      ? { cinta: botonParte("cinta", "Ver la grabadora en grande"), mesa: botonParte("mesa", "Ver la mesa de mezclas en grande") }
-      : parte === "cinta"
-        ? { mesa: botonParte("mesa", "Bajar a la mesa de mezclas") }
-        : undefined;
+  // De lejos, las dos se tocan para acercarse
+  const tocar = parte === "las-dos" ? { cinta: botonParte("cinta", "Ver la grabadora en grande"), mesa: botonParte("mesa", "Ver la mesa de mezclas en grande") } : undefined;
+  // De cerca, la franja por la que asoma la otra. El toque y el deslizar los recoge la capa (gestos);
+  // aquí, lo que hace de ella un botón para el teclado.
+  const paso =
+    otra && vista !== "canal"
+      ? {
+          role: "button" as const,
+          tabIndex: 0,
+          "aria-label": otra === "mesa" ? "Bajar a la mesa de mezclas" : "Subir a la grabadora",
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              irA(otra);
+            }
+          },
+        }
+      : undefined;
 
   return (
     <div className={`consola-foto vista-${vista}`} ref={raiz}>
@@ -1278,7 +1361,7 @@ export default function ConsolaMesa({
       {camara && encuadre && (
         // El móvil tumbado: el escritorio, la grabadora y la mesa en una sola capa (camaraDe). No se
         // desmonta al acercarse ni al abrir un canal: solo cambia desde dónde se mira
-        <div className="cf-camara" style={camara.marco} inert={vista === "canal"} {...alTocarFuera}>
+        <div className="cf-camara" style={camara.marco} inert={vista === "canal"} {...gestos}>
           <div
             className={`cf-escena${suave ? " suave" : ""}`}
             style={{ width: camara.escena.w, height: camara.escena.h, transform: `translate(${encuadre.x}px, ${encuadre.y}px) scale(${encuadre.z})` }}
@@ -1299,6 +1382,7 @@ export default function ConsolaMesa({
                 propsCinta={parte === "cinta" ? { ...propsCinta, alAcercarPlaca: () => irA("placa") } : propsCinta}
                 propsMesa={parte === "mesa" ? { ...propsMesa, alTocarCanal: abrirCanal } : propsMesa}
                 tocar={tocar}
+                paso={paso}
                 activa={parte === "las-dos" ? undefined : parte === "mesa" ? "mesa" : "cinta"}
               />
             </div>
@@ -1312,7 +1396,7 @@ export default function ConsolaMesa({
       )}
 
       {vista === "canal" && canalAbierto !== null && propsMesa.canales[canalAbierto] && (
-        <div className="cf-grande" ref={enCanal} {...alTocarFuera}>
+        <div className="cf-grande" ref={enCanal} {...gestos}>
           <CanalGrande
             key={canalAbierto}
             canal={propsMesa.canales[canalAbierto]!}
@@ -1324,6 +1408,21 @@ export default function ConsolaMesa({
             leer={leer}
           />
         </div>
+      )}
+      {camara && (
+        // Dónde asoma la otra parte: arriba con la mesa de cerca, abajo con la grabadora
+        <>
+          <span className="cf-marca arriba" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M6 15l6-6 6 6" />
+            </svg>
+          </span>
+          <span className="cf-marca abajo" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </span>
+        </>
       )}
       {camara && (
         <p className={`cf-ayuda-volver${verComoVolver && vista !== "las-dos" ? " visible" : ""}`} aria-hidden={!verComoVolver}>

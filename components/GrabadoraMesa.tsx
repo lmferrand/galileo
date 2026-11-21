@@ -18,6 +18,8 @@ import { usePosicion, type Posicion } from "@/lib/pistas/posicion";
 
 export const ANCHO_CINTA = 2000;
 export const ALTO_CINTA = 787;
+/** Lo útil de la grabadora a lo ancho, sin los costados de madera: lo que la vista del móvil ajusta a la pantalla (ConsolaMesa) */
+export const ZONA_CINTA = { x: 108, w: 1808 };
 /** La franja que se añadió debajo de los VU, con la pantalla de la canción */
 const PANTALLA: [number, number, number, number] = [128, 644, 1744, 100];
 

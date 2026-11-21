@@ -17,6 +17,10 @@ import { MAESTRO_DB, type AjustesCanal, type Maestros } from "@/lib/mesa/ajustes
 
 export const ANCHO_MESA = 1752;
 export const ALTO_MESA = 897;
+/** Lo útil de la mesa, sin el marco de madera: lo que la vista del móvil ajusta a la pantalla (ConsolaMesa) */
+export const ZONA_MESA = { x: 60, w: 1640, h: 792 };
+/** El bisel de arriba, sobre los rótulos: no tiene mandos */
+export const BISEL_MESA = 38;
 
 // ---------- Medidas de la foto ----------
 /** Altura de cada nombre (TRIM … DELAY): ahí va su rueda */
