@@ -192,7 +192,7 @@ function RuedaBuscar({ t, sin }: { t: Transporte | null; sin: boolean }) {
 
 interface Props {
   escala: number;
-  /** El reproductor de la canción; sin él (desde el afinador) la grabadora está parada */
+  /** El reproductor de la canción; sin él (la Mesa sin canción) la grabadora está parada */
   t: Transporte | null;
   /** Lo que enseña la pantalla en lugar de la ayuda (el mando que se mueve, las entradas…) */
   aviso: string | null;
@@ -202,7 +202,7 @@ interface Props {
   contador: Posicion | null;
   /** Hay una toma: abrirla (escuchar, guardar, borrar) */
   toma: (() => void) | null;
-  /** Las canciones para el selector de la placa (sin ellas, desde el afinador: «Sin cinta») */
+  /** Las canciones para el selector de la placa (sin ellas, mientras se leen: «Sin cinta») */
   canciones?: CancionesPlaca;
   /** La lente de la rueda dentada de la placa: organizar las carpetas */
   onOrganizar?: () => void;

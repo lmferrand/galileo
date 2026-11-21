@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Roseta from "./Roseta";
 import Pala from "./Pala";
 import Hoja from "./Hoja";
@@ -15,7 +16,6 @@ import BarraAbajo from "./BarraAbajo";
 import MetronomoPanel from "./MetronomoPanel";
 import Grabadora from "./Grabadora";
 import LooperPanel from "./LooperPanel";
-import MesaAfinador from "./MesaAfinador";
 import { leerAjusteRetraso, Looper, type EstadoLooper, type ModoLooper } from "@/lib/looper";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo, type Compas } from "@/lib/metronomo";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
@@ -31,7 +31,7 @@ const TOLERANCIA = 4; // cents
 const TIEMPO_AFINADA = 350; // ms seguidos dentro de la tolerancia
 const HISTERESIS = 60; // cents que tiene que ganar otra cuerda para cambiar en automático
 
-type HojaAbierta = null | "afinacion" | "ajustes" | "editor" | "metronomo" | "grabar" | "looper" | "mesa";
+type HojaAbierta = null | "afinacion" | "ajustes" | "editor" | "metronomo" | "grabar" | "looper";
 
 const MS_TRANSICION = 900;
 
@@ -50,7 +50,10 @@ export default function Afinador() {
   const [cuerdaManual, setCuerdaManual] = useState(0);
   const [afinadas, setAfinadas] = useState<Set<number>>(() => new Set());
   const [hoja, setHoja] = useState<HojaAbierta>(null);
-  const cerrarHoja = useCallback(() => setHoja(null), []);
+  // El botón «Mesa» de abajo lleva a la pestaña «Mesa»: es la misma Mesa, y la canción se pone allí
+  // mismo. Antes abría aquí otra Mesa aparte que, al elegir canción, saltaba a «Pistas» para abrirla
+  // («cuando selecciono la canción se sale la pantalla a Pistas, se salta»).
+  const router = useRouter();
   const [celebrando, setCelebrando] = useState(false);
   const [tonoEn, setTonoEn] = useState<number | null>(null);
   // Pantalla de elegir instrumento: visible, yéndose (con la transición) o quitada.
@@ -619,7 +622,7 @@ export default function Afinador() {
       {eleccion.fase === "no" && (
         <BarraAbajo
           onEstudio={volverAlEstudio}
-          onMesa={() => setHoja("mesa")}
+          onMesa={() => router.push("/mesa")}
           onMetronomo={() => setHoja("metronomo")}
           onLooper={abrirLooper}
           onGrabar={() => setHoja("grabar")}
@@ -628,8 +631,6 @@ export default function Afinador() {
           golpe={metroGolpe.n}
         />
       )}
-
-      {hoja === "mesa" && <MesaAfinador onCerrar={cerrarHoja} />}
 
       <Hoja abierta={hoja === "metronomo"} titulo="Metrónomo" onCerrar={() => setHoja(null)}>
         <MetronomoPanel

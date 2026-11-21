@@ -15,7 +15,7 @@
 // copia y siguen probando la red por detrás) hasta que vuelva a contestar: si no, cada pestaña
 // sumaba sus segundos de espera.
 
-const CACHE = "clavija-app-v118";
+const CACHE = "clavija-app-v119";
 
 const AUDIO = [
   "/mezclador.worklet.js",

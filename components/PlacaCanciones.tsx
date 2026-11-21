@@ -11,7 +11,7 @@
 //    las carpetas; a la derecha, organizar las carpetas (CarpetasMesa: crear, renombrar, ordenar, mover).
 // Lo que es un toque o un arrastre se mide en píxeles de la pantalla: en el móvil la grabadora va
 // pequeña y, medido en la foto, cualquier temblor del dedo era un arrastre y no se elegía nada.
-// Sin canciones (la Mesa del afinador mientras las lee) la luz está apagada: «Sin cinta».
+// Sin canciones (mientras la Mesa las lee) la luz está apagada: «Sin cinta».
 // Medidas en píxeles de la foto (public/mesa/grabadora.webp, 2000×787).
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type WheelEvent } from "react";
