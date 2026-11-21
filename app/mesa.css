@@ -2270,6 +2270,17 @@ html.con-mesa body {
 .estudio-consola:has(.consola-foto:not(.vista-juntas, .vista-las-dos)) .estudio-arriba .estudio-boton:not(.estudio-cerrar) {
   display: none;
 }
+/* Con un canal en grande (móvil): la flecha para volver a la mesa, en la esquina que deja libre
+   «Salir del estudio» */
+.cf-volver {
+  position: fixed;
+  z-index: 6;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  width: 40px;
+  padding: 0;
+  justify-content: center;
+}
 /* En la mesa en grande, el mando que mueves sale arriba (la pantalla de la grabadora no se ve) */
 .cf-lectura {
   position: fixed;

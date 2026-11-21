@@ -1424,6 +1424,16 @@ export default function ConsolaMesa({
           </span>
         </>
       )}
+      {vista === "canal" && (
+        // Con un canal en grande, su panel llena la pantalla y no se ve por dónde volver: una flecha
+        // (con cola, para que no se confunda con las de «canal anterior» y «siguiente»). Tocar fuera
+        // de los mandos sigue valiendo.
+        <button type="button" className="estudio-boton cf-volver" onClick={atras} aria-label="Volver a la mesa con todos los canales">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19 12H6M11 6l-6 6 6 6" />
+          </svg>
+        </button>
+      )}
       {camara && (
         <p className={`cf-ayuda-volver${verComoVolver && vista !== "las-dos" ? " visible" : ""}`} aria-hidden={!verComoVolver}>
           Toca fuera de los mandos para volver
