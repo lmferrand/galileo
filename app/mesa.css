@@ -793,6 +793,15 @@ html.con-mesa body::before {
   cursor: default;
   opacity: 0.45;
 }
+/* (la rueda de la canción de MASTER se enciende con la primera canción: que no dé un salto) */
+.mf-mando-rueda {
+  transition: opacity 420ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mf-mando-rueda {
+    transition: none;
+  }
+}
 /* Las ruedas: falda negra estriada, tapa de metal cepillado (la luz no gira) y la raya que gira */
 .mf-rueda {
   position: absolute;
@@ -935,6 +944,42 @@ html.con-mesa body::before {
   padding: 24px;
   border-radius: 14px;
   background: rgba(12, 8, 6, 0.74);
+}
+/* Los seis canales de la canción van siempre en la mesa (MesaFoto): sin canción, ocultos bajo su
+   tapa. Al poner la primera canción no se montan: entran con un fundido mientras la tapa se va (antes
+   aparecían los seis de golpe, en un solo fotograma). La caja no mide nada: solo los agrupa. */
+.mf-pistas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transition: opacity 420ms ease;
+}
+.mf-pistas.sin {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 420ms ease,
+    visibility 0s linear 420ms;
+}
+.mf-tapado.de-pistas {
+  transition: opacity 420ms ease;
+}
+.mf-tapado.de-pistas.fuera {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 420ms ease,
+    visibility 0s linear 420ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mf-pistas,
+  .mf-pistas.sin,
+  .mf-tapado.de-pistas,
+  .mf-tapado.de-pistas.fuera {
+    transition: none;
+  }
 }
 .mf-tapado p {
   max-width: 15em;
@@ -2753,6 +2798,12 @@ html.con-mesa body::before {
   .ayuda-fila {
     grid-template-columns: 1fr;
   }
+}
+/* Al pie de la ayuda: qué versión de la app hay en este aparato */
+.ayuda-version {
+  margin: 0;
+  font-size: 13px;
+  color: #a89a84;
 }
 
 /* El consejo de mezcla (cuando un instrumento tapa a otro), en ámbar */

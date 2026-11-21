@@ -36,7 +36,7 @@ import { archivoDeToma, guardarArchivo } from "@/lib/pistas/exportar";
 import { leerFormato, type Formato } from "@/lib/pistas/formato";
 import SelectorFormato from "./SelectorFormato";
 import { esMovil } from "@/lib/pistas/aparato";
-import { formatoTiempo, FRECUENCIA } from "@/lib/pistas/tipos";
+import { formatoTiempo, FRECUENCIA, PISTAS } from "@/lib/pistas/tipos";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo } from "@/lib/metronomo";
 import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
 import CarpetasMesa from "./CarpetasMesa";
@@ -350,6 +350,7 @@ function clic(ctx: AudioContext, t: number, fuerte: boolean) {
 }
 /** Canales 3 a 8 de la foto (VOCALS, DRUMS, BASS, GUITAR, PIANO, OTHER) → su pista (orden de PISTAS) */
 const PISTA_DE_CANAL = [0, 3, 2, 1, 4, 5];
+const sinHacer = () => undefined;
 
 // El selector de pistas en el escritorio: su foto mide 277×145
 
@@ -1335,8 +1336,26 @@ export default function ConsolaMesa({
       medidor: i,
     };
   };
-  const pista = (j: number): CanalFoto | null => {
-    if (!pistas || j >= n) return null;
+  // Sin canción, los canales de las pistas están igualmente en la mesa, en reposo y ocultos bajo su
+  // tapa (MesaFoto): al poner la primera canción ya están montados, como al cambiar de una a otra
+  const pista = (j: number): CanalFoto => {
+    if (!pistas || j >= n)
+      return {
+        nombre: PISTAS[j].nombre,
+        titulo: PISTAS[j].conArticulo,
+        c: AJUSTES_PISTA,
+        ganancia: { min: -12, max: 12 },
+        volumen: 1,
+        silencio: false,
+        solo: false,
+        nFx: 0,
+        onCanal: sinHacer,
+        onVolumen: sinHacer,
+        onSilencio: sinHacer,
+        onSolo: sinHacer,
+        onEfectos: sinHacer,
+        medidor: 2 + j,
+      };
     return {
       nombre: pistas.nombres[j],
       titulo: pistas.conArticulo[j],
@@ -1384,10 +1403,11 @@ export default function ConsolaMesa({
     entradas: { encendidas: encendida, ocupadas: estado === "abriendo", onPulsar: () => void encender() },
     leer,
   };
-  // El canal de al lado (saltando los que no tienen nada, sin canción)
+  // El canal de al lado (saltando los de la canción si no hay canción: están en reposo, tapados)
+  const hayCanal = (i: number) => i < 2 || conPistas;
   const vecino = (paso: 1 | -1) => {
     if (canalAbierto === null) return null;
-    for (let i = canalAbierto + paso; i >= 0 && i < 8; i += paso) if (propsMesa.canales[i]) return () => setCanalAbierto(i);
+    for (let i = canalAbierto + paso; i >= 0 && i < 8; i += paso) if (hayCanal(i)) return () => setCanalAbierto(i);
     return null;
   };
   const alTeclear = (e: React.KeyboardEvent, p: "cinta" | "mesa") => {
@@ -1480,11 +1500,11 @@ export default function ConsolaMesa({
         </p>
       )}
 
-      {vista === "canal" && canalAbierto !== null && propsMesa.canales[canalAbierto] && (
+      {vista === "canal" && canalAbierto !== null && hayCanal(canalAbierto) && propsMesa.canales[canalAbierto] && (
         <div className="cf-grande" ref={enCanal} {...gestos}>
           <CanalGrande
             key={canalAbierto}
-            canal={propsMesa.canales[canalAbierto]!}
+            canal={propsMesa.canales[canalAbierto]}
             indice={canalAbierto}
             anterior={vecino(-1)}
             siguiente={vecino(1)}

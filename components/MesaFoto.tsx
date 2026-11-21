@@ -191,6 +191,49 @@ function Boton({ caja, clase, on, etiqueta, onClick, children }: { caja: Caja; c
 }
 
 // ---------- La mesa ----------
+/** Un canal de la foto: sus 7 ruedas, sus tres teclas y su fader */
+function CanalDeLaFoto({ i, k, leer }: { i: number; k: CanalFoto; leer: (donde: string, texto: string) => void }) {
+  const leerAqui = (texto: string) => leer(k.nombre, texto);
+  return (
+    <div className="mf-canal" role="group" aria-label={k.nombre}>
+      {ruedasDe(k, leerAqui).map((r, fila) => (
+        <RuedaCanal key={fila} canal={i} fila={fila} color={r.color} p={r.p} />
+      ))}
+      <Boton
+        caja={ROJAS[i]}
+        clase="mf-roja"
+        on={k.silencio}
+        etiqueta={`Silenciar ${k.titulo}`}
+        onClick={() => {
+          k.onSilencio();
+          leerAqui(k.silencio ? "Suena" : "En silencio");
+        }}
+      />
+      <Boton
+        caja={SOLOS[i]}
+        clase="mf-ambar"
+        on={k.solo}
+        etiqueta={`Solo ${k.titulo}`}
+        onClick={() => {
+          k.onSolo();
+          leerAqui(k.solo ? "Sin solo" : "Solo");
+        }}
+      />
+      <Boton caja={SELECTS[i]} clase="mf-ambar" on={k.nFx > 0} etiqueta={`Efectos de ${k.titulo}: ${k.nFx} encendidos`} onClick={k.onEfectos} />
+      <FaderFoto
+        c={CARRILES[i]}
+        nombre={`Volumen de ${k.titulo}`}
+        valor={k.volumen}
+        medidor={String(k.medidor)}
+        onCambio={(v) => {
+          k.onVolumen(v);
+          leerAqui(`Volumen ${verDb(v)}`);
+        }}
+      />
+    </div>
+  );
+}
+
 export interface CanalFoto {
   /** «Entrada 1», «Voz»… */
   nombre: string;
@@ -253,7 +296,7 @@ export function ruedasDe(k: CanalFoto, leer: (texto: string) => void): { color: 
 
 interface Props {
   escala: number;
-  /** Los 8 canales de la foto, en su orden; null = sin nada (sin canción) */
+  /** Los 8 canales de la foto, en su orden (los 6 de la canción llegan siempre: sin ella, en reposo) */
   canales: (CanalFoto | null)[];
   sinEntrada2: boolean;
   general: number;
@@ -288,48 +331,14 @@ export default function MesaFoto({ escala, canales, sinEntrada2, general, onGene
           ))}
         </svg>
 
-        {canales.map((k, i) => {
-          if (!k) return null;
-          const leerAqui = (texto: string) => leer(k.nombre, texto);
-          return (
-            <div key={i} className="mf-canal" role="group" aria-label={k.nombre}>
-              {ruedasDe(k, leerAqui).map((r, fila) => (
-                <RuedaCanal key={fila} canal={i} fila={fila} color={r.color} p={r.p} />
-              ))}
-              <Boton
-                caja={ROJAS[i]}
-                clase="mf-roja"
-                on={k.silencio}
-                etiqueta={`Silenciar ${k.titulo}`}
-                onClick={() => {
-                  k.onSilencio();
-                  leerAqui(k.silencio ? "Suena" : "En silencio");
-                }}
-              />
-              <Boton
-                caja={SOLOS[i]}
-                clase="mf-ambar"
-                on={k.solo}
-                etiqueta={`Solo ${k.titulo}`}
-                onClick={() => {
-                  k.onSolo();
-                  leerAqui(k.solo ? "Sin solo" : "Solo");
-                }}
-              />
-              <Boton caja={SELECTS[i]} clase="mf-ambar" on={k.nFx > 0} etiqueta={`Efectos de ${k.titulo}: ${k.nFx} encendidos`} onClick={k.onEfectos} />
-              <FaderFoto
-                c={CARRILES[i]}
-                nombre={`Volumen de ${k.titulo}`}
-                valor={k.volumen}
-                medidor={String(k.medidor)}
-                onCambio={(v) => {
-                  k.onVolumen(v);
-                  leerAqui(`Volumen ${verDb(v)}`);
-                }}
-              />
-            </div>
-          );
-        })}
+        {/* Las dos entradas */}
+        {canales.slice(0, 2).map((k, i) => k && <CanalDeLaFoto key={i} i={i} k={k} leer={leer} />)}
+        {/* Los seis canales de la canción están siempre (sin canción llegan en reposo): ocultos bajo su
+            tapa y sin poder tocarse. Así, al poner la primera canción no hay que montarlos (salían los
+            seis de golpe, en un solo fotograma): la tapa se va y ellos entran con un fundido. */}
+        <div className={`mf-pistas${conCancion ? "" : " sin"}`} inert={!conCancion}>
+          {canales.slice(2).map((k, j) => k && <CanalDeLaFoto key={j} i={j + 2} k={k} leer={leer} />)}
+        </div>
 
         {PLACAS.map((c, i) => (
           <button
@@ -383,7 +392,7 @@ export default function MesaFoto({ escala, canales, sinEntrada2, general, onGene
 
         {alTocarCanal &&
           canales.map((k, i) =>
-            k ? (
+            k && (i < 2 || conCancion) ? (
               <button key={i} type="button" className="mf-zona-canal" style={enCaja(TIRAS[i])} aria-label={`Abrir los mandos de ${k.titulo} en grande`} onClick={() => alTocarCanal(i)} />
             ) : null,
           )}
@@ -393,11 +402,10 @@ export default function MesaFoto({ escala, canales, sinEntrada2, general, onGene
             <p>Sin entrada 2</p>
           </div>
         )}
-        {!conCancion && (
-          <div className="mf-tapado" style={enCaja(TIRAS_PISTAS)}>
-            <p>Aquí van las pistas de la canción: ábrela en Pistas y toca «Entrar en la Mesa»</p>
-          </div>
-        )}
+        {/* La tapa de los canales de la canción: con canción se va con un fundido (y vuelve al quitarla) */}
+        <div className={`mf-tapado de-pistas${conCancion ? " fuera" : ""}`} style={enCaja(TIRAS_PISTAS)} aria-hidden={conCancion}>
+          <p>Aquí van las pistas de la canción: ábrela en Pistas y toca «Entrar en la Mesa»</p>
+        </div>
       </div>
     </div>
   );

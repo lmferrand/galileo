@@ -86,6 +86,9 @@ export default function AyudaMesa() {
           ))}
         </ul>
       </section>
+      {/* Qué versión hay en este aparato (la pone next.config.ts al compilar): para saber si ya ha
+          llegado la última, que en el móvil a veces tarda una apertura más */}
+      {process.env.NEXT_PUBLIC_VERSION && <p className="ayuda-version">GALILEO · versión {process.env.NEXT_PUBLIC_VERSION}</p>}
     </div>
   );
 }
