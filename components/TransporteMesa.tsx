@@ -20,6 +20,8 @@ import type { Practica } from "./PracticaBucle";
 export interface Transporte {
   tocando: boolean;
   cargando: boolean;
+  /** La canción no se ha podido abrir: por qué */
+  error?: string | null;
   /** Se ha pulsado tocar mientras cargaba: sonará en cuanto esté lista */
   esperaTocar?: boolean;
   /** Por dónde va la canción: fuera de React, para no repintar la Mesa entera en cada cambio */

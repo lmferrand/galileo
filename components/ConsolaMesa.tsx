@@ -1225,6 +1225,8 @@ export default function ConsolaMesa({
       ? `● Prepárate: ${cuenta}…`
       : grabando
       ? "● Grabando lo que tocas (REC para parar)"
+      : pistas?.transporte.error
+      ? `No se ha podido abrir la canción · ${pistas.transporte.error}`
       : pistas?.transporte.cargando
       ? pistas.transporte.esperaTocar
         ? "Cargando la canción… sonará en cuanto esté lista"
@@ -1437,6 +1439,12 @@ export default function ConsolaMesa({
       {camara && (
         <p className={`cf-ayuda-volver${verComoVolver && vista !== "las-dos" ? " visible" : ""}`} aria-hidden={!verComoVolver}>
           Toca fuera de los mandos para volver
+        </p>
+      )}
+      {/* La canción no se ha podido abrir y la pantalla de la grabadora no está a la vista: se dice aquí */}
+      {pistas?.transporte.error && (vista === "mesa" || vista === "canal" || vista === "placa") && !lectura && (
+        <p className="cf-lectura cf-consejo" role="alert">
+          No se ha podido abrir la canción · {pistas.transporte.error}
         </p>
       )}
       {/* En la mesa en grande no se ve la pantalla de la grabadora: el mando que mueves, aquí */}

@@ -24,21 +24,40 @@ const CON_GRAVES = new Set<Pista>(["voz", "guitarra", "piano", "resto"]);
 /** El bajo, el primero: hace falta saber su largo para limpiar las demás */
 const ORDEN = [...(I_BAJO >= 0 ? [I_BAJO] : []), ...IDS.map((_, i) => i).filter((i) => i !== I_BAJO)];
 
-/**
- * Cuántas pistas se descodifican a la vez. Cada una, ya descodificada y antes de pasarla a Int16,
- * ocupa 8 bytes por fotograma (55 MB una de 2:36): en el móvil, las que quepan en unos 240 MB y
- * nunca más de tres; un ordenador con memoria de sobra, las seis.
- */
-/** Un ordenador con memoria de sobra (los móviles, nunca: se quedan sin ella antes) */
-function holgado(): boolean {
+/** La memoria del aparato en GB, según el navegador (el iPhone no lo dice: como si tuviera poca) */
+function memoriaAparato(): number {
   const nav = typeof navigator === "undefined" ? undefined : (navigator as Navigator & { deviceMemory?: number });
-  return !esMovil() && (nav?.deviceMemory ?? 0) >= 8;
+  return nav?.deviceMemory ?? 0;
 }
 
+/** Un ordenador con memoria de sobra (los móviles, nunca: se quedan sin ella antes) */
+function holgado(): boolean {
+  return !esMovil() && memoriaAparato() >= 8;
+}
+
+/**
+ * Lo que pide una pista mientras se descodifica y se pasa a Int16, en bytes por fotograma. Medido
+ * el 21-nov-2026 mirando la memoria del navegador: unos 190 MB cada pista de 2:36 (ya descodificada
+ * ocupa 8 bytes por fotograma, pero el navegador gasta el triple mientras lo hace).
+ */
+const BYTES_EN_MARCHA = 28;
+
+/**
+ * Cuántas pistas se descodifican a la vez. Un ordenador con memoria de sobra, las seis.
+ * En el móvil, las que quepan en el presupuesto (casi siempre una, dos si la canción es corta o el
+ * móvil tiene 8 GB): antes iban tres a la vez contando solo 8 bytes por fotograma, y abrir una
+ * canción de 2:36 pedía de golpe unos 500 MB (tres veces lo que ocupa luego); una de 4 minutos, más
+ * de 800. El sistema cerraba la app y la pantalla se quedaba en blanco (al cambiar de canción).
+ */
 function cuantasALaVez(frames: number): number {
   const nav = typeof navigator === "undefined" ? undefined : navigator;
-  const quepan = Math.floor(((holgado() ? 720 : 240) * 1024 * 1024) / (Math.max(1, frames) * 8));
   const nucleos = Math.max(1, (nav?.hardwareConcurrency ?? 4) - 1);
+  const f = Math.max(1, frames);
+  if (esMovil()) {
+    const presupuesto = (memoriaAparato() >= 8 ? 480 : 300) * 1024 * 1024;
+    return Math.max(1, Math.min(3, nucleos, Math.floor(presupuesto / (f * BYTES_EN_MARCHA))));
+  }
+  const quepan = Math.floor(((holgado() ? 720 : 240) * 1024 * 1024) / (f * 8));
   return Math.max(1, Math.min(holgado() ? 6 : 3, nucleos, quepan));
 }
 
@@ -115,7 +134,9 @@ export async function leerPistasDeCancion(cancion: Cancion, vivo: () => boolean 
   // Separada en el PC con BS-RoFormer: ya reparte bien los graves. Si no, los graves que el
   // separador dejó en otras pistas van al bajo.
   if (separadaConRoformer(cancion) || I_BAJO < 0 || !LimpiezaBajo.disponible()) return leerTodas(audios, cancion.frames, vivo);
-  const limpieza = new LimpiezaBajo(holgado() ? 4 : 2);
+  // (en el móvil, un solo hilo limpiando: cada uno gasta mientras trabaja lo que ocupan dos pistas,
+  // y tarda poco más porque va a la vez que se descodifica)
+  const limpieza = new LimpiezaBajo(holgado() ? 4 : esMovil() ? 1 : 2);
   try {
     return await leerYLimpiar(audios, cancion.frames, vivo, limpieza);
   } catch (e) {
@@ -134,8 +155,14 @@ export async function pulsoDeCancion(cancion: Cancion): Promise<ClickCancion | n
   if (!audios.bateria) return null;
   // La batería da los golpes y el compás; el bajo ayuda a saber cuál es el 1 (si no se puede leer,
   // se saca sin él)
-  const leer = () =>
-    Promise.all([leerWav(audios.bateria, cancion.frames), audios.bajo ? leerWav(audios.bajo, cancion.frames).catch(() => null) : Promise.resolve(null)]);
+  const leer = async (): Promise<[Int16Array, Int16Array | null]> => {
+    const elBajo = () => (audios.bajo ? leerWav(audios.bajo, cancion.frames).catch(() => null) : Promise.resolve(null));
+    // En el móvil, de una en una: descodificar las dos a la vez pide de golpe el doble de memoria,
+    // con la canción ya cargada
+    if (!esMovil()) return Promise.all([leerWav(audios.bateria, cancion.frames), elBajo()]);
+    const bateria = await leerWav(audios.bateria, cancion.frames);
+    return [bateria, await elBajo()];
+  };
   const [datos, bajo] = await leer();
   try {
     return await pulsoEnOtroHilo(datos, bajo);

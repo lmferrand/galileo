@@ -21,7 +21,20 @@ export interface EstadoReproductor {
 /** Por dónde sale el click: no suena, junto a la canción o solo en los cascos (por la derecha) */
 export type RutaClick = "no" | "juntos" | "cascos";
 
+/** Lo que queda por cerrar de reproductores anteriores: su contexto de audio y, con él, las pistas que tenía cargadas */
+let cierres: Promise<void> = Promise.resolve();
+
 export class Reproductor {
+  /**
+   * Espera a que los reproductores ya cerrados suelten sus pistas (como mucho `tope` ms). Se llama
+   * antes de cargar otra canción: si no, un momento conviven en memoria la que se va y la que llega
+   * (unos 250 MB de más con canciones de 4 minutos, justo cuando más memoria hace falta: en el
+   * móvil, el sistema cerraba la app y la pantalla se quedaba en blanco).
+   */
+  static libre(tope = 1500): Promise<void> {
+    return Promise.race([cierres, new Promise<void>((ok) => setTimeout(ok, tope))]);
+  }
+
   private ctx: AudioContext | null = null;
   private nodo: AudioWorkletNode | null = null;
   private canales: Canal[] = [];
@@ -366,7 +379,14 @@ export class Reproductor {
     this.ctx = null;
     this.ctxNuevo = null;
     this.nodo = null;
-    await ctx?.close().catch(() => undefined);
+    if (!ctx) return;
+    // (y un respiro después, para que el navegador devuelva de verdad esa memoria)
+    const cierre = ctx
+      .close()
+      .catch(() => undefined)
+      .then(() => new Promise<void>((ok) => setTimeout(ok, 80)));
+    cierres = Promise.all([cierres, cierre]).then(() => undefined);
+    await cierre;
   }
 }
 

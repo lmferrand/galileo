@@ -243,6 +243,9 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     };
     (async () => {
       try {
+        // Que la canción anterior suelte antes sus pistas: las dos a la vez no caben en un móvil
+        await Reproductor.libre();
+        if (!vivo) return;
         const datos = await leerPistasDeCancion(cancion, () => vivo);
         if (!datos || !vivo) return;
         // Antes de cargar: al reproductor las pistas pasan al hilo de audio y dejan de valer aquí
@@ -364,7 +367,8 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   const faltaPulso = !click || pulsoAnticuado(click, VERSION_PULSO);
   useEffect(() => {
     if (!verMesa || cargando || !faltaPulso || buscandoPulso !== "no") return;
-    const t = setTimeout(() => void sacarElPulso(false), 1200);
+    // (en el móvil, algo más tarde: que antes se haya devuelto la memoria que pidió abrir la canción)
+    const t = setTimeout(() => void sacarElPulso(false), esMovil() ? 3000 : 1200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verMesa, cargando, faltaPulso, buscandoPulso]);
@@ -605,6 +609,7 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
     transporte: {
       tocando,
       cargando,
+      error,
       esperaTocar,
       posicion,
       duracion: cancion.duracion,

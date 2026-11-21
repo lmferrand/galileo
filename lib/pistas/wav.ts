@@ -46,7 +46,13 @@ function cabeceraWav(datos: number, frecuencia: number, canales: number): ArrayB
 export async function leerWav(blob: Blob, frames?: number): Promise<Int16Array> {
   const buffer = await blob.arrayBuffer();
   if (esNuestroWav(buffer)) return new Int16Array(buffer, CABECERA_WAV, (buffer.byteLength - CABECERA_WAV) >> 1);
-  return descodificar(buffer, frames);
+  try {
+    return await descodificar(buffer, frames, true);
+  } catch (e) {
+    if (!(e instanceof SeLlevoLaPista)) throw e;
+    // El otro hilo ha fallado con la pista ya en sus manos: se lee otra vez y se convierte aquí
+    return descodificar(await blob.arrayBuffer(), frames, false);
+  }
 }
 
 function esNuestroWav(buffer: ArrayBuffer): boolean {
@@ -58,7 +64,53 @@ function esNuestroWav(buffer: ArrayBuffer): boolean {
 
 type CtxOffline = typeof OfflineAudioContext;
 
-async function descodificar(buffer: ArrayBuffer, frames?: number): Promise<Int16Array> {
+/** El hilo que pasaba la pista a Int16 ha fallado cuando ya la tenía él (aquí ya no está) */
+class SeLlevoLaPista extends Error {}
+
+/**
+ * Pasa lo descodificado a Int16 en otro hilo (public/a-int16.worker.js), que se cierra al acabar: así
+ * la memoria de lo descodificado se devuelve en el acto (ver ese archivo). Los canales se transfieren:
+ * dejan de valer aquí. Da null si no se puede ni empezar (sin workers, o no se dejan transferir):
+ * entonces siguen aquí y se convierten en la página.
+ */
+function aInt16EnOtroHilo(L: Float32Array, R: Float32Array | null, n: number, m: number): Promise<Int16Array> | null {
+  let w: Worker;
+  try {
+    w = new Worker("/a-int16.worker.js");
+  } catch {
+    return null;
+  }
+  const hecho = new Promise<Int16Array>((ok, mal) => {
+    const acabar = () => {
+      clearTimeout(tope);
+      w.terminate();
+    };
+    const tope = setTimeout(() => {
+      acabar();
+      mal(new SeLlevoLaPista("La pista tarda demasiado en prepararse."));
+    }, 60_000);
+    w.onmessage = (e: MessageEvent<{ s?: Int16Array; error?: string }>) => {
+      acabar();
+      if (e.data.s) ok(e.data.s);
+      else mal(new SeLlevoLaPista(e.data.error || "No se ha podido preparar la pista."));
+    };
+    w.onerror = () => {
+      acabar();
+      mal(new SeLlevoLaPista("No se ha podido preparar la pista."));
+    };
+  });
+  try {
+    w.postMessage({ l: L, r: R, n, m }, R ? [L.buffer, R.buffer] : [L.buffer]);
+  } catch {
+    // No se dejan transferir: siguen aquí
+    w.terminate();
+    hecho.catch(() => undefined);
+    return null;
+  }
+  return hecho;
+}
+
+async function descodificar(buffer: ArrayBuffer, frames: number | undefined, enOtroHilo: boolean): Promise<Int16Array> {
   const Ctor: CtxOffline = window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext: CtxOffline }).webkitOfflineAudioContext;
   const ctx = new Ctor(2, 1, FRECUENCIA);
   let audio: AudioBuffer;
@@ -71,6 +123,10 @@ async function descodificar(buffer: ArrayBuffer, frames?: number): Promise<Int16
   const R = audio.numberOfChannels > 1 ? audio.getChannelData(1) : L;
   const n = frames ?? audio.length;
   const m = Math.min(n, audio.length);
+  if (enOtroHilo && typeof Worker !== "undefined") {
+    const fuera = aInt16EnOtroHilo(L, R === L ? null : R, n, m);
+    if (fuera) return fuera;
+  }
   const salida = new Int16Array(n * 2);
   // A trozos, cediendo el paso entre uno y otro: de golpe, cada pista dejaba la pantalla quieta un
   // cuarto de segundo en el móvil (se notaba al cambiar de canción en la Mesa)
