@@ -39,6 +39,7 @@ import { esMovil } from "@/lib/pistas/aparato";
 import { formatoTiempo, FRECUENCIA, PISTAS } from "@/lib/pistas/tipos";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo } from "@/lib/metronomo";
 import { sonarAunqueEnSilencio } from "@/lib/sesionAudio";
+import { usePasoAtras } from "@/lib/atras";
 import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
 import CarpetasMesa from "./CarpetasMesa";
 import BucleMesa from "./BucleMesa";
@@ -356,12 +357,15 @@ const sinHacer = () => undefined;
 // El selector de pistas en el escritorio: su foto mide 277×145
 
 export default function ConsolaMesa({
+  alVerTumbada,
   pistas,
   canciones,
   tumbada,
 }: {
   /** El giro de la pantalla en el móvil (lo pide el estudio al entrar): para el botón «Girar la pantalla» */
   tumbada?: { girar: () => Promise<void>; fallo: boolean };
+  /** En el aviso «Gira el móvil»: abrir la Mesa tumbada a mano (el móvil que no gira la pantalla) */
+  alVerTumbada?: () => void;
   pistas?: PistasMesa;
   /** Para el selector de la placa de la grabadora */
   canciones?: CancionesPlaca;
@@ -1157,6 +1161,10 @@ export default function ConsolaMesa({
   // En el móvil tumbado: las dos en pequeño y, al tocar una, la vista se acerca a ella (camaraDe)
   const camara = partido && tam ? camaraDe(tam) : null;
   const encuadre = camara?.encuadres[parte];
+  // El «atrás» del aparato (lib/atras), paso a paso como tocar fuera: del canal a la mesa y del
+  // selector a la grabadora; y de la grabadora o la mesa, a las dos
+  usePasoAtras(partido && parte !== "las-dos", 3, () => irA("las-dos"));
+  usePasoAtras(vista === "placa" || vista === "canal", 4, atras);
 
   // Con la vista ya quieta: qué se duerme y si la capa se deja preparada (ver «dormida» y «fija»)
   const fuera: Fuera = !partido ? null : parte === "mesa" ? "cinta" : parte === "cinta" ? "mesa" : parte === "placa" ? "mesa-y-vu" : null;
@@ -1412,6 +1420,20 @@ export default function ConsolaMesa({
     for (let i = canalAbierto + paso; i >= 0 && i < 8; i += paso) if (hayCanal(i)) return () => setCanalAbierto(i);
     return null;
   };
+  // …y antes que nada, «atrás» cierra la hoja que haya abierta (las que están midiendo no se cierran)
+  const hayHoja =
+    verAyuda || autoGanancia !== null || verCalibrar || pideModo !== null || verMetro || verBucle || verCarpetas || abierta !== null || (verTomas && (tomas.length > 0 || anadidas.length > 0));
+  usePasoAtras(hayHoja, 5, () => {
+    setVerAyuda(false);
+    setPideModo(null);
+    setVerMetro(false);
+    setVerBucle(false);
+    setVerCarpetas(false);
+    setAbierta(null);
+    setVerTomas(false);
+    if (!midiendo) setVerCalibrar(false);
+    if (autoGanancia?.error) setAutoGanancia(null);
+  });
   const alTeclear = (e: React.KeyboardEvent, p: "cinta" | "mesa") => {
     if (e.key !== "Enter" && e.key !== " ") return;
     e.preventDefault();
@@ -1571,6 +1593,12 @@ export default function ConsolaMesa({
           </button>
         )}
         {tumbada?.fallo && <p className="cf-girar-nota">No se ha podido girar desde aquí. Activa el giro automático del móvil y gíralo.</p>}
+        {/* El móvil que no gira la pantalla (el iPhone con el giro bloqueado): la Mesa, tumbada a mano */}
+        {hidratado && alVerTumbada && (
+          <button type="button" className="boton-texto cf-girar-tumbada" onClick={alVerTumbada}>
+            Mi pantalla no gira: verla tumbada
+          </button>
+        )}
       </div>
 
       <button type="button" className="estudio-boton cf-ayuda" onClick={() => setVerAyuda(true)} aria-label="Qué hace cada mando">

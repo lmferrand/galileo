@@ -12,6 +12,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useHorizontal } from "@/lib/horizontal";
 import ConsolaMesa, { type PistasMesa } from "./ConsolaMesa";
 import { usePantallaTumbada } from "@/lib/mesa/tumbada";
+import { usePasoAtras } from "@/lib/atras";
 import Navegacion from "./Navegacion";
 import type { Cancion } from "@/lib/pistas/tipos";
 
@@ -58,6 +59,8 @@ export default function EstudioMesa({
   enConsola = false,
   selector,
   pagina = false,
+  enMarco,
+  alVerTumbada,
 }: {
   /** La ✕ (y Escape en el estudio). En la pestaña «Mesa», sin canción, no hay. */
   onCerrar?: () => void;
@@ -68,16 +71,23 @@ export default function EstudioMesa({
   /** Abrir ya en la consola (al cambiar de canción desde el selector) */
   enConsola?: boolean;
   selector?: SelectorMesa;
+  /**
+   * La Mesa tumbada a mano (PaginaMesa: va dentro de un marco girado, para el móvil que no gira la
+   * pantalla): se abre ya en la consola y «Salir del estudio» sale del marco.
+   */
+  enMarco?: { alSalir: () => void };
+  /** En el aviso «Gira el móvil»: abrir la Mesa tumbada a mano */
+  alVerTumbada?: () => void;
 }) {
   // Hasta saber si la pantalla es apaisada no se pinta ninguna foto (así no se descarga la que no toca)
   const horizontal = useHorizontal();
   const FOTO = horizontal ? HORIZONTAL : VERTICAL;
   const caja = useRef<HTMLDivElement>(null);
   const [tam, setTam] = useState<{ w: number; h: number } | null>(null);
-  const [fase, setFase] = useState<Fase>(enConsola ? "consola" : "estudio");
+  const [fase, setFase] = useState<Fase>(enConsola || enMarco ? "consola" : "estudio");
   // En el móvil, MESA va tumbada desde que se entra (ya en la foto del estudio): se le pide al
   // aparato; en un ordenador o una tableta no se toca nada (lib/mesa/tumbada)
-  const tumbada = usePantallaTumbada();
+  const tumbada = usePantallaTumbada(!enMarco);
 
   // Se mide antes de pintar: si no, el primer fotograma sale vacío (negro) y parece que parpadea
   useLayoutEffect(() => {
@@ -110,12 +120,19 @@ export default function EstudioMesa({
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (fase === "consola") setFase("volviendo");
-      else if (fase === "estudio") onCerrar?.();
+      if (fase === "consola") {
+        if (enMarco) enMarco.alSalir();
+        else setFase("volviendo");
+      } else if (fase === "estudio") onCerrar?.();
     };
     document.addEventListener("keydown", tecla);
     return () => document.removeEventListener("keydown", tecla);
-  }, [onCerrar, fase]);
+  }, [onCerrar, fase, enMarco]);
+
+  // El «atrás» del aparato (lib/atras): de la consola al estudio y, si la Mesa se abrió desde Pistas,
+  // cerrarla. (En el marco, «atrás» ya cierra el marco entero: lo pone PaginaMesa.)
+  usePasoAtras(!pagina, 1, () => onCerrar?.());
+  usePasoAtras(!enMarco && (fase === "entrando" || fase === "consola"), 2, () => setFase("volviendo"));
 
   // Acercarse y, al llegar, la consola; volver: la consola se va y la vista se aleja
   useEffect(() => {
@@ -219,8 +236,8 @@ export default function EstudioMesa({
         // La barra va dentro de la consola: así la hoja de efectos la tapa
         <div className="estudio-consola">
           {/* Dentro de la consola no hay ✕: se sale hacia atrás (canal → mesa → las dos) y «Salir del estudio» */}
-          <Arriba onEstudio={() => setFase("volviendo")} />
-          <ConsolaMesa tumbada={tumbada} pistas={pistas} canciones={selector ? { lista: selector.canciones, actual: selector.actual, onElegir: selector.onElegir, onCambiadas: selector.onCambiadas } : undefined} />
+          <Arriba onEstudio={() => (enMarco ? enMarco.alSalir() : setFase("volviendo"))} />
+          <ConsolaMesa tumbada={tumbada} alVerTumbada={alVerTumbada} pistas={pistas} canciones={selector ? { lista: selector.canciones, actual: selector.actual, onElegir: selector.onElegir, onCambiadas: selector.onCambiadas } : undefined} />
         </div>
       ) : pagina ? (
         // La pestaña «Mesa»: la cabecera de la app, y la ✕ si hay canción (la quita)

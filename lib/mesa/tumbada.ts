@@ -28,14 +28,14 @@ export const puedeTumbarse = (): boolean => !!orientacion()?.lock && esMovil();
  * `girar`: pedirlo otra vez desde un toque (en el navegador, entrando en pantalla completa);
  * `fallo`: se ha pedido con el botón y no se ha podido.
  */
-export function usePantallaTumbada(): { girar: () => Promise<void>; fallo: boolean } {
+export function usePantallaTumbada(activa = true): { girar: () => Promise<void>; fallo: boolean } {
   const tumbada = useRef(false);
   const completa = useRef(false);
   const [fallo, setFallo] = useState(false);
 
   useEffect(() => {
     const o = orientacion();
-    if (!o?.lock || !esMovil()) return;
+    if (!activa || !o?.lock || !esMovil()) return;
     o.lock("landscape").then(
       () => {
         tumbada.current = true;
@@ -54,7 +54,7 @@ export function usePantallaTumbada(): { girar: () => Promise<void>; fallo: boole
       if (completa.current && document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
       completa.current = false;
     };
-  }, []);
+  }, [activa]);
 
   const girar = useCallback(async () => {
     const o = orientacion();

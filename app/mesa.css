@@ -1036,6 +1036,38 @@ html.con-mesa body::before {
     color: #cdb89a;
   }
 }
+/* «Mi pantalla no gira: verla tumbada» (ConsolaMesa), bajo el botón de girar */
+.cf-girar-tumbada {
+  margin-top: 4px;
+  padding: 10px 14px;
+  font-size: 15px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* La Mesa tumbada a mano (PaginaMesa): un marco girado un cuarto de vuelta que ocupa la pantalla
+   entera. El alto del móvil es su ancho y al revés; se deja libre lo que tapan la muesca y la barra
+   de abajo. Arriba del marco queda hacia la derecha del móvil: se tumba con la parte de arriba del
+   móvil a la izquierda, como se coge normalmente. Si el móvil acaba girando de verdad, el marco se
+   endereza y sigue igual por dentro. */
+.mesa-tumbada {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 70;
+  width: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  height: 100vw;
+  border: 0;
+  background: #1d100c;
+  transform-origin: 0 0;
+  transform: translate(100vw, env(safe-area-inset-top, 0px)) rotate(90deg);
+}
+@media (orientation: landscape) {
+  .mesa-tumbada {
+    width: 100vw;
+    height: 100dvh;
+    transform: none;
+  }
+}
 @keyframes girar-movil {
   0%,
   25% {
