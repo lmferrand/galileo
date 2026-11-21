@@ -195,7 +195,7 @@ html.con-mesa body {
   display: flex;
   overflow: hidden;
   overscroll-behavior: contain;
-  /* Arriba, la grabadora llega hasta el borde: «Estudio» y la ✕ quedan a sus lados */
+  /* Arriba, la grabadora llega hasta el borde: «Salir del estudio» y la ✕ quedan a sus lados */
   padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
   /* El escritorio del estudio (su foto): la grabadora y la mesa encima; los bordes, algo más oscuros */
   background:
@@ -2153,7 +2153,8 @@ html.con-mesa body {
   transform: scale(0.98);
   filter: brightness(1.12);
 }
-.cf-ayuda-partes {
+.cf-ayuda-partes,
+.cf-ayuda-volver {
   position: absolute;
   z-index: 1;
   left: 50%;
@@ -2171,6 +2172,15 @@ html.con-mesa body {
 }
 .consola-foto:not(.vista-las-dos) .cf-ayuda-partes {
   opacity: 0;
+}
+/* Con la vista acercada, las primeras veces: cómo se vuelve (va encima del canal en grande) */
+.cf-ayuda-volver {
+  z-index: 2;
+  background: rgba(20, 10, 5, 0.85);
+  opacity: 0;
+}
+.cf-ayuda-volver.visible {
+  opacity: 1;
 }
 /* Un canal, a toda pantalla (encima de la mesa) */
 .cf-grande {
@@ -2190,17 +2200,9 @@ html.con-mesa body {
     transform: scale(0.9);
   }
 }
-/* «Volver» ocupa el sitio de «Estudio» (que se esconde mientras tanto) */
-.cf-volver {
-  position: fixed;
-  z-index: 6;
-  top: max(12px, env(safe-area-inset-top));
-  left: max(12px, env(safe-area-inset-left));
-  width: 40px;
-  padding: 0;
-  justify-content: center;
-}
-.estudio-consola:has(.cf-volver) .estudio-arriba .estudio-boton:not(.estudio-cerrar) {
+/* Con la vista acercada (móvil) no hay botones a la izquierda: se vuelve tocando fuera de los mandos
+   y «Salir del estudio» (que taparía mandos) espera en la vista de lejos */
+.estudio-consola:has(.consola-foto:not(.vista-juntas, .vista-las-dos)) .estudio-arriba .estudio-boton:not(.estudio-cerrar) {
   display: none;
 }
 /* En la mesa en grande, el mando que mueves sale arriba (la pantalla de la grabadora no se ve) */
@@ -2227,7 +2229,8 @@ html.con-mesa body {
     animation: none;
   }
   .cf-escena.suave,
-  .cf-ayuda-partes {
+  .cf-ayuda-partes,
+  .cf-ayuda-volver {
     transition: none;
   }
 }

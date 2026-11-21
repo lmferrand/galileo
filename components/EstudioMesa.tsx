@@ -2,7 +2,7 @@
 
 // Al pulsar «Mesa»: la sala de control del estudio (foto) mirando a los músicos por el cristal.
 // Tocas la mesa de mezclas, la vista se acerca a ella y aparece la consola de verdad
-// (ConsolaMesa). «Estudio» vuelve a alejarse; la ✕ cierra (la Mesa sigue sonando si está
+// (ConsolaMesa). «Salir del estudio» vuelve a alejarse; la ✕ cierra (la Mesa sigue sonando si está
 // encendida). Igual que al elegir instrumento: la foto y la zona para tocar van en UNA capa que se
 // acerca entera con una transformación CSS (fluida en el iPhone). Medidas en píxeles de la foto.
 // Las canciones se eligen en la placa de metal de la grabadora (PlacaCanciones), por carpetas: elegir
@@ -106,7 +106,7 @@ export default function EstudioMesa({
     };
   }, []);
 
-  // Escape: en la consola vuelve al estudio (paso a paso, como «‹»); en el estudio cierra la Mesa
+  // Escape: en la consola vuelve al estudio (paso a paso, como tocar fuera); en el estudio cierra la Mesa
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
@@ -218,7 +218,7 @@ export default function EstudioMesa({
       {(fase === "consola" || fase === "volviendo") ? (
         // La barra va dentro de la consola: así la hoja de efectos la tapa
         <div className="estudio-consola">
-          {/* Dentro de la consola no hay ✕: se sale hacia atrás (canal → mesa → las dos → estudio) */}
+          {/* Dentro de la consola no hay ✕: se sale hacia atrás (canal → mesa → las dos) y «Salir del estudio» */}
           <Arriba onEstudio={() => setFase("volviendo")} />
           <ConsolaMesa tumbada={tumbada} pistas={pistas} canciones={selector ? { lista: selector.canciones, actual: selector.actual, onElegir: selector.onElegir, onCambiadas: selector.onCambiadas } : undefined} />
         </div>
@@ -249,7 +249,7 @@ function Arriba({ onCerrar, onEstudio }: { onCerrar?: () => void; onEstudio?: ()
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M15 5l-7 7 7 7" />
           </svg>
-          Estudio
+          Salir del estudio
         </button>
       )}
       {onCerrar && (

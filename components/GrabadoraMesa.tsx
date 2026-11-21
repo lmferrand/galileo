@@ -41,7 +41,7 @@ const ZONA_PLACA: Caja = [790, 262, 420, 190];
 /**
  * Lo que se ve con la vista acercada al selector (ConsolaMesa): las teclas y, debajo, el selector.
  * Por arriba corta bajo el rótulo del contador y por abajo sobre los VU; a los lados sobra sitio
- * para que el botón «Volver» de la esquina no pise la primera tecla en los móviles pequeños.
+ * para que el botón «?» de la esquina no pise la última tecla en los móviles pequeños.
  */
 export const ZONA_SELECTOR = { x: 660, y: 166, w: 680, h: 322 };
 const RUEDA_VELOCIDAD = { x: 735.8, y: 89.2, d: 60 };

@@ -191,7 +191,7 @@ function Pieza({
   abajo,
   propsCinta,
   propsMesa,
-  elegir,
+  tocar,
   activa,
 }: {
   escala: number;
@@ -199,33 +199,71 @@ function Pieza({
   abajo: RefObject<HTMLDivElement | null>;
   propsCinta: Omit<ComponentProps<typeof GrabadoraMesa>, "escala">;
   propsMesa: Omit<ComponentProps<typeof MesaFoto>, "escala">;
-  /** En la vista de las dos (móvil): cada parte se toca para verla en grande */
-  elegir?: (p: "cinta" | "mesa") => Record<string, unknown>;
-  /** Con la vista acercada a una parte (móvil): la otra, que asoma, no se toca */
+  /**
+   * Móvil: la parte entera es un botón. De lejos, las dos (acercarse a ella); con la grabadora de
+   * cerca, la mesa que asoma por debajo (bajar a ella).
+   */
+  tocar?: { cinta?: Record<string, unknown>; mesa?: Record<string, unknown> };
+  /** Con la vista acercada a una parte (móvil): los mandos de la otra, que asoma, no se tocan */
   activa?: "cinta" | "mesa";
 }) {
   return (
     <div className="cf-pieza" style={{ width: ANCHO_MESA * escala, height: PIEZA.alto * escala }}>
       <div
-        className={`cf-pieza-cinta${elegir ? " cf-parte" : ""}`}
+        className={`cf-pieza-cinta${tocar?.cinta ? " cf-parte" : ""}`}
         style={{ left: PIEZA.xCinta * escala, top: 0 }}
-        {...(elegir ? { "aria-label": "Ver la grabadora en grande", ...elegir("cinta") } : {})}
+        {...tocar?.cinta}
       >
-        <div ref={cinta} inert={!!elegir || activa === "mesa"}>
+        <div ref={cinta} inert={!!tocar?.cinta || activa === "mesa"}>
           <GrabadoraMesa escala={escala * K_CINTA} {...propsCinta} />
         </div>
       </div>
       <div
-        className={`cf-pieza-mesa${elegir ? " cf-parte" : ""}`}
+        className={`cf-pieza-mesa${tocar?.mesa ? " cf-parte" : ""}`}
         style={{ left: 0, top: PIEZA.yMesa * escala }}
-        {...(elegir ? { "aria-label": "Ver la mesa de mezclas en grande", ...elegir("mesa") } : {})}
+        {...tocar?.mesa}
       >
-        <div ref={abajo} inert={!!elegir || activa === "cinta"}>
+        <div ref={abajo} inert={!!tocar?.mesa || activa === "cinta"}>
           <MesaFoto escala={escala} {...propsMesa} />
         </div>
       </div>
     </div>
   );
+}
+
+/** Lo que responde al toque: tocarlo, o tocar pegado a ello, no es «tocar fuera» */
+const TOCABLE = 'button, a, input, select, textarea, label, [role="button"], [role="slider"], [role="listbox"], .gm-placa, .gm-pantalla';
+/** Lo que hay que apartarse de un mando (px de pantalla) para que el toque cuente como «fuera» */
+const AIRE_PX = 14;
+/** Lo que se puede mover el dedo (px de pantalla) y seguir siendo un toque */
+const TOQUE_PX = 10;
+const ALREDEDOR = [
+  [0, 0],
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [0.7, 0.7],
+  [-0.7, 0.7],
+  [0.7, -0.7],
+  [-0.7, -0.7],
+];
+/** ¿Se ha tocado fuera de los mandos? (ni encima de uno ni pegado a él: fallar una tecla por poco no aleja la vista) */
+const esFuera = (x: number, y: number) => ALREDEDOR.every(([dx, dy]) => !document.elementFromPoint(x + dx * AIRE_PX, y + dy * AIRE_PX)?.closest(TOCABLE));
+
+/** Las primeras veces que te acercas se dice cómo se vuelve (no hay botón: se toca fuera de los mandos) */
+const CLAVE_PISTA = "galileo:mesa:tocar-fuera";
+const VECES_PISTA = 3;
+const PISTA_MS = 3200;
+function tocaDecirComoVolver(): boolean {
+  try {
+    const n = Number(localStorage.getItem(CLAVE_PISTA)) || 0;
+    if (n >= VECES_PISTA) return false;
+    localStorage.setItem(CLAVE_PISTA, String(n + 1));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Se ha puesto otra canción desde la placa con la grabadora (o el selector) en grande: ahí se sigue (ver «parte») */
@@ -903,7 +941,7 @@ export default function ConsolaMesa({
   const raiz = useRef<HTMLDivElement>(null);
   const [tam, setTam] = useState<Tam | null>(null);
   const medido = useRef<Tam | null>(null);
-  // La vista (móvil) se acerca y se aleja con suavidad solo al tocar una parte o «Volver»; si lo que
+  // La vista (móvil) se acerca y se aleja con suavidad solo al tocar una parte o al volver; si lo que
   // cambia es el tamaño de la pantalla (al girar el móvil), se recoloca de golpe
   const [suave, setSuave] = useState(false);
   // Se mide antes de pintar, y hasta entonces no se pinta nada: si no, en el móvil salía un instante
@@ -936,14 +974,27 @@ export default function ConsolaMesa({
   const W = tam?.w ?? 900;
   const H = tam?.h ?? 640;
   // Pantalla bajita (el móvil tumbado): juntas no se ven; primero las dos en pequeño y, al tocar
-  // una, esa a toda pantalla («Volver» regresa a las dos)
+  // una, la vista se acerca a ella (tocar fuera de los mandos regresa a las dos)
   const partido = H < 520;
   // Al poner otra canción desde la placa de la grabadora, la Mesa se vuelve a montar con ella: si
   // estabas viendo la grabadora en grande (o su selector de cerca), sigues ahí
   const [parte, setParte] = useState<Parte>(() => seguirEn ?? "las-dos");
+  // Las primeras veces que te acercas: cómo se vuelve (un letrero que se va solo). 0: no se ve;
+  // cada vez que toca enseñarlo, un número nuevo (así su reloj vuelve a empezar).
+  const [verComoVolver, setVerComoVolver] = useState(0);
+  const decirComoVolver = (hace: boolean) => {
+    const si = hace && tocaDecirComoVolver();
+    setVerComoVolver((n) => (si ? n + 1 : 0));
+  };
+  useEffect(() => {
+    if (!verComoVolver) return;
+    const t = setTimeout(() => setVerComoVolver(0), PISTA_MS);
+    return () => clearTimeout(t);
+  }, [verComoVolver]);
   const irA = (p: Parte) => {
     setSuave(true);
     setParte(p);
+    decirComoVolver(p !== "las-dos");
   };
   useEffect(() => {
     seguirEn = null;
@@ -951,8 +1002,31 @@ export default function ConsolaMesa({
   // En la mesa en grande, tocar un canal lo abre a toda pantalla (CanalGrande)
   const [canalAbierto, setCanalAbierto] = useState<number | null>(null);
   const vista = partido ? (parte === "mesa" && canalAbierto !== null ? "canal" : parte) : "juntas";
-  // «Volver», paso a paso: del canal a la mesa, del selector a la grabadora entera y de ahí a las dos
-  const atras = () => (canalAbierto !== null ? setCanalAbierto(null) : irA(parte === "placa" ? "cinta" : "las-dos"));
+  const abrirCanal = (i: number) => {
+    setCanalAbierto(i);
+    decirComoVolver(true);
+  };
+  // Volver, paso a paso: del canal a la mesa, del selector a la grabadora entera y de ahí a las dos
+  const atras = () => {
+    if (canalAbierto === null) return irA(parte === "placa" ? "cinta" : "las-dos");
+    setCanalAbierto(null);
+    decirComoVolver(false);
+  };
+  // Con la vista acercada no hay botón de volver: se toca en cualquier sitio que no sea un mando
+  // (como alejarse). Tiene que ser un toque (no un arrastre que acaba ahí) y caer fuera de los mandos.
+  const bajo = useRef<{ x: number; y: number } | null>(null);
+  const alTocarFuera = {
+    onPointerDown: (e: React.PointerEvent) => {
+      bajo.current = e.isPrimary ? { x: e.clientX, y: e.clientY } : null;
+    },
+    onClick: (e: React.MouseEvent) => {
+      const b = bajo.current;
+      bajo.current = null;
+      if (vista === "juntas" || vista === "las-dos" || !b) return;
+      if (Math.hypot(e.clientX - b.x, e.clientY - b.y) > TOQUE_PX || !esFuera(b.x, b.y)) return;
+      atras();
+    },
+  };
   // El canal en grande va encima de la mesa (que sigue debajo, sin desmontarse): su luz de nivel
   const enCanal = useRef<HTMLDivElement>(null);
   // Juntas: la grabadora sobre la mesa, como una sola pieza (PIEZA), lo más grande que quepa; si así
@@ -1170,9 +1244,11 @@ export default function ConsolaMesa({
     for (let i = canalAbierto + paso; i >= 0 && i < 8; i += paso) if (propsMesa.canales[i]) return () => setCanalAbierto(i);
     return null;
   };
-  const elegir = (p: "cinta" | "mesa") => ({
+  /** Una parte entera como botón: lleva la vista a ella */
+  const botonParte = (p: "cinta" | "mesa", etiqueta: string) => ({
     role: "button" as const,
     tabIndex: 0,
+    "aria-label": etiqueta,
     onClick: () => irA(p),
     onKeyDown: (e: React.KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -1181,6 +1257,14 @@ export default function ConsolaMesa({
       }
     },
   });
+  // De lejos, las dos se tocan para acercarse; con la grabadora de cerca, la mesa que asoma por
+  // debajo lleva a ella (la vista baja de la grabadora a la mesa)
+  const tocar =
+    parte === "las-dos"
+      ? { cinta: botonParte("cinta", "Ver la grabadora en grande"), mesa: botonParte("mesa", "Ver la mesa de mezclas en grande") }
+      : parte === "cinta"
+        ? { mesa: botonParte("mesa", "Bajar a la mesa de mezclas") }
+        : undefined;
 
   return (
     <div className={`consola-foto vista-${vista}`} ref={raiz}>
@@ -1194,7 +1278,7 @@ export default function ConsolaMesa({
       {camara && encuadre && (
         // El móvil tumbado: el escritorio, la grabadora y la mesa en una sola capa (camaraDe). No se
         // desmonta al acercarse ni al abrir un canal: solo cambia desde dónde se mira
-        <div className="cf-camara" style={camara.marco} inert={vista === "canal"}>
+        <div className="cf-camara" style={camara.marco} inert={vista === "canal"} {...alTocarFuera}>
           <div
             className={`cf-escena${suave ? " suave" : ""}`}
             style={{ width: camara.escena.w, height: camara.escena.h, transform: `translate(${encuadre.x}px, ${encuadre.y}px) scale(${encuadre.z})` }}
@@ -1213,8 +1297,8 @@ export default function ConsolaMesa({
                 cinta={cinta}
                 abajo={abajo}
                 propsCinta={parte === "cinta" ? { ...propsCinta, alAcercarPlaca: () => irA("placa") } : propsCinta}
-                propsMesa={parte === "mesa" ? { ...propsMesa, alTocarCanal: setCanalAbierto } : propsMesa}
-                elegir={parte === "las-dos" ? elegir : undefined}
+                propsMesa={parte === "mesa" ? { ...propsMesa, alTocarCanal: abrirCanal } : propsMesa}
+                tocar={tocar}
                 activa={parte === "las-dos" ? undefined : parte === "mesa" ? "mesa" : "cinta"}
               />
             </div>
@@ -1228,7 +1312,7 @@ export default function ConsolaMesa({
       )}
 
       {vista === "canal" && canalAbierto !== null && propsMesa.canales[canalAbierto] && (
-        <div className="cf-grande" ref={enCanal}>
+        <div className="cf-grande" ref={enCanal} {...alTocarFuera}>
           <CanalGrande
             key={canalAbierto}
             canal={propsMesa.canales[canalAbierto]!}
@@ -1241,19 +1325,10 @@ export default function ConsolaMesa({
           />
         </div>
       )}
-      {vista !== "juntas" && vista !== "las-dos" && (
-        <button
-          type="button"
-          className="estudio-boton cf-volver"
-          onClick={atras}
-          aria-label={
-            vista === "canal" ? "Volver a la mesa con todos los canales" : vista === "placa" ? "Volver a ver la grabadora entera" : "Volver a ver la grabadora y la mesa"
-          }
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M15 5l-7 7 7 7" />
-          </svg>
-        </button>
+      {camara && (
+        <p className={`cf-ayuda-volver${verComoVolver && vista !== "las-dos" ? " visible" : ""}`} aria-hidden={!verComoVolver}>
+          Toca fuera de los mandos para volver
+        </p>
       )}
       {/* En la mesa en grande no se ve la pantalla de la grabadora: el mando que mueves, aquí */}
       {(vista === "mesa" || vista === "canal") && (lectura || consejo) && (
