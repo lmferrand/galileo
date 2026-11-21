@@ -280,6 +280,12 @@ function Pieza({
 
 /** Lo que responde al toque: tocarlo, o tocar pegado a ello, no es «tocar fuera» */
 const TOCABLE = 'button, a, input, select, textarea, label, [role="button"], [role="slider"], [role="listbox"], .gm-placa, .gm-pantalla';
+/**
+ * Lo que se maneja arrastrando el dedo (faders, ruedas, la onda de la canción, el tambor de
+ * canciones): deslizar el dedo sobre ello es moverlo, no pasar de la grabadora a la mesa. Sobre todo
+ * lo demás (botones incluidos: cada canal de la mesa es uno) deslizar sí cambia de parte.
+ */
+const SE_ARRASTRA = '[role="slider"], [role="listbox"], input, select, textarea, .gm-placa, .gm-pantalla';
 /** Lo que hay que apartarse de un mando (px de pantalla) para que el toque cuente como «fuera» */
 const AIRE_PX = 14;
 /** Lo que se puede mover el dedo (px de pantalla) y seguir siendo un toque */
@@ -1094,12 +1100,14 @@ export default function ConsolaMesa({
   //  - tocar en cualquier sitio que no sea un mando: volver un paso (como alejarse). Tiene que ser un
   //    toque (no un arrastre que acaba ahí) y caer fuera de los mandos;
   //  - pasar de la grabadora a la mesa (o al revés): tocar la franja por la que asoma, o deslizar el
-  //    dedo desde ella, o deslizarlo hacia arriba o hacia abajo en cualquier sitio que no sea un mando.
+  //    dedo desde ella, o deslizarlo hacia arriba o hacia abajo desde cualquier sitio, también sobre
+  //    un canal de la mesa o una tecla (lo pidió así: «poder tocar en cualquier lugar de la mesa»).
+  //    Solo no vale sobre lo que se maneja arrastrando (SE_ARRASTRA): ahí el dedo mueve el mando.
   //    Basta el gesto: la vista va sola, no hay que llevarla con el dedo.
   // Un toque se atiende en el «clic» (lo último que llega) y un deslizamiento al levantar el dedo.
   // Tras un deslizamiento, el clic que pueda llegar detrás se descarta: con la vista ya cambiada
   // caería sobre lo que hay ahora bajo el dedo (un canal de la mesa, que se abriría solo).
-  const bajo = useRef<{ x: number; y: number; paso: boolean } | null>(null);
+  const bajo = useRef<{ x: number; y: number; paso: boolean; arrastra: boolean } | null>(null);
   const deslizado = useRef(-1e9);
   const gestos = {
     onClickCapture: (e: React.MouseEvent) => {
@@ -1110,7 +1118,8 @@ export default function ConsolaMesa({
     onPointerDown: (e: React.PointerEvent) => {
       const el = e.target as Element;
       // (de lejos, las partes enteras ya tienen su toque)
-      bajo.current = !e.isPrimary || el.closest(".cf-parte") ? null : { x: e.clientX, y: e.clientY, paso: !!el.closest(".cf-paso") };
+      bajo.current =
+        !e.isPrimary || el.closest(".cf-parte") ? null : { x: e.clientX, y: e.clientY, paso: !!el.closest(".cf-paso"), arrastra: !!el.closest(SE_ARRASTRA) };
     },
     onPointerUp: (e: React.PointerEvent) => {
       const b = bajo.current;
@@ -1118,7 +1127,7 @@ export default function ConsolaMesa({
       const dx = Math.abs(e.clientX - b.x);
       const dy = Math.abs(e.clientY - b.y);
       // Desde la franja vale deslizar hacia donde sea; fuera de ella, hacia arriba o hacia abajo
-      const desliza = b.paso ? Math.hypot(dx, dy) > TOQUE_PX : dy >= DESLIZAR_PX && dy > 1.5 * dx && esFuera(b.x, b.y);
+      const desliza = b.paso ? Math.hypot(dx, dy) > TOQUE_PX : dy >= DESLIZAR_PX && dy > 1.5 * dx && !b.arrastra;
       if (!desliza) return;
       bajo.current = null;
       deslizado.current = e.timeStamp;
