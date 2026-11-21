@@ -9,7 +9,7 @@
 // silencio son los del reproductor; sus efectos, los de su canal en lib/pistas/reproductor.
 // En el móvil de pie pide girarlo: la mesa necesita la pantalla tumbada.
 
-import { useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
+import { startTransition, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
 import EfectosMesa, { efectosActivos } from "./EfectosMesa";
 import MesaFoto, { ANCHO_MESA, BISEL_MESA, ZONA_MESA, type CanalFoto } from "./MesaFoto";
 import CanalGrande from "./CanalGrande";
@@ -137,6 +137,9 @@ interface Encuadre {
   y: number;
 }
 
+/** Cómo se le dice a la capa un encuadre */
+const transformDe = (e: Encuadre) => `translate(${e.x}px, ${e.y}px) scale(${e.z})`;
+
 /** La foto del escritorio (public/mesa/escritorio2.webp) */
 const ESCRITORIO = { w: 1671, h: 941 };
 /** Debajo de la grabadora y la mesa vistas de lejos: el letrero «Toca la grabadora o la mesa…» (pisa solo la madera de abajo de la mesa) */
@@ -148,6 +151,10 @@ const ASOMA_MESA = 30;
 const ASOMA_CINTA = 16;
 /** Lo que mide la franja de paso (en píxeles de la mesa): de sobra para todo lo que asome */
 const LARGO_PASO = 420;
+/** Lo que tarda la vista en llegar y quedarse quieta tras tocar (algo más que su transición, en mesa.css) */
+const ASENTAR_MS = 650;
+/** Lo que deja de moverse por no estar a la vista (ver «dormida») */
+type Fuera = "cinta" | "mesa" | "mesa-y-vu" | null;
 
 /**
  * Pantalla bajita (el móvil tumbado): el escritorio, la grabadora y la mesa van en UNA capa, y lo
@@ -214,6 +221,7 @@ function Pieza({
   tocar,
   activa,
   paso,
+  cintaQuieta,
 }: {
   escala: number;
   cinta: RefObject<HTMLDivElement | null>;
@@ -229,6 +237,8 @@ function Pieza({
    * desliza el dedo desde ella, y la vista pasa a la otra; el gesto lo recoge la capa entera)
    */
   paso?: Record<string, unknown>;
+  /** La grabadora no está a la vista: no se mueve nada en ella */
+  cintaQuieta?: boolean;
 }) {
   return (
     <div className="cf-pieza" style={{ width: ANCHO_MESA * escala, height: PIEZA.alto * escala }}>
@@ -238,7 +248,7 @@ function Pieza({
         {...tocar?.cinta}
       >
         <div ref={cinta} inert={!!tocar?.cinta || activa === "mesa"}>
-          <GrabadoraMesa escala={escala * K_CINTA} {...propsCinta} />
+          <GrabadoraMesa escala={escala * K_CINTA} {...propsCinta} quieta={cintaQuieta} />
         </div>
       </div>
       <div
@@ -983,6 +993,17 @@ export default function ConsolaMesa({
   // La vista (móvil) se acerca y se aleja con suavidad solo al tocar una parte o al volver; si lo que
   // cambia es el tamaño de la pantalla (al girar el móvil), se recoloca de golpe
   const [suave, setSuave] = useState(false);
+  // Con la grabadora o la mesa de cerca y la vista ya quieta, la capa entera se deja preparada
+  // (will-change, en mesa.css): pasar de una a otra es entonces mover una imagen que ya está pintada.
+  // Sin esto, el móvil pintaba la parte que entra sobre la marcha y el paso iba a tirones. Solo se
+  // fija con la vista en su tamaño mayor (así queda pintada con todo su detalle) y se suelta al
+  // alejarse o al acercarse al selector, que se pintan a otro tamaño.
+  const [fija, setFija] = useState(false);
+  // Lo que no está a la vista deja de moverse: las agujas, el contador y las bobinas de la grabadora
+  // con la mesa de cerca; las luces de la mesa con la grabadora de cerca. Se duerme un momento después
+  // de que la vista se haya ido de allí (que no se vea pararse mientras se aleja) y despierta en cuanto
+  // se toca para moverla.
+  const [dormida, setDormida] = useState<Fuera>(null);
   // Se mide antes de pintar, y hasta entonces no se pinta nada: si no, en el móvil salía un instante
   // la vista del ordenador (un salto) y la grabadora y la mesa se montaban dos veces
   useLayoutEffect(() => {
@@ -1003,6 +1024,7 @@ export default function ConsolaMesa({
       if (a && (Object.keys(t) as (keyof Tam)[]).every((k) => a[k] === t[k])) return;
       medido.current = t;
       setSuave(false);
+      setFija(false);
       setTam(t);
     };
     medir();
@@ -1030,10 +1052,25 @@ export default function ConsolaMesa({
     const t = setTimeout(() => setVerComoVolver(0), PISTA_MS);
     return () => clearTimeout(t);
   }, [verComoVolver]);
+  const escena = useRef<HTMLDivElement>(null);
   const irA = (p: Parte) => {
-    setSuave(true);
-    setParte(p);
-    decirComoVolver(p !== "las-dos");
+    // La vista empieza a moverse en el mismo toque: a la capa se le pone ya su encuadre. Lo demás
+    // (qué parte se puede tocar, qué se duerme, los letreros) es repintar media Mesa, y en un móvil
+    // eso tardaba lo bastante para que el movimiento arrancara tarde: se deja para después, a ratos,
+    // con la vista ya de camino (startTransition).
+    const destino = camara?.encuadres[p];
+    const capa = escena.current;
+    if (capa && destino) {
+      capa.classList.add("suave");
+      capa.style.transform = transformDe(destino);
+    }
+    startTransition(() => {
+      setSuave(true);
+      setParte(p);
+      setDormida(null);
+      if (p !== "cinta" && p !== "mesa") setFija(false);
+      decirComoVolver(p !== "las-dos");
+    });
   };
   useEffect(() => {
     seguirEn = null;
@@ -1063,10 +1100,10 @@ export default function ConsolaMesa({
   // Tras un deslizamiento, el clic que pueda llegar detrás se descarta: con la vista ya cambiada
   // caería sobre lo que hay ahora bajo el dedo (un canal de la mesa, que se abriría solo).
   const bajo = useRef<{ x: number; y: number; paso: boolean } | null>(null);
-  const deslizado = useRef(0);
+  const deslizado = useRef(-1e9);
   const gestos = {
     onClickCapture: (e: React.MouseEvent) => {
-      if (performance.now() - deslizado.current > 500) return;
+      if (e.timeStamp - deslizado.current > 500) return;
       e.stopPropagation();
       e.preventDefault();
     },
@@ -1084,7 +1121,7 @@ export default function ConsolaMesa({
       const desliza = b.paso ? Math.hypot(dx, dy) > TOQUE_PX : dy >= DESLIZAR_PX && dy > 1.5 * dx && esFuera(b.x, b.y);
       if (!desliza) return;
       bajo.current = null;
-      deslizado.current = performance.now();
+      deslizado.current = e.timeStamp;
       irA(otra);
     },
     onClick: (e: React.MouseEvent) => {
@@ -1109,18 +1146,38 @@ export default function ConsolaMesa({
   const camara = partido && tam ? camaraDe(tam) : null;
   const encuadre = camara?.encuadres[parte];
 
+  // Con la vista ya quieta: qué se duerme y si la capa se deja preparada (ver «dormida» y «fija»)
+  const fuera: Fuera = !partido ? null : parte === "mesa" ? "cinta" : parte === "cinta" ? "mesa" : parte === "placa" ? "mesa-y-vu" : null;
+  const zVista = encuadre?.z ?? 0;
+  const zMayor = camara ? Math.max(camara.encuadres.cinta.z, camara.encuadres.mesa.z) : 0;
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDormida(fuera);
+      if (fuera === "cinta" || fuera === "mesa") {
+        if (zVista >= zMayor - 1e-6) setFija(true);
+      } else setFija(false);
+    }, ASENTAR_MS);
+    return () => clearTimeout(t);
+  }, [fuera, zVista, zMayor]);
+  const medida = tam !== null;
+  const sinLuces = dormida === "mesa" || dormida === "mesa-y-vu";
+  const sinAgujas = dormida === "cinta" || dormida === "mesa-y-vu";
+
   // Los medidores, sin pasar por React: las entradas si la Mesa está encendida y las pistas siempre.
   // Van a unos 30 por segundo (de sobra para el ojo) y solo se escribe lo que cambia: pintarlos en
   // cada fotograma era, con la canción sonando, lo que más frenaba la Mesa en un móvil modesto (la
   // altura de 9 luces y 10 agujas, 60 o 120 veces por segundo).
   useEffect(() => {
-    if (!encendida && !conPistas) return;
-    // Las luces de nivel de la mesa (en la ranura de cada fader)
-    const luz = (id: string) => (vista === "canal" ? enCanal : abajo).current?.querySelector<HTMLSpanElement>(`[data-medidor="${id}"]`) ?? null;
+    // (hasta que la consola se ha medido no hay grabadora ni mesa pintadas: no hay a quién mover)
+    if (!medida || (!encendida && !conPistas)) return;
+    // Las luces de nivel de la mesa (en la ranura de cada fader); ninguna si la mesa no está a la vista
+    const luz = (id: string) => (sinLuces ? null : ((vista === "canal" ? enCanal : abajo).current?.querySelector<HTMLSpanElement>(`[data-medidor="${id}"]`) ?? null));
     const luces = Array.from({ length: 8 }, (_, i) => luz(String(i)));
     const general = luz("general");
-    // Las agujas de los VU de la grabadora, con su inercia (suben deprisa y bajan despacio)
-    const agujas = VUS.map((_, i) => cinta.current?.querySelector<SVGGElement>(`[data-vu="${i}"]`) ?? null);
+    // Las agujas de los VU de la grabadora, con su inercia (suben deprisa y bajan despacio); ninguna
+    // si no están a la vista
+    const agujas = VUS.map((_, i) => (sinAgujas ? null : (cinta.current?.querySelector<SVGGElement>(`[data-vu="${i}"]`) ?? null)));
+    const hayQuePintar = !sinLuces || !sinAgujas;
     const angulos = VUS.map(() => VU_REPOSO);
     const escritos = VUS.map(() => "");
     // `pasos`: los fotogramas de 1/60 s que han pasado (la inercia no depende de la pantalla)
@@ -1163,7 +1220,7 @@ export default function ConsolaMesa({
       aguja(8, Math.max(e?.izq ?? 0, p?.izq ?? 0), pasos);
       aguja(9, Math.max(e?.der ?? 0, p?.der ?? 0), pasos);
     };
-    raf = requestAnimationFrame(bucle);
+    if (hayQuePintar) raf = requestAnimationFrame(bucle);
     const volver = () => void mesa.reanudar();
     document.addEventListener("visibilitychange", volver);
     return () => {
@@ -1174,7 +1231,10 @@ export default function ConsolaMesa({
       );
       agujas.forEach((el, i) => el?.setAttribute("transform", `rotate(${VU_REPOSO} ${VUS[i].eje[0]} ${VUS[i].eje[1]})`));
     };
-  }, [encendida, conPistas, vista]);
+    // «medida»: en el ordenador la vista es la misma antes y después de medir, y sin esto las agujas
+    // y las luces se buscaban cuando aún no estaban pintadas y ya no se movían (fallo desde la v109,
+    // al entrar en la Mesa con la canción ya puesta)
+  }, [encendida, conPistas, vista, sinLuces, sinAgujas, medida]);
 
   // Escape: en una parte en grande, vuelve a las dos (antes de que lo oiga el estudio)
   useEffect(() => {
@@ -1186,6 +1246,8 @@ export default function ConsolaMesa({
       else {
         setSuave(true);
         setParte(vista === "placa" ? "cinta" : "las-dos");
+        setDormida(null);
+        if (vista !== "placa") setFija(false);
       }
     };
     document.addEventListener("keydown", tecla, true);
@@ -1319,21 +1381,31 @@ export default function ConsolaMesa({
     for (let i = canalAbierto + paso; i >= 0 && i < 8; i += paso) if (propsMesa.canales[i]) return () => setCanalAbierto(i);
     return null;
   };
-  /** Una parte entera como botón: lleva la vista a ella */
-  const botonParte = (p: "cinta" | "mesa", etiqueta: string) => ({
-    role: "button" as const,
-    tabIndex: 0,
-    "aria-label": etiqueta,
-    onClick: () => irA(p),
-    onKeyDown: (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        irA(p);
-      }
-    },
-  });
-  // De lejos, las dos se tocan para acercarse
-  const tocar = parte === "las-dos" ? { cinta: botonParte("cinta", "Ver la grabadora en grande"), mesa: botonParte("mesa", "Ver la mesa de mezclas en grande") } : undefined;
+  const alTeclear = (e: React.KeyboardEvent, p: "cinta" | "mesa") => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    irA(p);
+  };
+  // De lejos, las dos se tocan para acercarse: cada parte entera es un botón que lleva la vista a ella
+  const tocar =
+    parte === "las-dos"
+      ? {
+          cinta: {
+            role: "button" as const,
+            tabIndex: 0,
+            "aria-label": "Ver la grabadora en grande",
+            onClick: () => irA("cinta"),
+            onKeyDown: (e: React.KeyboardEvent) => alTeclear(e, "cinta"),
+          },
+          mesa: {
+            role: "button" as const,
+            tabIndex: 0,
+            "aria-label": "Ver la mesa de mezclas en grande",
+            onClick: () => irA("mesa"),
+            onKeyDown: (e: React.KeyboardEvent) => alTeclear(e, "mesa"),
+          },
+        }
+      : undefined;
   // De cerca, la franja por la que asoma la otra. El toque y el deslizar los recoge la capa (gestos);
   // aquí, lo que hace de ella un botón para el teclado.
   const paso =
@@ -1365,8 +1437,9 @@ export default function ConsolaMesa({
         // desmonta al acercarse ni al abrir un canal: solo cambia desde dónde se mira
         <div className="cf-camara" style={camara.marco} inert={vista === "canal"} {...gestos}>
           <div
-            className={`cf-escena${suave ? " suave" : ""}`}
-            style={{ width: camara.escena.w, height: camara.escena.h, transform: `translate(${encuadre.x}px, ${encuadre.y}px) scale(${encuadre.z})` }}
+            ref={escena}
+            className={`cf-escena${suave ? " suave" : ""}${fija ? " fija" : ""}`}
+            style={{ width: camara.escena.w, height: camara.escena.h, transform: transformDe(encuadre) }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -1385,6 +1458,7 @@ export default function ConsolaMesa({
                 propsMesa={parte === "mesa" ? { ...propsMesa, alTocarCanal: abrirCanal } : propsMesa}
                 tocar={tocar}
                 paso={paso}
+                cintaQuieta={dormida === "cinta"}
                 activa={parte === "las-dos" ? undefined : parte === "mesa" ? "mesa" : "cinta"}
               />
             </div>

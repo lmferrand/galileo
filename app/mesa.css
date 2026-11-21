@@ -33,6 +33,22 @@ html.con-mesa body {
   will-change: transform;
   backface-visibility: hidden;
 }
+/* Con la consola delante, la foto del estudio no se ve: que el aparato no la dibuje debajo en cada
+   fotograma (se esconde cuando la consola ya ha aparecido; al volver, sale en el acto) */
+.fase-consola .estudio-escena {
+  visibility: hidden;
+  transition:
+    transform 820ms cubic-bezier(0.45, 0, 0.2, 1),
+    visibility 0s linear 450ms;
+}
+/* Lo mismo con la página de detrás de la Mesa y con la veta del fondo, que va mezclada (cara de dibujar) */
+html.con-mesa main.app > :not(.estudio-mesa) {
+  visibility: hidden;
+  transition: visibility 0s linear 320ms;
+}
+html.con-mesa body::before {
+  display: none;
+}
 .estudio-marco {
   position: absolute;
 }
@@ -203,6 +219,10 @@ html.con-mesa body {
     url(/mesa/escritorio2.webp) center / cover no-repeat,
     #2a1408;
   animation: estudio-aparece 300ms ease both;
+}
+/* En el móvil tumbado, el escritorio ya va en la capa de la cámara (.cf-escritorio): aquí sobra */
+.estudio-consola:has(.cf-camara) {
+  background: #2a1408;
 }
 .fase-volviendo .estudio-consola {
   animation: estudio-se-va 220ms ease forwards;
@@ -1028,6 +1048,10 @@ html.con-mesa body {
   animation-duration: 0.45s;
   animation-direction: reverse;
   animation-play-state: running;
+}
+/* La grabadora no está a la vista (móvil, con la mesa de cerca): las bobinas no giran */
+.gm.quieta .gm-bobina img {
+  animation-play-state: paused;
 }
 @keyframes gm-gira {
   to {
@@ -2122,6 +2146,11 @@ html.con-mesa body {
 }
 .cf-escena.suave {
   transition: transform 520ms cubic-bezier(0.45, 0, 0.2, 1);
+}
+/* Con la grabadora o la mesa de cerca y la vista quieta (ConsolaMesa: «fija»): la capa entera queda
+   pintada de antemano, y pasar de una a otra es mover esa imagen, sin pintar nada sobre la marcha */
+.cf-escena.fija {
+  will-change: transform;
 }
 .cf-escritorio {
   position: absolute;

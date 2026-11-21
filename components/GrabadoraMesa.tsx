@@ -14,7 +14,7 @@ import { useState, type CSSProperties, type ReactNode } from "react";
 import { accesible, useArrastre, type PropsMando } from "./MandosMesa";
 import TransporteMesa, { type Transporte } from "./TransporteMesa";
 import PlacaCanciones, { type CancionesPlaca } from "./PlacaCanciones";
-import { usePosicion, type Posicion } from "@/lib/pistas/posicion";
+import { Posicion, usePosicion } from "@/lib/pistas/posicion";
 
 export const ANCHO_CINTA = 2000;
 export const ALTO_CINTA = 787;
@@ -46,6 +46,8 @@ const ZONA_PLACA: Caja = [790, 262, 420, 190];
  * para que el botón «?» de la esquina no pise la última tecla en los móviles pequeños.
  */
 export const ZONA_SELECTOR = { x: 660, y: 166, w: 680, h: 322 };
+/** Una posición que no se mueve: lo que ven el contador, el cabezal y la rueda con la grabadora fuera de la vista */
+const PARADA = new Posicion();
 const RUEDA_VELOCIDAD = { x: 735.8, y: 89.2, d: 60 };
 const RUEDA_BUSCAR = { x: 1260.8, y: 88.6, d: 60 };
 
@@ -212,9 +214,17 @@ interface Props {
   onBucle?: () => void;
   /** Con la grabadora entera en el móvil: tocar el selector de canciones acerca la vista a él */
   alAcercarPlaca?: () => void;
+  /**
+   * La grabadora no está a la vista (móvil, con la mesa de cerca): las bobinas, el contador, el
+   * cabezal y la rueda dejan de moverse. Mantenerlos vivos sin verse le costaba al móvil buena parte
+   * de cada fotograma.
+   */
+  quieta?: boolean;
 }
 
-export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, canciones, metronomo, onOrganizar, alLeer, onBucle, alAcercarPlaca }: Props) {
+export default function GrabadoraMesa({ escala, t: tVivo, aviso, rec, contador, toma, canciones, metronomo, onOrganizar, alLeer, onBucle, alAcercarPlaca, quieta = false }: Props) {
+  // (quieta: todo lo que sigue a la canción mira una posición que no cambia)
+  const t = quieta && tVivo ? { ...tVivo, posicion: PARADA } : tVivo;
   // Al ir atrás o adelante, las bobinas corren un momento
   const [corriendo, setCorriendo] = useState<"atras" | "adelante" | null>(null);
   const [fin, setFin] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -254,7 +264,7 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
     </button>
   ) : null;
   const parada = !!t && !t.tocando && empezada;
-  const clase = `gm${t?.tocando ? " tocando" : ""}${corriendo ? ` corre-${corriendo}` : ""}`;
+  const clase = `gm${t?.tocando ? " tocando" : ""}${corriendo ? ` corre-${corriendo}` : ""}${quieta ? " quieta" : ""}`;
   const vuelta = `${2.6 / Math.max(0.5, t?.velocidad ?? 1)}s`;
 
   // Tocar vale también mientras la canción carga: se queda apuntado y suena en cuanto esté lista
@@ -287,7 +297,7 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
             <img src={b.src} alt="" width={b.lado} height={b.lado} draggable={false} />
           </span>
         ))}
-        <Contador posicion={contador ?? t?.posicion ?? null} />
+        <Contador posicion={quieta ? PARADA : (contador ?? t?.posicion ?? null)} />
 
         {tecla("atras", "Atrás 10 segundos", false, () => {
           if (!t) return;
