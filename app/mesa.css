@@ -2179,6 +2179,10 @@ html.con-mesa body::before {
 .cf-camara {
   position: absolute;
   overflow: hidden;
+  /* «clip»: ni el navegador puede desplazarla. Con «hidden», al llegar el foco del teclado a algo que
+     asoma (la franja que lleva a la mesa), el navegador corría la vista para enseñarlo entero y se
+     quedaba desplazada. */
+  overflow: clip;
   /* Aquí dentro no se desliza nada con el navegador: deslizar el dedo es pasar de la grabadora a la
      mesa (ConsolaMesa: gestos), y el navegador no debe quedarse el gesto */
   touch-action: none;

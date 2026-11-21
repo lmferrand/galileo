@@ -8,6 +8,7 @@
 // Si cambian, nombres nuevos: la caché sin conexión sirve primero lo que ya tiene.
 
 import type { InstrumentoId } from "./instrumentos";
+import { sonarAunqueEnSilencio } from "./sesionAudio";
 
 const ARCHIVOS: Record<InstrumentoId, string> = {
   acustica: "/sonidos/acustica-1.mp3",
@@ -56,6 +57,7 @@ export function sonarInstrumento(id: InstrumentoId) {
   const c = contexto();
   if (!c) return;
   // Se despierta el audio en el mismo toque; el sonido puede llegar un instante después.
+  sonarAunqueEnSilencio();
   void c.resume().catch(() => undefined);
   void cargar(id).then((buffer) => {
     if (!buffer) return;

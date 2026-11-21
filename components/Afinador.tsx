@@ -23,6 +23,7 @@ import { enLetra, INSTRUMENTOS, instrumentoDe, marcarElegido, yaSeEligio, type I
 import { sonarInstrumento } from "@/lib/sonidos";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
+import { sonarAunqueEnSilencio } from "@/lib/sesionAudio";
 import { tocarArpegio, tocarNota } from "@/lib/tono";
 import { usePestanaVisible } from "@/lib/pestana";
 import { guardarPreferencias, leerPreferencias, PREFERENCIAS_INICIALES, type Preferencias } from "@/lib/preferencias";
@@ -342,6 +343,7 @@ export default function Afinador() {
   const contextoTono = () => {
     const ctx = motor.current?.contexto ?? ctxTono.current ?? crearContextoAudio();
     if (ctx && !motor.current?.contexto) ctxTono.current = ctx;
+    sonarAunqueEnSilencio();
     ctx?.resume().catch(() => undefined);
     return ctx;
   };

@@ -404,7 +404,7 @@ export default function MesaFoto({ escala, canales, sinEntrada2, general, onGene
         )}
         {/* La tapa de los canales de la canción: con canción se va con un fundido (y vuelve al quitarla) */}
         <div className={`mf-tapado de-pistas${conCancion ? " fuera" : ""}`} style={enCaja(TIRAS_PISTAS)} aria-hidden={conCancion}>
-          <p>Aquí van las pistas de la canción: ábrela en Pistas y toca «Entrar en la Mesa»</p>
+          <p>Aquí van las pistas de la canción: elígela en el selector de canciones de la grabadora</p>
         </div>
       </div>
     </div>

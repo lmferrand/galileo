@@ -11,6 +11,7 @@
 
 import { crearContextoAudio } from "./motor";
 import { pedirAudio } from "./entrada";
+import { antesDelMicro, apuntarMicro } from "./sesionAudio";
 
 export type FaseLooper = "apagado" | "listo" | "cuenta" | "grabando" | "sonando" | "capa" | "parado";
 export type ModoLooper = "libre" | 1 | 2 | 4;
@@ -103,7 +104,9 @@ export class Looper {
       const ctx = this.ctx;
       if (!ctx) throw new Error("Este navegador no deja usar el audio.");
       const reanudar = ctx.resume();
+      antesDelMicro();
       this.flujo = await navigator.mediaDevices.getUserMedia(pedirAudio());
+      apuntarMicro(this.flujo);
       await reanudar.catch(() => undefined);
       await ctx.audioWorklet.addModule("/captura.worklet.js");
       this.fuenteEntrada = ctx.createMediaStreamSource(this.flujo);

@@ -38,6 +38,7 @@ import SelectorFormato from "./SelectorFormato";
 import { esMovil } from "@/lib/pistas/aparato";
 import { formatoTiempo, FRECUENCIA, PISTAS } from "@/lib/pistas/tipos";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo } from "@/lib/metronomo";
+import { sonarAunqueEnSilencio } from "@/lib/sesionAudio";
 import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
 import CarpetasMesa from "./CarpetasMesa";
 import BucleMesa from "./BucleMesa";
@@ -713,6 +714,7 @@ export default function ConsolaMesa({
     setVerTomas(false);
     if (pistas && toma.desde !== null) return pistas.escucharToma(toma);
     // Sin canción: suena sola
+    sonarAunqueEnSilencio();
     const ctx = new AudioContext();
     const n = toma.muestras.length / 2 - toma.recorte;
     if (n <= 0) return;

@@ -2089,3 +2089,21 @@ html:is([data-pestana="pistas"], :not([data-pestana])):has(.app-pistas) body {
     transition: none;
   }
 }
+
+/* Con ratón no se puede deslizar la fila de atajos («Todo», «Sin guitarra»…): los últimos quedaban
+   cortados por la derecha y no había forma de llegar a ellos. Ahí van en varias filas. */
+@media (hover: hover) and (pointer: fine) {
+  .mezclas {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+/* La «i» de la autoría se ve igual, pero se toca con holgura (medía 26 px) */
+.credito-i {
+  position: relative;
+}
+.credito-i::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}

@@ -2417,3 +2417,16 @@ html:is([data-pestana="afinar"], :not([data-pestana])):has(.app.con-estudio) bod
   font-size: 13px;
   color: var(--texto-suave, #c9b196);
 }
+
+/* La barra de desplazamiento, del color de la app: en un ordenador con el sistema en modo claro salía
+   blanca sobre las fotos oscuras. */
+html {
+  scrollbar-color: rgba(214, 178, 122, 0.5) transparent;
+}
+/* Las clavijas (elegir la cuerda a mano) se ven igual, pero se tocan con holgura: en un móvil estrecho
+   medían 39 × 25 px */
+.llave::after {
+  content: "";
+  position: absolute;
+  inset: -8px -7px;
+}

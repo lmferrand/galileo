@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { pedirAudio } from "@/lib/entrada";
+import { antesDelMicro, apuntarMicro } from "@/lib/sesionAudio";
 
 const MAX_SEGUNDOS = 300;
 
@@ -66,7 +67,9 @@ export default function Grabadora() {
     }
     setEstado({ fase: "pidiendo" });
     try {
+      antesDelMicro();
       flujo.current = await navigator.mediaDevices.getUserMedia(pedirAudio());
+      apuntarMicro(flujo.current);
     } catch {
       setEstado({ fase: "error", texto: "No hay permiso para el micrófono. En el iPhone: Ajustes, Safari, Micrófono." });
       return;

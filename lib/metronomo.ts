@@ -3,6 +3,7 @@
 // el momento justo del golpe.
 
 import { crearContextoAudio } from "./motor";
+import { sonarAunqueEnSilencio } from "./sesionAudio";
 
 export type Compas = 2 | 3 | 4 | 6;
 export const BPM_MIN = 30;
@@ -59,6 +60,7 @@ export class Metronomo {
     if (!this.ctx) this.ctx = crearContextoAudio();
     const ctx = this.ctx;
     if (!ctx) return;
+    sonarAunqueEnSilencio();
     ctx.resume().catch(() => undefined);
     this.tiempo = 0;
     this.siguiente = ctx.currentTime + 0.08;

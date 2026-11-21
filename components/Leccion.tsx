@@ -11,6 +11,7 @@ import { midiDePaso, siguienteDe, TODAS, type Leccion as TipoLeccion } from "@/l
 import { Juez } from "@/lib/aprender/juez";
 import { estrellasDe, guardarEstrellas } from "@/lib/aprender/progreso";
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
+import { sonarAunqueEnSilencio } from "@/lib/sesionAudio";
 import { frecuenciaDe, midiDe, nombreNota, partesNota, type Notacion } from "@/lib/notas";
 import { mantenerPantalla, type BloqueoPantalla } from "@/lib/pantalla";
 import { tocarNota } from "@/lib/tono";
@@ -123,6 +124,7 @@ export default function Leccion({ leccion, notacion, la4, onSalir, onCambiar, on
     const ctx = motor.current?.contexto ?? ctxTono.current ?? crearContextoAudio();
     if (!ctx) return;
     if (!motor.current?.contexto) ctxTono.current = ctx;
+    sonarAunqueEnSilencio();
     ctx.resume().catch(() => undefined);
     const ms = tocarNota(ctx, frecuenciaDe(objetivo, la4));
     motor.current?.ensordecer(ms + 250);

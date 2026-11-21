@@ -10,6 +10,7 @@
 // Vive fuera de la pantalla (un único objeto) para que siga sonando con su hoja cerrada.
 
 import { pedirAudio } from "../entrada";
+import { apuntarMicro } from "@/lib/sesionAudio";
 import { leerEscucha } from "./escucha";
 import { conMaestros, generalEntradas, type AjustesCanal, type AjustesMesa } from "./ajustes";
 
@@ -379,6 +380,7 @@ export class Mesa {
       const audio = typeof pedido.audio === "object" ? pedido.audio : {};
       // `latency`: la entrada con el búfer más corto que tenga (donde el navegador lo deja elegir)
       this.flujo = await navigator.mediaDevices.getUserMedia({ audio: { ...audio, channelCount: { ideal: 2 }, latency: { ideal: 0 } } as MediaTrackConstraints });
+      apuntarMicro(this.flujo);
     } catch (e) {
       const nombre = (e as DOMException)?.name;
       await ctx.close().catch(() => undefined);

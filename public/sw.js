@@ -15,7 +15,7 @@
 // copia y siguen probando la red por detrás) hasta que vuelva a contestar: si no, cada pestaña
 // sumaba sus segundos de espera.
 
-const CACHE = "clavija-app-v119";
+const CACHE = "clavija-app-v120";
 
 const AUDIO = [
   "/mezclador.worklet.js",
@@ -70,6 +70,14 @@ self.addEventListener("activate", (e) => {
       .then(() => self.clients.claim()),
   );
 });
+
+// Un hilo de la app (el que busca el ritmo de la canción) recibe lo que necesita para arrancar en la
+// coletilla de su dirección («?params=…»). La copia guardada se sirve sin mirar la coletilla, y una
+// respuesta sacada de la copia lleva la dirección con la que se guardó, sin ella: el hilo arrancaba sin
+// sus datos («Missing worker bootstrap config»), fallaba, y la app buscaba el ritmo en primer plano,
+// leyendo otra vez las pistas y parando la pantalla. Una respuesta hecha aquí no lleva dirección
+// propia: el hilo se queda con la que pidió, entera.
+const paraUnHilo = (req, r) => (req.destination === "worker" || req.destination === "sharedworker" ? new Response(r.body, { status: r.status, statusText: r.statusText, headers: r.headers }) : r);
 
 // La última petición a la red se quedó sin respuesta: las siguientes no la esperan
 let redCallada = false;
@@ -153,7 +161,7 @@ self.addEventListener("fetch", (e) => {
       // cambia se publica con otro nombre.
       caches.match(req, { ignoreSearch: true, ignoreVary: true }).then(
         (hit) =>
-          hit ||
+          (hit && paraUnHilo(req, hit)) ||
           fetch(req).then((r) => {
             if (r.ok && r.status === 200) {
               const copia = r.clone();

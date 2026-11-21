@@ -480,3 +480,70 @@ html:is([data-pestana="aprender"], :not([data-pestana])):has(.en-leccion) body {
   vertical-align: -0.15em;
   fill: currentColor;
 }
+
+/* ---------- La lección con el móvil tumbado ----------
+   No cabía en columna: la nota grande se montaba sobre la fila de notas y el mástil ni salía. Aquí va
+   en dos mitades: a la izquierda la nota y lo que se oye, a la derecha el mástil; el título se quita
+   (es el de la lección que acabas de elegir) y los dos botones de abajo van en fila. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .app-aprender.en-leccion {
+    max-width: min(920px, 100%);
+  }
+  .leccion-titulo {
+    display: none;
+  }
+  .carril {
+    margin-top: 2px;
+    min-height: 40px;
+  }
+  .leccion-centro {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    grid-template-rows: auto auto auto;
+    column-gap: 18px;
+    row-gap: 2px;
+    align-content: center;
+    align-items: center;
+    justify-items: center;
+  }
+  .leccion-nota {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: clamp(44px, 19svh, 84px);
+  }
+  .leccion-donde {
+    grid-column: 1;
+    grid-row: 2;
+    margin: 0;
+  }
+  .leccion-oido {
+    grid-column: 1;
+    grid-row: 3;
+    margin: 0;
+  }
+  .leccion-centro .diapason {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    width: auto;
+    max-width: 100%;
+    /* (su dibujo mide 360 × 176) */
+    height: min(46svh, 236px);
+  }
+  .leccion-abajo {
+    grid-auto-flow: column;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+    padding-top: 2px;
+  }
+  .leccion-empezar {
+    width: min(44vw, 320px);
+  }
+}
+
+/* «Afínala antes»: el enlace se ve igual, pero se toca con holgura (medía 19 px de alto) */
+.aprender-intro a {
+  display: inline-block;
+  padding: 9px 5px;
+  margin: -9px -5px;
+}

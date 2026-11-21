@@ -3,6 +3,7 @@
 
 import { detectarTono, mediana, reducirAMitad } from "./yin";
 import { pedirAudio } from "./entrada";
+import { antesDelMicro, apuntarMicro, sonarAunqueEnSilencio } from "./sesionAudio";
 
 export type EstadoMicro = "parado" | "pidiendo" | "escuchando" | "denegado" | "sin-soporte" | "error";
 
@@ -110,7 +111,9 @@ export class Motor {
     const reanudar = this.contexto.resume();
 
     try {
+      antesDelMicro();
       this.flujo = await navigator.mediaDevices.getUserMedia(pedirAudio());
+      apuntarMicro(this.flujo);
     } catch (e) {
       const nombre = (e as DOMException)?.name;
       this.flujo = null;
@@ -145,6 +148,8 @@ export class Motor {
   parar() {
     cancelAnimationFrame(this.raf);
     this.flujo?.getTracks().forEach((p) => p.stop());
+    // (si el metrónomo sigue sonando, que no se calle ahora con el iPhone en silencio)
+    sonarAunqueEnSilencio();
     this.flujo = null;
     this.analizador?.disconnect();
     this.analizador = null;

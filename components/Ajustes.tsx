@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { Notacion } from "@/lib/notas";
 import { guardarEntrada, leerEntrada, listarEntradas, pedirAudio, type Entrada } from "@/lib/entrada";
+import { antesDelMicro } from "@/lib/sesionAudio";
 
 interface Props {
   la4: number;
@@ -48,6 +49,7 @@ export default function Ajustes({ la4, notacion, onLa4, onNotacion, onEntrada }:
   const sinNombres = entradas !== null && entradas.length > 0 && entradas.every((e) => e.nombre.startsWith("Entrada "));
   const verNombres = async () => {
     try {
+      antesDelMicro();
       const flujo = await navigator.mediaDevices.getUserMedia(pedirAudio());
       flujo.getTracks().forEach((p) => p.stop());
       setEntradas(await listarEntradas());
