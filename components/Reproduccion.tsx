@@ -3,7 +3,7 @@
 // Reproductor de una canción separada: las 6 pistas a la vez, con mezclas
 // rápidas, velocidad sin cambiar el tono, repetir un trozo y guardar la mezcla.
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import Navegacion from "./Navegacion";
 import Escenario from "./Escenario";
 import EstudioMesa from "./EstudioMesa";
@@ -62,6 +62,11 @@ interface Props {
   onCambiadas?: () => void;
   /** Solo la Mesa, sin la pantalla del reproductor (la pestaña «Mesa»): su ✕ es `onVolver` */
   soloMesa?: boolean;
+  /**
+   * Con `soloMesa`: no se pinta nada aquí. La Mesa la pinta quien llama (la pestaña «Mesa»), siempre
+   * la misma, y por aquí se le entrega lo de la canción cada vez que cambia (`undefined` al quitarla).
+   */
+  alMesa?: (pistas: PistasMesa | undefined) => void;
 }
 
 /** La barra de la posición: se repinta ella sola mientras la canción avanza (lib/pistas/posicion) */
@@ -89,7 +94,7 @@ function TiempoAhora({ posicion }: { posicion: Posicion }) {
   return usePosicion(posicion, formatoTiempo);
 }
 
-export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEntrar = false, canciones, onAbrirOtra, onCambiadas, soloMesa = false }: Props) {
+export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEntrar = false, canciones, onAbrirOtra, onCambiadas, soloMesa = false, alMesa }: Props) {
   const rep = useRef<Reproductor | null>(null);
   const [cargando, setCargando] = useState(true);
   // Separada en el PC con BS-RoFormer: ya reparte bien los graves, no se limpia el bajo
@@ -672,6 +677,15 @@ export default function Reproduccion({ cancion, onVolver, onRenombrada, mesaAlEn
   const queda = describirMezcla(efectivas);
   const formato = useFormato();
 
+  // La pestaña «Mesa» pinta ella la Mesa (ver `alMesa`): se le da lo de la canción tras cada cambio,
+  // antes de que la pantalla se pinte. Quien llama no vuelve a pintar esta pieza por ello (va con
+  // memo): si no, no acabaría nunca.
+  useLayoutEffect(() => {
+    alMesa?.(pistasMesa);
+  });
+  useLayoutEffect(() => () => alMesa?.(undefined), [alMesa]);
+
+  if (soloMesa && alMesa) return null;
   if (soloMesa) {
     return (
       <EstudioMesa
