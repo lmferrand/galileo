@@ -14,7 +14,7 @@ import EfectosMesa, { efectosActivos } from "./EfectosMesa";
 import MesaFoto, { ALTO_MESA, ANCHO_MESA, type CanalFoto } from "./MesaFoto";
 import CanalGrande from "./CanalGrande";
 import AyudaMesa from "./AyudaMesa";
-import GrabadoraMesa, { ALTO_CINTA, ANCHO_CINTA, anguloVu, VU_REPOSO, VUS } from "./GrabadoraMesa";
+import GrabadoraMesa, { ALTO_CINTA, ANCHO_CINTA, anguloVu, VU_REPOSO, VUS, ZONA_SELECTOR } from "./GrabadoraMesa";
 import type { CancionesPlaca } from "./PlacaCanciones";
 import type { Cancion, TomaCancion } from "@/lib/pistas/tipos";
 import { type Transporte } from "./TransporteMesa";
@@ -129,7 +129,8 @@ interface Tam {
   alto: number;
 }
 
-type Parte = "las-dos" | "cinta" | "mesa";
+/** «placa»: dentro de la grabadora, el selector de canciones de cerca (con las teclas) */
+type Parte = "las-dos" | "cinta" | "mesa" | "placa";
 interface Encuadre {
   z: number;
   x: number;
@@ -146,13 +147,15 @@ const HUECO_LETRERO = 34;
  * que cambia al tocar una parte es desde dónde se mira (la cámara): la capa entera se acerca a ella,
  * con el fondo, y todo guarda sus proporciones. Antes la parte tocada se pintaba sola y más grande
  * sobre el mismo fondo: parecía que venía hacia ti en vez de acercarte tú.
- * La capa se pinta al tamaño más grande al que se va a ver, así acercarse nunca la amplía (nítida).
+ * La capa se pinta al tamaño más grande al que se va a ver la grabadora o la mesa enteras, así
+ * acercarse a ellas nunca la amplía (nítida). El selector de canciones sí se amplía: es lo único.
  * Medidas de la capa en sus propios píxeles; cada encuadre, dónde cae en la pantalla y a qué escala.
  */
 function camaraDe({ w, h, x0, y0, ancho, alto }: Tam) {
   const lejos = Math.min((w * 0.92) / ANCHO_MESA, (h - HUECO_LETRERO) / PIEZA.alto);
   const mesaCerca = Math.min((w - 8) / ANCHO_MESA, (h - 4) / ALTO_MESA);
   const cintaCerca = Math.min((w - 16) / ANCHO_CINTA, (h - 8) / ALTO_CINTA);
+  const placaCerca = Math.min((w - 16) / ZONA_SELECTOR.w, (h - 8) / ZONA_SELECTOR.h);
   const escala = Math.max(mesaCerca, cintaCerca / K_CINTA);
   // Sin sitio (la consola aún sin tamaño, o escondida): no hay nada que encuadrar
   if (!(lejos > 0 && mesaCerca > 0 && cintaCerca > 0)) return null;
@@ -170,8 +173,12 @@ function camaraDe({ w, h, x0, y0, ancho, alto }: Tam) {
     x: dentro(x0 + (w - ancha * z) / 2 - x * z, z, fondo.x, fondo.w, ancho),
     y: dentro(y0 + (h - alta * z) / 2 - y * z, z, fondo.y, fondo.h, alto),
   });
+  // Píxeles de la capa por cada píxel de la foto de la grabadora
+  const kc = K_CINTA * escala;
+  const xCinta = pieza.x + PIEZA.xCinta * escala;
   const encuadres: Record<Parte, Encuadre> = {
     "las-dos": { z: z0, x: 0, y: 0 },
+    placa: cerca(placaCerca / kc, xCinta + ZONA_SELECTOR.x * kc, pieza.y + ZONA_SELECTOR.y * kc, ZONA_SELECTOR.w * kc, ZONA_SELECTOR.h * kc),
     cinta: cerca(cintaCerca / (K_CINTA * escala), pieza.x + PIEZA.xCinta * escala, pieza.y, ANCHO_CINTA * K_CINTA * escala, ALTO_CINTA * K_CINTA * escala),
     mesa: cerca(mesaCerca / escala, pieza.x, pieza.y + PIEZA.yMesa * escala, ANCHO_MESA * escala, ALTO_MESA * escala),
   };
@@ -221,8 +228,8 @@ function Pieza({
   );
 }
 
-/** Se ha puesto otra canción desde la placa con la grabadora en grande (ver «parte») */
-let seguirEnLaCinta = false;
+/** Se ha puesto otra canción desde la placa con la grabadora (o el selector) en grande: ahí se sigue (ver «parte») */
+let seguirEn: Parte | null = null;
 
 const LECTURA_MS = 1400;
 /** Dónde queda el pico más fuerte de lo que tocas tras el ajuste automático del TRIM (dBFS) */
@@ -474,7 +481,7 @@ export default function ConsolaMesa({
     setGrabando(null);
     sonoGrabando.current = false;
     if (mesa.grabando) void mesa.pararToma();
-    seguirEnLaCinta = false;
+    seguirEn = null;
     setTomas([]);
     setVerTomas(false);
     setPreparada(null);
@@ -932,19 +939,20 @@ export default function ConsolaMesa({
   // una, esa a toda pantalla («Volver» regresa a las dos)
   const partido = H < 520;
   // Al poner otra canción desde la placa de la grabadora, la Mesa se vuelve a montar con ella: si
-  // estabas viendo la grabadora en grande, sigue en grande
-  const [parte, setParte] = useState<Parte>(() => (seguirEnLaCinta ? "cinta" : "las-dos"));
+  // estabas viendo la grabadora en grande (o su selector de cerca), sigues ahí
+  const [parte, setParte] = useState<Parte>(() => seguirEn ?? "las-dos");
   const irA = (p: Parte) => {
     setSuave(true);
     setParte(p);
   };
   useEffect(() => {
-    seguirEnLaCinta = false;
+    seguirEn = null;
   }, []);
   // En la mesa en grande, tocar un canal lo abre a toda pantalla (CanalGrande)
   const [canalAbierto, setCanalAbierto] = useState<number | null>(null);
   const vista = partido ? (parte === "mesa" && canalAbierto !== null ? "canal" : parte) : "juntas";
-  const atras = () => (canalAbierto !== null ? setCanalAbierto(null) : irA("las-dos"));
+  // «Volver», paso a paso: del canal a la mesa, del selector a la grabadora entera y de ahí a las dos
+  const atras = () => (canalAbierto !== null ? setCanalAbierto(null) : irA(parte === "placa" ? "cinta" : "las-dos"));
   // El canal en grande va encima de la mesa (que sigue debajo, sin desmontarse): su luz de nivel
   const enCanal = useRef<HTMLDivElement>(null);
   // Juntas: la grabadora sobre la mesa, como una sola pieza (PIEZA), lo más grande que quepa; si así
@@ -1023,14 +1031,14 @@ export default function ConsolaMesa({
 
   // Escape: en una parte en grande, vuelve a las dos (antes de que lo oiga el estudio)
   useEffect(() => {
-    if (vista !== "cinta" && vista !== "mesa" && vista !== "canal") return;
+    if (vista === "juntas" || vista === "las-dos") return;
     const tecla = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || document.querySelector(".hoja")) return;
       e.stopImmediatePropagation();
       if (vista === "canal") setCanalAbierto(null);
       else {
         setSuave(true);
-        setParte("las-dos");
+        setParte(vista === "placa" ? "cinta" : "las-dos");
       }
     };
     document.addEventListener("keydown", tecla, true);
@@ -1140,7 +1148,7 @@ export default function ConsolaMesa({
     canciones: canciones && {
       ...canciones,
       onElegir: (c: Cancion) => {
-        seguirEnLaCinta = parte === "cinta";
+        seguirEn = parte === "cinta" || parte === "placa" ? parte : null;
         canciones.onElegir(c);
       },
     },
@@ -1204,10 +1212,10 @@ export default function ConsolaMesa({
                 escala={camara.escala}
                 cinta={cinta}
                 abajo={abajo}
-                propsCinta={propsCinta}
+                propsCinta={parte === "cinta" ? { ...propsCinta, alAcercarPlaca: () => irA("placa") } : propsCinta}
                 propsMesa={parte === "mesa" ? { ...propsMesa, alTocarCanal: setCanalAbierto } : propsMesa}
                 elegir={parte === "las-dos" ? elegir : undefined}
-                activa={parte === "las-dos" ? undefined : parte}
+                activa={parte === "las-dos" ? undefined : parte === "mesa" ? "mesa" : "cinta"}
               />
             </div>
           </div>
@@ -1233,12 +1241,14 @@ export default function ConsolaMesa({
           />
         </div>
       )}
-      {(vista === "cinta" || vista === "mesa" || vista === "canal") && (
+      {vista !== "juntas" && vista !== "las-dos" && (
         <button
           type="button"
           className="estudio-boton cf-volver"
           onClick={atras}
-          aria-label={vista === "canal" ? "Volver a la mesa con todos los canales" : "Volver a ver la grabadora y la mesa"}
+          aria-label={
+            vista === "canal" ? "Volver a la mesa con todos los canales" : vista === "placa" ? "Volver a ver la grabadora entera" : "Volver a ver la grabadora y la mesa"
+          }
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M15 5l-7 7 7 7" />

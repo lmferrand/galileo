@@ -36,6 +36,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Sin el zoom del navegador (pellizcar con dos dedos, dos toques) en toda la app: descolocaba la
+  // pantalla, y lo que hay que ver de cerca se acerca solo al tocarlo. El iPhone no hace caso de
+  // esto: para él va también «touch-action» en <html> (globals.css).
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
   // Oscuro siempre: el iPhone pinta con este color la franja de abajo en modo app, y así se
   // funde con la barra de abajo y con el estudio.

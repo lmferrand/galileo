@@ -36,6 +36,14 @@ const TECLAS: Record<"atras" | "parar" | "tocar" | "pausa" | "grabar" | "adelant
   grabar: [1107, 181, 85, 69],
   adelante: [1206, 181, 85, 69],
 };
+/** El selector de canciones entero (la ventana, sus tres botones y las dos lentes): lo que se toca para acercarse */
+const ZONA_PLACA: Caja = [790, 262, 420, 190];
+/**
+ * Lo que se ve con la vista acercada al selector (ConsolaMesa): las teclas y, debajo, el selector.
+ * Por arriba corta bajo el rótulo del contador y por abajo sobre los VU; a los lados sobra sitio
+ * para que el botón «Volver» de la esquina no pise la primera tecla en los móviles pequeños.
+ */
+export const ZONA_SELECTOR = { x: 660, y: 166, w: 680, h: 322 };
 const RUEDA_VELOCIDAD = { x: 735.8, y: 89.2, d: 60 };
 const RUEDA_BUSCAR = { x: 1260.8, y: 88.6, d: 60 };
 
@@ -200,9 +208,11 @@ interface Props {
   metronomo?: { texto: string; on: boolean; onAbrir: () => void };
   /** La tecla «Bucle» abre su hoja */
   onBucle?: () => void;
+  /** Con la grabadora entera en el móvil: tocar el selector de canciones acerca la vista a él */
+  alAcercarPlaca?: () => void;
 }
 
-export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, canciones, metronomo, onOrganizar, alLeer, onBucle }: Props) {
+export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, canciones, metronomo, onOrganizar, alLeer, onBucle, alAcercarPlaca }: Props) {
   // Al ir atrás o adelante, las bobinas corren un momento
   const [corriendo, setCorriendo] = useState<"atras" | "adelante" | null>(null);
   const [fin, setFin] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -327,6 +337,9 @@ export default function GrabadoraMesa({ escala, t, aviso, rec, contador, toma, c
         <RuedaBuscar t={t} sin={sin} />
 
         <PlacaCanciones canciones={canciones} onOrganizar={onOrganizar} alLeer={alLeer} />
+        {alAcercarPlaca && (
+          <button type="button" className="gm-placa-acercar" style={enCaja(ZONA_PLACA)} aria-label="Acercar el selector de canciones" onClick={alAcercarPlaca} />
+        )}
 
         {/* Debajo de los VU, la pantalla de la canción (o solo los avisos, sin canción) */}
         <div className="gm-pantalla" style={enCaja(PANTALLA)}>

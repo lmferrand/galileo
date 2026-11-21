@@ -83,6 +83,9 @@
 html {
   background: var(--bg);
   -webkit-text-size-adjust: 100%;
+  /* Sin el zoom del navegador en toda la app (pellizcar con dos dedos, dos toques): descolocaba la
+     pantalla. Deslizar con un dedo sigue valiendo. Va también en el viewport (app/layout.tsx). */
+  touch-action: pan-x pan-y;
 }
 
 body {
