@@ -24,8 +24,9 @@ async function guardarYaSeparada(audios: Record<Pista, Blob>, datos: Datos): Pro
 export async function importarPistas(urls: Record<Pista, string>, datos: Datos, alProgreso: (fraccion: number) => void): Promise<Cancion> {
   const audios = {} as Record<Pista, Blob>;
   for (const [i, p] of PISTAS.entries()) {
-    const res = await fetch(urls[p.id]);
-    if (!res.ok) throw new Error("No se han podido descargar las pistas. Comprueba la conexión.");
+    // (sin conexión, fetch no responde: falla con un mensaje del navegador, en inglés)
+    const res = await fetch(urls[p.id]).catch(() => null);
+    if (!res?.ok) throw new Error("No se han podido descargar las pistas. Comprueba la conexión.");
     audios[p.id] = new Blob([await res.arrayBuffer()], { type: res.headers.get("content-type") || "audio/mpeg" });
     alProgreso((i + 1) / PISTAS.length);
   }

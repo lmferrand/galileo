@@ -1,6 +1,8 @@
 // «Qué hace cada mando»: la ayuda de la consola (grabadora, canales y sección MASTER), en
 // palabras sencillas y con cuándo tocar cada cosa. Se abre con «?» arriba a la derecha.
 
+import { DISCO } from "@/lib/pistas/discoGalileo";
+
 interface Mando {
   nombre: string;
   que: string;
@@ -78,6 +80,20 @@ export default function AyudaMesa() {
           </dl>
         </section>
       ))}
+      {DISCO.temas.length > 0 && (
+        <section>
+          <h3>El disco del escritorio</h3>
+          <dl>
+            <div className="ayuda-fila">
+              <dt>«{DISCO.titulo}»</dt>
+              <dd>
+                El disco de {DISCO.artista}. Tócalo y se abre: dentro están sus canciones. Toca una y se pone en la grabadora; la primera vez se baja y ya se queda
+                en el aparato, en la carpeta «{DISCO.artista}» del selector.
+              </dd>
+            </div>
+          </dl>
+        </section>
+      )}
       <section>
         <h3>Consejos</h3>
         <ul>

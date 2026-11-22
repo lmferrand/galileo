@@ -82,6 +82,18 @@ export default function PlacaCanciones({ canciones, onOrganizar, alLeer }: Props
   );
   // Por dónde va el tambor (con decimales mientras gira)
   const [posLibre, setPos] = useState(inicio.pos);
+  // Si la canción se pone desde otro sitio (el disco de Galileo del escritorio), el tambor va a ella:
+  // entra en su carpeta y la deja en el centro. (Puesta desde aquí ya estaba ahí: no se mueve nada.)
+  const [mostrada, setMostrada] = useState(actual);
+  if (actual !== mostrada) {
+    const g = actual ? grupos.find((x) => x.canciones.some((c) => c.id === actual)) : undefined;
+    // (si aún no está en la lista —se acaba de bajar—, se espera a que llegue)
+    if (!actual || g) setMostrada(actual);
+    if (g) {
+      setCarpeta(g.nombre);
+      setPos(g.canciones.findIndex((c) => c.id === actual));
+    }
+  }
   const anim = useRef(0);
   const arrastre = useRef<{ id: number; y0: number; pos0: number; movido: boolean } | null>(null);
   const ultimo = filasTodas.length - 1;

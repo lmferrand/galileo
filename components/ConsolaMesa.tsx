@@ -42,6 +42,8 @@ import { sonarAunqueEnSilencio } from "@/lib/sesionAudio";
 import { usePasoAtras } from "@/lib/atras";
 import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
 import CarpetasMesa from "./CarpetasMesa";
+import DiscoGalileo, { EstucheMesa, type Caja } from "./DiscoGalileo";
+import { DISCO } from "@/lib/pistas/discoGalileo";
 import BucleMesa from "./BucleMesa";
 import { guardarCuentaMesa, leerCuentaMesa, SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
 import { guardarEscucha, guardarModoGrabar, leerEscucha, leerModoGrabar, RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA, type ModoGrabar } from "@/lib/mesa/escucha";
@@ -144,6 +146,37 @@ const transformDe = (e: Encuadre) => `translate(${e.x}px, ${e.y}px) scale(${e.z}
 
 /** La foto del escritorio (public/mesa/escritorio2.webp) */
 const ESCRITORIO = { w: 1671, h: 941 };
+/** El estuche del disco de Galileo en esa foto (abajo a la derecha): se toca y se abre (DiscoGalileo) */
+const ESTUCHE: Caja = { x: 1390, y: 649, w: 264, h: 234 };
+/** Lo mínimo del estuche que tiene que verse (px de pantalla) para poder tocarlo en la foto: con el dedo y con el ratón */
+const ESTUCHE_MINIMO = { dedo: 40, raton: 22 };
+/**
+ * El estuche con la grabadora y la mesa juntas (ordenador, tableta), en píxeles de la consola. La
+ * foto del escritorio es el fondo de la pantalla (.estudio-consola: centrada y cubriéndola entera).
+ * Lo que la pieza no tape y quepa en la pantalla es lo que se toca. Si no se ve (la tableta de pie:
+ * la foto queda recortada por los lados), va suelto en la madera de debajo de la mesa, si hay sitio.
+ */
+function estucheJuntas(t: Tam, anchoPieza: number, altoPieza: number): { sitio: Caja; entero: Caja; suelto: boolean } | null {
+  const k = Math.max(t.ancho / ESCRITORIO.w, t.alto / ESCRITORIO.h);
+  const entero: Caja = {
+    x: (t.ancho - ESCRITORIO.w * k) / 2 + ESTUCHE.x * k - t.x0,
+    y: (t.alto - ESCRITORIO.h * k) / 2 + ESTUCHE.y * k - t.y0,
+    w: ESTUCHE.w * k,
+    h: ESTUCHE.h * k,
+  };
+  const derPieza = Math.min(t.w, (t.w + anchoPieza) / 2);
+  const x1 = Math.max(entero.x, derPieza + 4);
+  const x2 = Math.min(entero.x + entero.w, t.ancho - t.x0);
+  const y1 = Math.max(entero.y, -t.y0);
+  const y2 = Math.min(entero.y + entero.h, t.alto - t.y0);
+  const minimo = t.tactil ? ESTUCHE_MINIMO.dedo : ESTUCHE_MINIMO.raton;
+  if (x2 - x1 >= minimo && y2 - y1 >= minimo) return { sitio: { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }, entero, suelto: false };
+  const debajo = t.alto - t.y0 - (t.h + altoPieza) / 2;
+  if (debajo < 96) return null;
+  const alto = Math.min(150, debajo - 26);
+  const suelto: Caja = { x: t.ancho - t.x0 - (alto * ESTUCHE.w) / ESTUCHE.h - 18, y: t.alto - t.y0 - alto - 12, w: (alto * ESTUCHE.w) / ESTUCHE.h, h: alto };
+  return { sitio: suelto, entero: suelto, suelto: true };
+}
 /** Debajo de la grabadora y la mesa vistas de lejos: el letrero «Toca la grabadora o la mesa…» (pisa solo la madera de abajo de la mesa) */
 const HUECO_LETRERO = 14;
 /** El margen de la consola (mesa.css): si mide más, es que ahí el aparato tapa algo (la cámara, la barra) */
@@ -212,6 +245,13 @@ function camaraDe({ w, h, x0, y0, ancho, alto }: Tam) {
     mesa: cerca(zMesa, pieza.x + ZONA_MESA.x * escala, yMesa - ASOMA_CINTA / zMesa, ZONA_MESA.w * escala, ZONA_MESA.h * escala + ASOMA_CINTA / zMesa),
   };
   return { escala, escena, pieza, fondo, encuadres, marco: { left: -x0, top: -y0, width: ancho, height: alto } };
+}
+
+/** El estuche en la capa del móvil: donde lo pinta la foto del escritorio (se ve entero o casi) */
+function estucheEnCapa(fondo: { x: number; y: number; w: number }): { sitio: Caja; entero: Caja; suelto: boolean } {
+  const k = fondo.w / ESCRITORIO.w;
+  const entero: Caja = { x: fondo.x + ESTUCHE.x * k, y: fondo.y + ESTUCHE.y * k, w: ESTUCHE.w * k, h: ESTUCHE.h * k };
+  return { sitio: entero, entero, suelto: false };
 }
 
 function Pieza({
@@ -325,6 +365,10 @@ function tocaDecirComoVolver(): boolean {
 
 /** Se ha puesto otra canción desde la placa con la grabadora (o el selector) en grande: ahí se sigue (ver «parte») */
 let seguirEn: Parte | null = null;
+/** Al poner una canción del disco de Galileo: la vista sigue (o se va) a la grabadora */
+function seguirLuegoEn(p: Parte) {
+  seguirEn = p;
+}
 
 const LECTURA_MS = 1400;
 /** Dónde queda el pico más fuerte de lo que tocas tras el ajuste automático del TRIM (dBFS) */
@@ -505,6 +549,9 @@ export default function ConsolaMesa({
   const [verBucle, setVerBucle] = useState(false);
   // Organizar las carpetas del selector (la lente de la rueda dentada de la placa)
   const [verCarpetas, setVerCarpetas] = useState(false);
+  // El disco de Galileo abierto: dónde estaba el estuche en la pantalla al tocarlo (de ahí sale y ahí vuelve)
+  const [disco, setDisco] = useState<Caja | null>(null);
+  usePasoAtras(disco !== null, 5, () => setDisco(null));
   const [metroCambiado, setMetroCambiado] = useState<AjustesMetronomo | null>(null);
   const metroAj: AjustesMetronomo = metroCambiado ?? (hidratado ? leerAjustesMetronomo() : { bpm: 90, compas: 4 });
   const [cuentaCambiada, setCuentaCambiada] = useState<boolean | null>(null);
@@ -1161,6 +1208,19 @@ export default function ConsolaMesa({
   // En el móvil tumbado: las dos en pequeño y, al tocar una, la vista se acerca a ella (camaraDe)
   const camara = partido && tam ? camaraDe(tam) : null;
   const encuadre = camara?.encuadres[parte];
+  // El estuche del disco de Galileo en el escritorio (solo si hay canciones suyas y selector donde ponerlas)
+  const hayDisco = !!canciones && DISCO.temas.length > 0;
+  const estuche = !hayDisco || !tam ? null : camara ? estucheEnCapa(camara.fondo) : estucheJuntas(tam, ANCHO_MESA * escala, PIEZA.alto * escala);
+  // Guardado el disco: la canción elegida se pone en la grabadora (en el móvil, la vista va a ella)
+  const alGuardarDisco = (poner?: Cancion) => {
+    setDisco(null);
+    if (!poner || !canciones) return;
+    if (partido) {
+      seguirLuegoEn("cinta");
+      if (parte !== "cinta") irA("cinta");
+    }
+    canciones.onElegir(poner);
+  };
   // El «atrás» del aparato (lib/atras), paso a paso como tocar fuera: del canal a la mesa y del
   // selector a la grabadora; y de la grabadora o la mesa, a las dos
   usePasoAtras(partido && parte !== "las-dos", 3, () => irA("las-dos"));
@@ -1477,13 +1537,14 @@ export default function ConsolaMesa({
       : undefined;
 
   return (
-    <div className={`consola-foto vista-${vista}`} ref={raiz}>
+    <div className={`consola-foto vista-${vista}${disco ? " con-disco" : ""}`} ref={raiz}>
       {tam && vista === "juntas" && (
         // La grabadora sobre la mesa, una sola pieza (se desliza si no cabe)
         <div className="cf-abajo">
           <Pieza escala={escala} cinta={cinta} abajo={abajo} propsCinta={propsCinta} propsMesa={propsMesa} />
         </div>
       )}
+      {estuche && vista === "juntas" && <EstucheMesa {...estuche} onAbrir={setDisco} />}
 
       {camara && encuadre && (
         // El móvil tumbado: el escritorio, la grabadora y la mesa en una sola capa (camaraDe). No se
@@ -1502,6 +1563,7 @@ export default function ConsolaMesa({
               draggable={false}
               style={{ left: camara.fondo.x, top: camara.fondo.y, width: camara.fondo.w, height: camara.fondo.h }}
             />
+            {estuche && <EstucheMesa {...estuche} onAbrir={setDisco} />}
             <div className="cf-en-escena" style={{ left: camara.pieza.x, top: camara.pieza.y }}>
               <Pieza
                 escala={camara.escala}
@@ -1657,6 +1719,7 @@ export default function ConsolaMesa({
         </div>
       )}
 
+      {disco && canciones && <DiscoGalileo origen={disco} canciones={canciones} onCerrar={alGuardarDisco} />}
       {verCarpetas && canciones && (
         <CarpetasMesa canciones={canciones.lista} onCambiadas={canciones.onCambiadas ?? (() => undefined)} onCerrar={() => setVerCarpetas(false)} />
       )}
