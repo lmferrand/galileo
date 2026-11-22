@@ -179,7 +179,7 @@ export async function calibrar(): Promise<Calibracion> {
   const clics = pistaDeClics();
   const frames = clics.length >> 1;
   const neutro = { ...AJUSTES_PISTA, ganancia: 0, volumen: 1, panorama: 0, silencio: false };
-  const sinEfectos: AjustesMesa = { ...leerAjustesMesa(), canales: [neutro, neutro], maestros: MAESTROS_INICIALES };
+  const sinEfectos: AjustesMesa = { ...leerAjustesMesa(), canales: [neutro, neutro], maestros: MAESTROS_INICIALES, equipos: [null, null] };
   try {
     mesa.oirse(false);
     mesa.aplicar(sinEfectos);

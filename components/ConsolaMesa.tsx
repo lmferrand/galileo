@@ -9,7 +9,7 @@
 // silencio son los del reproductor; sus efectos, los de su canal en lib/pistas/reproductor.
 // En el móvil de pie pide girarlo: la mesa necesita la pantalla tumbada.
 
-import { startTransition, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
+import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
 import EfectosMesa, { efectosActivos } from "./EfectosMesa";
 import MesaFoto, { ANCHO_MESA, BISEL_MESA, ZONA_MESA, type CanalFoto } from "./MesaFoto";
 import CanalGrande from "./CanalGrande";
@@ -44,6 +44,8 @@ import MetronomoMesa, { type MetronomoCancion } from "./MetronomoMesa";
 import CarpetasMesa from "./CarpetasMesa";
 import DiscoGalileo, { EstucheMesa, type Caja } from "./DiscoGalileo";
 import { DISCO } from "@/lib/pistas/discoGalileo";
+import Equipo from "./Equipo";
+import type { EquipoId } from "@/lib/ampli/ajustes";
 import BucleMesa from "./BucleMesa";
 import { guardarCuentaMesa, leerCuentaMesa, SEGUNDOS_CUENTA } from "@/lib/mesa/cuenta";
 import { guardarEscucha, guardarModoGrabar, leerEscucha, leerModoGrabar, RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA, type ModoGrabar } from "@/lib/mesa/escucha";
@@ -470,6 +472,14 @@ export default function ConsolaMesa({
     canales[i] = f(canales[i]);
     cambiar({ ...ajustes, canales });
   };
+  // El ampli y la pedalera por los que pasa una entrada antes de su canal (lib/ampli), y su pantalla
+  const ponerEquipo = (i: number, tipo: EquipoId | null) => {
+    const equipos = [...ajustes.equipos] as AjustesMesa["equipos"];
+    equipos[i] = tipo;
+    cambiar({ ...ajustes, equipos });
+  };
+  const [verEquipo, setVerEquipo] = useState<0 | 1 | null>(null);
+  const cerrarEquipo = useCallback(() => setVerEquipo(null), []);
   const cambiarPista = (i: number, f: (c: AjustesCanal) => AjustesCanal) => {
     const lista = [...ajustesPistas];
     lista[i] = f(lista[i]);
@@ -1397,7 +1407,7 @@ export default function ConsolaMesa({
       volumen: c.volumen,
       silencio: c.silencio,
       solo: soloEntradas[i],
-      nFx: efectosActivos(c),
+      nFx: efectosActivos(c) + (ajustes.equipos[i] ? 1 : 0),
       onCanal: (f) => cambiarEntrada(i, f),
       onVolumen: (volumen) => cambiarEntrada(i, (x) => ({ ...x, volumen })),
       onSilencio: () => cambiarEntrada(i, (x) => ({ ...x, silencio: !x.silencio })),
@@ -1720,6 +1730,14 @@ export default function ConsolaMesa({
       )}
 
       {disco && canciones && <DiscoGalileo origen={disco} canciones={canciones} onCerrar={alGuardarDisco} />}
+      {verEquipo !== null && ajustes.equipos[verEquipo] && (
+        <Equipo
+          key={`${verEquipo} ${ajustes.equipos[verEquipo]}`}
+          tipo={ajustes.equipos[verEquipo]}
+          enMesa={{ entrada: verEquipo, encendida, ocupada: estado === "abriendo", onPulsar: () => void encender() }}
+          onCerrar={cerrarEquipo}
+        />
+      )}
       {verCarpetas && canciones && (
         <CarpetasMesa canciones={canciones.lista} onCambiadas={canciones.onCambiadas ?? (() => undefined)} onCerrar={() => setVerCarpetas(false)} />
       )}
@@ -2021,6 +2039,42 @@ export default function ConsolaMesa({
               </button>
             </header>
             <div className="hoja-cuerpo mesa-hoja">
+              {/* Lo primero de una entrada: el ampli y la pedalera de la guitarra (lib/ampli) */}
+              {abierta.tipo === "entrada" && (
+                <section className="mesa-equipo">
+                  <h3>Ampli y pedalera</h3>
+                  <div className="segmentado" role="group" aria-label={`Ampli y pedalera de ${tituloHoja}`} style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+                    {(
+                      [
+                        [null, "Sin ampli"],
+                        ["electrica", "Eléctrica"],
+                        ["acustica", "Acústica"],
+                      ] as const
+                    ).map(([tipo, nombre]) => (
+                      <button key={nombre} type="button" aria-pressed={ajustes.equipos[abierta.i] === tipo} onClick={() => ponerEquipo(abierta.i, tipo)}>
+                        {nombre}
+                      </button>
+                    ))}
+                  </div>
+                  {ajustes.equipos[abierta.i] && (
+                    <button
+                      type="button"
+                      className="boton-secundario ancho"
+                      onClick={() => {
+                        setVerEquipo(abierta.i as 0 | 1);
+                        setAbierta(null);
+                      }}
+                    >
+                      Abrir el ampli y los pedales
+                    </button>
+                  )}
+                  <p className="toma-ayuda">
+                    {ajustes.equipos[abierta.i]
+                      ? "La guitarra pasa por su ampli y sus pedales antes de este canal: suena con la canción y REC la graba así. Son los mismos mandos que en el afinador."
+                      : "Para una guitarra: pásala por su ampli y sus pedales antes de este canal. Sonará con la canción y REC la grabará así."}
+                  </p>
+                </section>
+              )}
               {abierta.tipo === "entrada" && (
                 <section className="escucha-cascos" aria-live="polite">
                   <div className="segmentado modo-grabar" role="group" aria-label="Cómo grabas">

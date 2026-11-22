@@ -1,6 +1,8 @@
 // Ajustes de la Mesa: dos canales (entradas 1 y 2 de la interfaz) con sus efectos y el volumen
 // general. Se recuerdan en este aparato. Los «sonidos» son puntos de partida (solo tocan efectos).
 
+import type { EquipoId } from "../ampli/ajustes";
+
 export interface AjustesCanal {
   /** dB que se suben o bajan a la entrada (0 = tal cual) */
   ganancia: number;
@@ -23,6 +25,11 @@ export interface AjustesMesa {
   /** Multiplicador: 1 = 0 dB */
   general: number;
   maestros: Maestros;
+  /**
+   * El ampli y la pedalera por los que pasa cada entrada antes de llegar a su canal (lib/ampli): el
+   * de la eléctrica, el de la acústica o ninguno (null: la entrada tal cual, para la voz o un teclado).
+   */
+  equipos: [EquipoId | null, EquipoId | null];
 }
 
 /**
@@ -84,6 +91,7 @@ export const AJUSTES_INICIALES: AjustesMesa = {
   canales: [structuredClone(BASE), { ...structuredClone(BASE), compresor: { activo: true, cantidad: 0.45 }, reverb: { activo: true, tamano: 0.45, mezcla: 0.18 } }],
   general: 1,
   maestros: { ...MAESTROS_INICIALES },
+  equipos: [null, null],
 };
 
 type Sonido = Pick<AjustesCanal, Efecto>;
@@ -186,8 +194,10 @@ export function leerAjustesMesa(): AjustesMesa {
     const canales: AjustesMesa["canales"] = [completar(p.canales[0], AJUSTES_INICIALES.canales[0]), completar(p.canales[1], AJUSTES_INICIALES.canales[1])];
     // Desde la versión 3 todo empieza en 0 dB: lo guardado antes se pone a 0 dB una vez (los efectos se quedan)
     const maestros = leerMaestros(p.maestros);
-    if ((p.v ?? 1) < 3) return { canales: canales.map(aCero) as AjustesMesa["canales"], general: 1, maestros };
-    return { canales, general, maestros };
+    const equipo = (v: unknown): EquipoId | null => (v === "electrica" || v === "acustica" ? v : null);
+    const equipos: AjustesMesa["equipos"] = Array.isArray(p.equipos) ? [equipo(p.equipos[0]), equipo(p.equipos[1])] : [null, null];
+    if ((p.v ?? 1) < 3) return { canales: canales.map(aCero) as AjustesMesa["canales"], general: 1, maestros, equipos };
+    return { canales, general, maestros, equipos };
   } catch {
     return structuredClone(AJUSTES_INICIALES);
   }

@@ -1,6 +1,8 @@
 // La Mesa: la interfaz de audio entra por la entrada elegida en Ajustes (lib/entrada), se separa en
 // sus dos entradas y cada una pasa por su canal: ganancia → puerta de ruido → compresor →
-// distorsión → ecualizador → chorus → delay → reverb → panorama → volumen. Al final, el volumen
+// distorsión → ecualizador → chorus → delay → reverb → panorama → volumen. Antes de su canal, una
+// entrada puede pasar por el ampli y la pedalera de una guitarra (lib/ampli/cadena): como un ampli
+// con su micro delante enchufado a la mesa. Así suena con la canción y REC lo graba. Al final, el volumen
 // general y un limitador (nunca satura) hacia la salida (los cascos de la interfaz).
 // El retraso al oírte en los cascos: lo pone sobre todo el aparato (y mucho más unos cascos
 // Bluetooth). La Mesa no le suma nada que se pueda evitar: ni el compresor de las entradas ni el
@@ -13,6 +15,8 @@ import { pedirAudio } from "../entrada";
 import { apuntarMicro } from "@/lib/sesionAudio";
 import { leerEscucha } from "./escucha";
 import { conMaestros, generalEntradas, type AjustesCanal, type AjustesMesa } from "./ajustes";
+import { CadenaEquipo } from "../ampli/cadena";
+import { leerEquipo, type AjustesEquipo, type EquipoId } from "../ampli/ajustes";
 
 export type EstadoMesa = "apagada" | "abriendo" | "encendida" | "denegada" | "error" | "sin-soporte";
 
@@ -335,6 +339,12 @@ export class Mesa {
   private flujo: MediaStream | null = null;
   private fuente: MediaStreamAudioSourceNode | null = null;
   private canales: Canal[] = [];
+  /** Por dónde sale cada entrada de la interfaz: de aquí va a su equipo o, si no lleva, a su canal */
+  private separador: ChannelSplitterNode | null = null;
+  /** El ampli y la pedalera de cada entrada (null: no lleva) */
+  private equipos: ({ tipo: EquipoId; cadena: CadenaEquipo } | null)[] = [null, null];
+  /** Los procesadores sin espera que se han podido cargar: los usan también los equipos */
+  private modulos = { puerta: false, compresor: false };
   private general: GainNode | null = null;
   private medidorGeneral: AnalyserNode | null = null;
   private medidoresLado: [AnalyserNode, AnalyserNode] | null = null;
@@ -414,6 +424,9 @@ export class Mesa {
     this.entradas = Math.min(2, Math.max(1, this.fuente.channelCount, pista?.getSettings().channelCount ?? 1));
     const separador = ctx.createChannelSplitter(2);
     this.fuente.connect(separador);
+    this.separador = separador;
+    this.modulos = { puerta: conPuerta, compresor: compresorSinEspera };
+    this.equipos = [null, null];
 
     this.general = ctx.createGain();
     const limitador = sinEspera ? new AudioWorkletNode(ctx, "limitador-mesa", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] }) : limitadorDelNavegador(ctx);
@@ -454,6 +467,50 @@ export class Mesa {
     if (!this.ctx || !this.general) return;
     this.canales.forEach((c, i) => c.aplicar(conMaestros(a.canales[i], a.maestros)));
     poner(this.general.gain, generalEntradas(a), this.ctx);
+    this.ponerEquipos(a.equipos);
+  }
+
+  // ---------- El ampli y la pedalera de cada entrada ----------
+  /** Enchufa (o quita) el equipo de cada entrada, entre la interfaz y su canal. Solo toca lo que cambia. */
+  private ponerEquipos(tipos: AjustesMesa["equipos"]) {
+    const ctx = this.ctx;
+    const separador = this.separador;
+    if (!ctx || !separador) return;
+    this.canales.forEach((canal, i) => {
+      const quiere = tipos?.[i] ?? null;
+      const hay = this.equipos[i];
+      if ((hay?.tipo ?? null) === quiere) return;
+      try {
+        separador.disconnect(hay ? hay.cadena.entrada : canal.entrada, i);
+      } catch {
+        /* ya estaba suelto */
+      }
+      if (hay) {
+        hay.cadena.salida.disconnect();
+        hay.cadena.parar();
+      }
+      if (quiere) {
+        const cadena = new CadenaEquipo(ctx, quiere, this.modulos);
+        // Con los mandos como los dejaste (los mismos que en el afinador)
+        cadena.aplicar(leerEquipo(quiere));
+        separador.connect(cadena.entrada, i);
+        cadena.salida.connect(canal.entrada);
+        this.equipos[i] = { tipo: quiere, cadena };
+      } else {
+        separador.connect(canal.entrada, i);
+        this.equipos[i] = null;
+      }
+    });
+  }
+
+  /** Los mandos del ampli y de los pedales de una entrada: los mueve su pantalla (components/Equipo) */
+  aplicarEquipo(i: number, a: AjustesEquipo) {
+    this.equipos[i]?.cadena.aplicar(a);
+  }
+
+  /** Lo que llega de la guitarra al equipo de una entrada (pico, 0–1): para la luz del ampli */
+  nivelEquipo(i: number): number {
+    return picoDe(this.equipos[i]?.cadena.medidor ?? null, this.datos);
   }
 
   // ---------- Grabar lo que tocas (REC) ----------
@@ -536,6 +593,9 @@ export class Mesa {
     this.escucha = null;
     this.canales.forEach((c) => c.parar());
     this.canales = [];
+    this.equipos.forEach((e) => e?.cadena.parar());
+    this.equipos = [null, null];
+    this.separador = null;
     this.flujo?.getTracks().forEach((p) => p.stop());
     this.flujo = null;
     this.fuente = null;

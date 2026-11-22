@@ -28,6 +28,17 @@
     --u: clamp(10.5px, min(calc((100vw - 24px) / 62), calc((100dvh - 70px) / 53.6)), 17px);
   }
 }
+/* Móvil tumbado (así se usa la Mesa): no cabe todo a la vez. Dos pantallas, una debajo de otra, y
+   al deslizar se queda en el ampli o en los pedales */
+@media (orientation: landscape) and (max-height: 520px) {
+  .equipo {
+    scroll-snap-type: y proximity;
+  }
+  .eq-ampli,
+  .eq-pedalera {
+    scroll-snap-align: center;
+  }
+}
 .equipo.sale {
   animation: equipo-se-va 360ms ease both;
 }
@@ -69,6 +80,20 @@
   50% {
     opacity: 1;
   }
+}
+
+/* En la hoja de efectos de una entrada de la Mesa: elegir su ampli y abrirlo */
+.mesa-equipo {
+  display: grid;
+  gap: 10px;
+  margin: 4px 0 16px;
+}
+.mesa-equipo h3 {
+  margin: 0;
+  font: 700 15px/1.2 var(--f-ui);
+}
+.mesa-equipo .toma-ayuda {
+  margin: 0;
 }
 
 /* Lo de detrás (el afinador) no se ve ni se puede tocar mientras tanto; el estudio, sí se ve */

@@ -80,6 +80,18 @@ export default function AyudaMesa() {
           </dl>
         </section>
       ))}
+      <section>
+        <h3>El ampli de la guitarra</h3>
+        <dl>
+          <div className="ayuda-fila">
+            <dt>SELECT de INPUT 1 o 2</dt>
+            <dd>
+              Arriba del todo, «Ampli y pedalera»: elige «Eléctrica» o «Acústica» y la guitarra pasa por su ampli y sus pedales antes del canal. Suena con la
+              canción y REC la graba así. «Abrir el ampli y los pedales» enseña sus mandos (son los mismos que en el afinador). Para la voz, «Sin ampli».
+            </dd>
+          </div>
+        </dl>
+      </section>
       {DISCO.temas.length > 0 && (
         <section>
           <h3>El disco del escritorio</h3>

@@ -8,10 +8,15 @@
 // Dibujado con estilos, sin fotos ni marcas: los amplis son «Galileo» (el de la eléctrica, forrado
 // en negro; el de la acústica, de madera) y los pedales tienen nombre propio. El sonido es lib/ampli/cadena; quien lo enciende, lib/ampli/ampli.
 // Lo que se mueve en cada fotograma (la luz de señal) va por fuera de React.
+// Vale de dos maneras. Suelto (desde el afinador): la palanca enciende el ampli, que abre la entrada
+// por su cuenta (lib/ampli/ampli) y se apaga al cerrar. Enchufado a una entrada de la Mesa
+// (`enMesa`, desde la hoja de efectos de INPUT 1 o 2): la palanca enciende las entradas de la Mesa,
+// el sonido lo lleva ella (suena con la canción y REC lo graba) y al cerrar sigue sonando.
 
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { accesible, useArrastre, type PropsMando } from "./MandosMesa";
 import { ampli, type EstadoAmpli } from "@/lib/ampli/ampli";
+import { mesa } from "@/lib/mesa/mesa";
 import { EQUIPOS, MANDOS_AMPLI, enDiez, guardarEquipo, leerEquipo, type AjustesEquipo, type AjustesPedal, type EquipoId, type Pedal } from "@/lib/ampli/ajustes";
 import { msDelEco } from "@/lib/ampli/cadena";
 import { RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA } from "@/lib/mesa/escucha";
@@ -91,10 +96,20 @@ function PedalVista({
   );
 }
 
-export default function Equipo({ tipo, onCerrar }: { tipo: EquipoId; onCerrar: () => void }) {
+/** Enchufado a una entrada de la Mesa: cuál, y la palanca (encender las entradas) la lleva ella */
+export interface EquipoEnMesa {
+  entrada: 0 | 1;
+  encendida: boolean;
+  ocupada: boolean;
+  onPulsar: () => void;
+}
+
+export default function Equipo({ tipo, onCerrar, enMesa }: { tipo: EquipoId; onCerrar: () => void; enMesa?: EquipoEnMesa }) {
   const equipo = EQUIPOS[tipo];
-  const estado = useEstadoAmpli();
+  const estadoSuelto = useEstadoAmpli();
+  const estado: EstadoAmpli = enMesa ? (enMesa.encendida ? "encendido" : enMesa.ocupada ? "abriendo" : "apagado") : estadoSuelto;
   const encendido = estado === "encendido";
+  const entradaMesa = enMesa?.entrada ?? null;
   // (se monta al tocar el ampli, ya en el aparato: lo guardado se puede leer al empezar)
   const [ajustes, setAjustes] = useState<AjustesEquipo>(() => leerEquipo(tipo));
   const [saliendo, setSaliendo] = useState(false);
@@ -105,32 +120,37 @@ export default function Equipo({ tipo, onCerrar }: { tipo: EquipoId; onCerrar: (
   const cambiar = (nuevo: AjustesEquipo) => {
     setAjustes(nuevo);
     guardarEquipo(tipo, nuevo);
-    ampli.aplicar(nuevo);
+    if (entradaMesa !== null) mesa.aplicarEquipo(entradaMesa, nuevo);
+    else ampli.aplicar(nuevo);
   };
 
   const cerrar = () => {
     if (saliendo) return;
     setSaliendo(true);
-    ampli.apagar();
+    if (entradaMesa === null) ampli.apagar();
   };
   useEffect(() => {
     if (!saliendo) return;
     const t = setTimeout(onCerrar, MS_SALIR);
     return () => clearTimeout(t);
   }, [saliendo, onCerrar]);
-  usePasoAtras(true, 1, cerrar);
+  usePasoAtras(true, entradaMesa !== null ? 6 : 1, cerrar);
 
-  // Al irse (se cierra, o cambias de pestaña): el ampli se apaga y suelta la entrada
-  useEffect(() => () => ampli.apagar(), []);
-
-  // Al volver a la app, el iPhone ha suspendido el sonido
+  // Suelto, al irse (se cierra, o cambias de pestaña): el ampli se apaga y suelta la entrada
   useEffect(() => {
+    if (entradaMesa !== null) return;
+    return () => ampli.apagar();
+  }, [entradaMesa]);
+
+  // Al volver a la app, el iPhone ha suspendido el sonido (en la Mesa, de eso se ocupa ella)
+  useEffect(() => {
+    if (entradaMesa !== null) return;
     const volver = () => {
       if (document.visibilityState === "visible") void ampli.reanudar();
     };
     document.addEventListener("visibilitychange", volver);
     return () => document.removeEventListener("visibilitychange", volver);
-  }, []);
+  }, [entradaMesa]);
 
   // Encendido: la luz de señal sigue lo que llega de la guitarra, se mira el retraso (el navegador
   // tarda un momento en saberlo) y la pantalla no se apaga mientras tocas
@@ -138,7 +158,7 @@ export default function Equipo({ tipo, onCerrar }: { tipo: EquipoId; onCerrar: (
     if (!encendido) return;
     let fuera = false;
     let bloqueo: Bloqueo | null = null;
-    (navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<Bloqueo> } }).wakeLock
+    (entradaMesa !== null ? undefined : (navigator as Navigator & { wakeLock?: { request: (t: "screen") => Promise<Bloqueo> } }).wakeLock)
       ?.request("screen")
       .then((b) => {
         if (fuera) void b.release().catch(() => undefined);
@@ -149,7 +169,7 @@ export default function Equipo({ tipo, onCerrar }: { tipo: EquipoId; onCerrar: (
     let luz = 0;
     const pintar = () => {
       raf = requestAnimationFrame(pintar);
-      const { entrada } = ampli.niveles();
+      const entrada = entradaMesa !== null ? mesa.nivelEquipo(entradaMesa) : ampli.niveles().entrada;
       // (sube al momento y baja despacio, como una bombilla)
       luz = Math.max(Math.min(1, Math.sqrt(entrada) * 1.6), luz * 0.9);
       const el = piloto.current;
@@ -159,7 +179,7 @@ export default function Equipo({ tipo, onCerrar }: { tipo: EquipoId; onCerrar: (
       }
     };
     raf = requestAnimationFrame(pintar);
-    const t = setTimeout(() => setRetraso(ampli.retrasoMs()), 700);
+    const t = setTimeout(() => setRetraso(entradaMesa !== null ? null : ampli.retrasoMs()), 700);
     return () => {
       fuera = true;
       void bloqueo?.release().catch(() => undefined);
@@ -167,16 +187,23 @@ export default function Equipo({ tipo, onCerrar }: { tipo: EquipoId; onCerrar: (
       clearTimeout(t);
       setRetraso(null);
     };
-  }, [encendido]);
+  }, [encendido, entradaMesa]);
 
   const palanca = () => {
     if (saliendo) return;
-    if (encendido || estado === "abriendo") ampli.apagar();
+    if (enMesa) enMesa.onPulsar();
+    else if (encendido || estado === "abriendo") ampli.apagar();
     else void ampli.encender(tipo, ajustes);
   };
 
   let aviso: string;
-  if (estado === "apagado") aviso = "Sube la palanca para encenderlo y toca. Mejor con cascos: por el altavoz del aparato se acopla.";
+  if (enMesa) {
+    aviso = encendido
+      ? `Enchufado a la entrada ${enMesa.entrada + 1} de la Mesa: suena con la canción y REC lo graba.`
+      : estado === "abriendo"
+        ? "Calentando las válvulas…"
+        : `Enchufado a la entrada ${enMesa.entrada + 1} de la Mesa. Sube la palanca para encender las entradas y toca. Mejor con cascos.`;
+  } else if (estado === "apagado") aviso = "Sube la palanca para encenderlo y toca. Mejor con cascos: por el altavoz del aparato se acopla.";
   else if (estado === "abriendo") aviso = "Calentando las válvulas…";
   else if (estado === "denegado") aviso = "No hay permiso para el micrófono. Permítelo para esta página y vuelve a subir la palanca.";
   else if (estado === "sin-soporte") aviso = "Este navegador no deja usar el micrófono. Abre la página en Safari o en Chrome.";
@@ -198,10 +225,10 @@ export default function Equipo({ tipo, onCerrar }: { tipo: EquipoId; onCerrar: (
         <svg viewBox="0 0 16 16" aria-hidden="true">
           <path d="M10 3 L5 8 L10 13" />
         </svg>
-        Afinador
+        {enMesa ? "Mesa" : "Afinador"}
       </button>
 
-      {encendido && ampli.entradas > 1 && (
+      {!enMesa && encendido && ampli.entradas > 1 && (
         <div className="eq-entradas" role="group" aria-label="Entrada de la guitarra">
           {([0, 1] as const).map((i) => (
             <button key={i} type="button" aria-pressed={ajustes.entrada === i} onClick={() => cambiar({ ...ajustes, entrada: i })}>
