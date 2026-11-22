@@ -28,6 +28,15 @@
     --u: clamp(10.5px, min(calc((100vw - 24px) / 62), calc((100dvh - 70px) / 53.6)), 17px);
   }
 }
+/* Con el selector de amplis encima hay más alto que repartir: todo un poco más pequeño */
+.equipo.con-modelos {
+  --u: clamp(9.4px, min(calc((100vw - 16px) / 36), calc((100dvh - 70px) / 81)), 15px);
+}
+@media (min-aspect-ratio: 1/1) {
+  .equipo.con-modelos {
+    --u: clamp(10.5px, min(calc((100vw - 24px) / 62), calc((100dvh - 70px) / 58.6)), 17px);
+  }
+}
 /* Móvil tumbado (así se usa la Mesa): no cabe todo a la vez. Dos pantallas, una debajo de otra, y
    al deslizar se queda en el ampli o en los pedales */
 @media (orientation: landscape) and (max-height: 520px) {
@@ -151,6 +160,44 @@
   }
 }
 
+/* ---------------- Elegir amplificador ---------------- */
+
+.eq-modelos {
+  display: grid;
+  justify-items: center;
+  gap: 0.5em;
+  max-width: 100%;
+  margin-bottom: 0.6em;
+}
+.eq-pastillas {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(241, 213, 157, 0.35);
+  border-radius: 999px;
+  background: rgba(18, 10, 6, 0.6);
+}
+.eq-pastillas button {
+  min-height: 34px;
+  padding: 0 max(1em, 11px);
+  border: 0;
+  background: none;
+  color: rgba(243, 232, 214, 0.78);
+  font: 700 max(1.2em, 13px) / 1 var(--f-ui);
+  cursor: pointer;
+}
+.eq-pastillas button[aria-pressed="true"] {
+  background: #d9b26a;
+  color: #1b1009;
+}
+.eq-caracter {
+  margin: 0;
+  font: 500 max(1.1em, 12px) / 1.3 var(--f-ui);
+  color: rgba(243, 232, 214, 0.74);
+  text-align: center;
+  text-wrap: balance;
+}
+
 /* ---------------- El amplificador ---------------- */
 
 .eq-ampli {
@@ -158,6 +205,7 @@
   width: 35em;
   max-width: 100%;
   margin-top: 1em;
+  animation: eq-ampli-entra 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
   padding: 0.7em;
   border-radius: 1.1em;
   /* (el forro: negro tostado, con su grano) */
@@ -169,6 +217,13 @@
     0 1.4em 2.6em rgba(0, 0, 0, 0.6),
     inset 0 0 0 1px rgba(255, 255, 255, 0.07),
     inset 0 0.16em 0.2em rgba(255, 255, 255, 0.08);
+}
+/* Al cambiar de ampli, el nuevo se posa en su sitio */
+@keyframes eq-ampli-entra {
+  from {
+    opacity: 0;
+    transform: translateY(-0.9em) scale(0.985);
+  }
 }
 /* El asa de cuero, arriba */
 .eq-ampli::before {
@@ -384,6 +439,137 @@
   height: auto;
   filter: drop-shadow(0 0.15em 0.25em rgba(0, 0, 0, 0.65));
   pointer-events: none;
+}
+/* Con varios amplis a elegir, cada uno lleva su nombre en una placa, abajo a la derecha de la tela */
+.eq-rejilla {
+  position: relative;
+}
+.eq-placa {
+  position: absolute;
+  right: 0.9em;
+  bottom: 0.75em;
+  padding: 0.12em 0.7em 0.2em;
+  border-radius: 0.3em;
+  background: linear-gradient(#e9cf96, #b48c45);
+  box-shadow:
+    0 0.1em 0.2em rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  color: #2a1a0a;
+  font: italic 600 1.35em/1.1 var(--f-display);
+}
+
+/* --- Cristal: forro negro, frente negro con ruedas plateadas y tela gris plata --- */
+.amp-cristal .eq-panel {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 3px),
+    linear-gradient(#2c2c30, #131316 62%, #0a0a0c);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 0.2em 0.5em rgba(0, 0, 0, 0.5);
+  color: #e8eaee;
+}
+.amp-cristal .eq-panel .eq-rueda {
+  background: radial-gradient(circle at 50% 40%, #4a4c52, #111214 72%);
+}
+.amp-cristal .eq-panel .eq-rueda-tapa {
+  background: radial-gradient(circle at 36% 30%, #ffffff, #c9cdd4 46%, #7d828b);
+}
+.amp-cristal .eq-panel .eq-rueda-tapa::after {
+  background: #15161a;
+}
+.amp-cristal .eq-rejilla {
+  background:
+    radial-gradient(circle at 50% 54%, rgba(0, 0, 0, 0.22) 0 4.6em, transparent 4.8em),
+    repeating-linear-gradient(0deg, rgba(20, 30, 50, 0.3) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.28) 0 1px, transparent 1px 4px),
+    linear-gradient(#b9c1cb, #808893);
+  box-shadow:
+    inset 0 0 0 0.2em #dfe3e8,
+    inset 0 0.7em 1.5em rgba(0, 0, 0, 0.4);
+}
+.amp-cristal .eq-placa {
+  background: linear-gradient(#f2f4f7, #a8aeb8);
+  color: #15161a;
+}
+
+/* --- Corona: forro negro con ribete blanco, frente dorado con ruedas negras y tela oscura tejida a cuadros --- */
+.amp-corona {
+  box-shadow:
+    0 1.4em 2.6em rgba(0, 0, 0, 0.6),
+    inset 0 0 0 0.16em #efe6d2,
+    inset 0 0 0 0.3em #120c09;
+}
+.amp-corona .eq-panel {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.1) 0 1px, transparent 1px 2px),
+    linear-gradient(#f0d488, #c9a240 58%, #a27c22);
+}
+.amp-corona .eq-panel .eq-rueda {
+  background: radial-gradient(circle at 50% 40%, #1c1c1c, #000 72%);
+}
+.amp-corona .eq-panel .eq-rueda-tapa {
+  background: radial-gradient(circle at 36% 30%, #5d5d5d, #1a1a1a 55%, #000);
+  box-shadow:
+    0 0.14em 0.3em rgba(0, 0, 0, 0.6),
+    inset 0 0 0 0.14em #d9b65a;
+}
+.amp-corona .eq-panel .eq-rueda-tapa::after {
+  background: #f6e7b6;
+}
+.amp-corona .eq-rejilla {
+  background:
+    radial-gradient(circle at 50% 54%, rgba(0, 0, 0, 0.35) 0 4.6em, transparent 4.8em),
+    repeating-linear-gradient(0deg, rgba(255, 240, 210, 0.12) 0 3px, transparent 3px 9px),
+    repeating-linear-gradient(90deg, rgba(255, 240, 210, 0.09) 0 3px, transparent 3px 9px),
+    linear-gradient(#3a3028, #1c1612);
+  box-shadow:
+    inset 0 0 0 0.2em #efe6d2,
+    inset 0 0.7em 1.5em rgba(0, 0, 0, 0.5);
+}
+
+/* --- Volcán: todo negro, frente de acero oscuro con ruedas de aro rojo y rejilla de metal --- */
+.amp-volcan {
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.04) 0 0.6px, transparent 1.2px) 0 0 / 4px 4px,
+    linear-gradient(#17171a, #070708);
+}
+.amp-volcan::before {
+  background:
+    linear-gradient(90deg, #6b6f76 0 0.9em, transparent 0.9em calc(100% - 0.9em), #6b6f76 calc(100% - 0.9em)),
+    linear-gradient(#1b1b1e, #050506);
+}
+.amp-volcan .eq-panel {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 3px),
+    linear-gradient(#5a5f67, #33373d 58%, #1e2125);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 0.2em 0.5em rgba(0, 0, 0, 0.5);
+  color: #f1f2f4;
+}
+.amp-volcan .eq-panel .eq-rueda {
+  background: radial-gradient(circle at 50% 40%, #c2311c, #5e0f06 72%);
+}
+.amp-volcan .eq-panel .eq-rueda-tapa {
+  background: radial-gradient(circle at 36% 30%, #595c63, #17181b 55%, #000);
+}
+.amp-volcan .eq-panel .eq-rueda-tapa::after {
+  background: #ff5a2a;
+}
+.amp-volcan .eq-rejilla {
+  background:
+    radial-gradient(circle at 50% 54%, rgba(120, 20, 6, 0.3) 0 4.6em, transparent 4.9em),
+    radial-gradient(circle, #000 0 1.1px, transparent 1.5px) 0 0 / 5px 5px,
+    linear-gradient(#2c2e33, #111214);
+  box-shadow:
+    inset 0 0 0 0.2em #4a4d54,
+    inset 0 0.7em 1.5em rgba(0, 0, 0, 0.6);
+}
+.amp-volcan .eq-placa {
+  background: linear-gradient(#d2411f, #7a1707);
+  color: #fff3ea;
 }
 
 /* El ampli de la acústica: caja de madera clara, frente de esmalte marfil con ruedas oscuras y una
@@ -635,7 +821,8 @@
   .eq-escena,
   .equipo.sale .eq-escena,
   .equipo.abriendo .eq-piloto,
-  .ampli-fondo::after {
+  .ampli-fondo::after,
+  .eq-ampli {
     animation: none;
   }
   .eq-palanca-vara,

@@ -1,7 +1,8 @@
 // El sonido de los equipos de las guitarras: por dónde pasa la guitarra, en orden.
 //  - Eléctrica: puerta de ruido → Sostén (compresor) → Brasa (saturación) → Trueno (distorsión) →
-//    Marea (chorus) → Eco → el ampli de válvulas: dos válvulas de previo, los tonos, la reverb de
-//    muelles, la etapa de potencia y el altavoz.
+//    Marea (chorus) → Eco → el ampli de válvulas que se elija (VOCES: Clásico, Cristal, Corona o
+//    Volcán): dos o tres válvulas de previo, los tonos, la reverb de muelles, la etapa de potencia y
+//    su altavoz.
 //  - Acústica: Sostén → Madera (realce) → Marea → Latido (trémolo) → Eco → el ampli de acústica:
 //    limpio y de toda la gama, con los tonos y una reverb de sala. Sin puerta (apagaría el final de
 //    las notas) y sin nada que sature.
@@ -395,69 +396,210 @@ function latido(t: Taller): Pieza {
 }
 
 /**
- * El ampli de la eléctrica. Con poca ganancia suena limpio y brillante; con mucha, las dos válvulas
- * saturan, los graves se aprietan (para que no se emborrone) y el volumen se compensa.
+ * La «voz» de un ampli de válvulas: lo que hace que uno suene limpio y cristalino y otro ruja. Todos
+ * están hechos igual (ampliValvulas) y solo cambia esto.
  */
-function ampliValvulas(t: Taller): Pieza {
+interface Voz {
+  /** Lo que se quita de graves antes de la primera válvula (Hz) */
+  entra: number;
+  /** Un empujón de medios antes de saturar (Hz, dB): lo que más satura es lo que más entra */
+  empuje?: [number, number];
+  /** El brillo con poca ganancia (dB); al subirla se va quitando */
+  brillo: number;
+  /** Lo que amplifica cada válvula según la ganancia g (0–1): la primera a·10^(b·g); las demás a + b·g */
+  pre1: [number, number];
+  pre2: [number, number];
+  /** Una tercera válvula: los de mucha ganancia */
+  pre3?: [number, number];
+  /** El pasa-altos entre válvulas, a + b·g (Hz): con más ganancia, graves más prietos */
+  acoplo: [number, number];
+  /** Lo que se compensa el volumen: a + b·(1 − g)³ (medido con notas de prueba: suenan parejos del 0 al 10) */
+  compensa: [number, number];
+  /** Un hueco (o un bulto) fijo de medios después de las válvulas (Hz, dB) */
+  hueco?: [number, number];
+  /** Dónde actúan los mandos de Graves, Medios y Agudos (Hz) */
+  tonos: [number, number, number];
+  /** Cuánto se aprieta la etapa de potencia (1 = lo normal) */
+  potencia: number;
+  /** El altavoz: sus filtros, en fila (tipo, Hz, Q, dB) */
+  caja: [BiquadFilterType, number, number, number][];
+  /** Cuánta reverb de muelles da su mando a tope */
+  reverb: number;
+  /** El volumen con su mando a tope */
+  volumen: number;
+  /** La puerta de ruido, siempre cerrando pronto (los de mucha ganancia zumban aunque no la subas) */
+  ruidoso?: boolean;
+}
+
+const VOCES: Record<string, Voz> = {
+  // Cálido: limpio con poca ganancia, rasga al subirla. Altavoz de 12 pulgadas
+  clasico: {
+    entra: 75,
+    brillo: 5,
+    pre1: [1.5, 1.45],
+    pre2: [1, 5],
+    acoplo: [100, 180],
+    compensa: [0.45, 3.75],
+    tonos: [120, 600, 2800],
+    potencia: 1,
+    caja: [
+      ["highpass", 90, 1, 0],
+      ["peaking", 130, 1.2, 3],
+      ["peaking", 400, 0.9, -3.5],
+      ["peaking", 2500, 1.3, 4.5],
+      ["lowpass", 4700, 0.9, 0],
+      ["lowpass", 6000, 0.6, 0],
+    ],
+    reverb: 0.9,
+    volumen: 1.6,
+  },
+  // Limpio y brillante: mucho margen antes de saturar, medios hundidos, altavoz abierto
+  cristal: {
+    entra: 70,
+    brillo: 7,
+    pre1: [1.2, 1.05],
+    pre2: [1, 2.2],
+    acoplo: [90, 90],
+    compensa: [1.15, 5.6],
+    hueco: [480, -4.5],
+    tonos: [100, 500, 3200],
+    potencia: 0.7,
+    caja: [
+      ["highpass", 80, 0.9, 0],
+      ["peaking", 110, 1.1, 2.5],
+      ["peaking", 450, 0.9, -2],
+      ["peaking", 3000, 1.2, 4],
+      ["lowpass", 5600, 0.8, 0],
+      ["lowpass", 7000, 0.6, 0],
+    ],
+    reverb: 1.05,
+    volumen: 1.6,
+  },
+  // Los medios por delante y la etapa de potencia apretada: cruje pronto. Caja grande, más oscura
+  corona: {
+    entra: 110,
+    empuje: [800, 4],
+    brillo: 3,
+    pre1: [2, 1.5],
+    pre2: [1.5, 5],
+    acoplo: [140, 200],
+    compensa: [0.4, 2.6],
+    tonos: [100, 800, 3000],
+    potencia: 1.4,
+    caja: [
+      ["highpass", 95, 1.2, 0],
+      ["peaking", 120, 1.4, 4],
+      ["peaking", 350, 0.9, -2.5],
+      ["peaking", 2000, 1, 3],
+      ["peaking", 3600, 2, 2.5],
+      ["lowpass", 4300, 1, 0],
+      ["lowpass", 5200, 0.6, 0],
+    ],
+    reverb: 0.7,
+    volumen: 1.6,
+  },
+  // Tres válvulas seguidas: satura mucho con poco. Graves prietos y medios hundidos
+  volcan: {
+    entra: 150,
+    empuje: [900, 3],
+    brillo: 0,
+    pre1: [3, 1.5],
+    pre2: [2, 6],
+    pre3: [1.5, 4],
+    acoplo: [180, 220],
+    compensa: [0.45, 1],
+    hueco: [550, -4],
+    tonos: [90, 650, 3200],
+    potencia: 1,
+    caja: [
+      ["highpass", 100, 1.3, 0],
+      ["peaking", 110, 1.5, 5],
+      ["peaking", 500, 0.9, -4],
+      ["peaking", 2800, 1.5, 4],
+      ["lowpass", 4800, 0.9, 0],
+      ["lowpass", 5500, 0.7, 0],
+    ],
+    reverb: 0.7,
+    volumen: 1.6,
+    ruidoso: true,
+  },
+};
+
+/** La respuesta de los muelles se hace una vez por contexto (cambiar de ampli no la rehace) */
+const muellesHechos = new WeakMap<BaseAudioContext, AudioBuffer>();
+function muellesDe(ctx: BaseAudioContext): AudioBuffer {
+  let ir = muellesHechos.get(ctx);
+  if (!ir) {
+    ir = respuestaMuelles(ctx);
+    muellesHechos.set(ctx, ir);
+  }
+  return ir;
+}
+
+/**
+ * Un ampli de válvulas, con la voz que le toque. Con poca ganancia suena limpio; con mucha, las
+ * válvulas saturan, los graves se aprietan (para que no se emborrone) y el volumen se compensa.
+ */
+function ampliValvulas(t: Taller, v: Voz): Pieza {
   const c = t.ctx;
-  const entra = t.filtro("highpass", 75, 0.707);
-  const brillo = t.filtro("highshelf", 1600, 0.707, 3);
+  const entra = t.filtro("highpass", v.entra, 0.707);
+  const brillo = t.filtro("highshelf", 1600, 0.707, v.brillo);
   const pre1 = t.ganancia();
   const acoplo = t.filtro("highpass", 140, 0.5);
   const pre2 = t.ganancia();
   const compensa = t.ganancia();
-  const graves = t.filtro("lowshelf", 120);
-  const medios = t.filtro("peaking", 600, 0.7);
-  const agudos = t.filtro("highshelf", 2800);
-  entra
-    .connect(brillo)
-    .connect(pre1)
-    .connect(t.moldeador(valvula, R_VALVULA))
-    .connect(acoplo)
-    .connect(pre2)
-    .connect(t.moldeador(valvula, R_VALVULA))
-    .connect(t.filtro("highpass", 40, 0.5))
-    .connect(compensa)
-    .connect(graves)
-    .connect(medios)
-    .connect(agudos);
+  const graves = t.filtro("lowshelf", v.tonos[0]);
+  const medios = t.filtro("peaking", v.tonos[1], 0.7);
+  const agudos = t.filtro("highshelf", v.tonos[2]);
+
+  let nodo: AudioNode = entra;
+  if (v.empuje) nodo = nodo.connect(t.filtro("peaking", v.empuje[0], 0.8, v.empuje[1]));
+  nodo = nodo.connect(brillo).connect(pre1).connect(t.moldeador(valvula, R_VALVULA)).connect(acoplo).connect(pre2).connect(t.moldeador(valvula, R_VALVULA));
+  // La tercera válvula, con su propio pasa-altos delante (el mismo corte que la segunda)
+  let pre3: GainNode | null = null;
+  let acoplo3: BiquadFilterNode | null = null;
+  if (v.pre3) {
+    acoplo3 = t.filtro("highpass", 140, 0.5);
+    pre3 = t.ganancia();
+    nodo = nodo.connect(acoplo3).connect(pre3).connect(t.moldeador(valvula, R_VALVULA));
+  }
+  nodo = nodo.connect(t.filtro("highpass", 40, 0.5)).connect(compensa);
+  if (v.hueco) nodo = nodo.connect(t.filtro("peaking", v.hueco[0], 0.7, v.hueco[1]));
+  nodo.connect(graves).connect(medios).connect(agudos);
 
   // La reverb de muelles, entre los tonos y la etapa de potencia
-  const aPotencia = t.ganancia(1 / R_POTENCIA);
+  const aPotencia = t.ganancia(v.potencia / R_POTENCIA);
   agudos.connect(aPotencia);
   const envio = t.ganancia(0);
   const muelles = c.createConvolver();
   muelles.normalize = false;
-  muelles.buffer = respuestaMuelles(c);
+  muelles.buffer = muellesDe(c);
   agudos.connect(envio).connect(t.filtro("highpass", 300, 0.5)).connect(muelles).connect(t.filtro("lowpass", 4200, 0.5)).connect(aPotencia);
 
-  // La etapa de potencia (aprieta un poco los picos) y el altavoz
+  // La etapa de potencia (aprieta los picos; lo que se la aprieta de más, se baja después) y el altavoz
   const volumen = t.ganancia(0);
-  aPotencia
-    .connect(t.moldeador(blando, R_POTENCIA))
-    .connect(t.filtro("highpass", 90, 1))
-    .connect(t.filtro("peaking", 130, 1.2, 3))
-    .connect(t.filtro("peaking", 400, 0.9, -3.5))
-    .connect(t.filtro("peaking", 2500, 1.3, 4.5))
-    .connect(t.filtro("lowpass", 4700, 0.9))
-    .connect(t.filtro("lowpass", 6000, 0.6))
-    .connect(volumen);
+  let caja: AudioNode = aPotencia.connect(t.moldeador(blando, R_POTENCIA)).connect(t.ganancia(1 / Math.sqrt(v.potencia)));
+  for (const [tipo, hz, q, db] of v.caja) caja = caja.connect(t.filtro(tipo, hz, q, db));
+  caja.connect(volumen);
   return {
     entrada: entra,
     salida: volumen,
     aplicar(a) {
       const g = n(a.ampli.ganancia, 0.3);
-      poner(pre1.gain, (1.5 * Math.pow(10, 1.45 * g)) / R_VALVULA, c);
-      poner(pre2.gain, (1 + 5 * g) / R_VALVULA, c);
-      poner(brillo.gain, 5 * (1 - g), c);
-      poner(acoplo.frequency, 100 + 180 * g, c);
-      poner(compensa.gain, 0.45 + 3.75 * Math.pow(1 - g, 3), c);
+      poner(pre1.gain, (v.pre1[0] * Math.pow(10, v.pre1[1] * g)) / R_VALVULA, c);
+      poner(pre2.gain, (v.pre2[0] + v.pre2[1] * g) / R_VALVULA, c);
+      if (pre3 && v.pre3) poner(pre3.gain, (v.pre3[0] + v.pre3[1] * g) / R_VALVULA, c);
+      poner(brillo.gain, v.brillo * (1 - g), c);
+      const corte = v.acoplo[0] + v.acoplo[1] * g;
+      poner(acoplo.frequency, corte, c);
+      if (acoplo3) poner(acoplo3.frequency, corte, c);
+      poner(compensa.gain, v.compensa[0] + v.compensa[1] * Math.pow(1 - g, 3), c);
       poner(graves.gain, (n(a.ampli.graves) - 0.5) * 24, c);
       poner(medios.gain, (n(a.ampli.medios) - 0.5) * 20, c);
       poner(agudos.gain, (n(a.ampli.agudos) - 0.5) * 24, c);
-      poner(envio.gain, n(a.ampli.reverb, 0.25) * 0.9, c);
-      const v = n(a.ampli.volumen);
-      poner(volumen.gain, v * v * 1.6, c);
+      poner(envio.gain, n(a.ampli.reverb, 0.25) * v.reverb, c);
+      const vol = n(a.ampli.volumen);
+      poner(volumen.gain, vol * vol * v.volumen, c);
     },
   };
 }
@@ -510,15 +652,23 @@ export class CadenaEquipo {
   /** Lo que llega de la guitarra, antes de nada: para la luz de señal */
   readonly medidor: AnalyserNode;
   private puerta: AudioWorkletNode | null = null;
-  private piezas: Pieza[];
+  private taller: Taller;
+  /** Los pedales, en orden */
+  private pedales: Pieza[];
+  /** El ampli puesto y cuál es: se cambia por otro sin tocar los pedales */
+  private ampli: Pieza | null = null;
+  private modelo = "";
+  /** Lo que sale del último pedal: lo que entra al ampli */
+  private alAmpli: AudioNode;
 
   /**
    * `modulos`: los procesadores de la Mesa que estén cargados en este contexto (public/*.worklet.js).
    * Sin ellos funciona igual: sin puerta de ruido y con el compresor del navegador (que retrasa 6 ms).
+   * El ampli se monta al poner los mandos por primera vez (`aplicar`), que dicen cuál es.
    */
   constructor(
     private ctx: BaseAudioContext,
-    tipo: EquipoId,
+    private tipo: EquipoId,
     modulos: { puerta?: boolean; compresor?: boolean } = {},
   ) {
     const c = ctx;
@@ -545,6 +695,7 @@ export class CadenaEquipo {
         return g;
       },
     };
+    this.taller = taller;
 
     // La guitarra entra por un solo cable
     this.entrada = c.createGain();
@@ -563,29 +714,52 @@ export class CadenaEquipo {
       tras = this.puerta;
     }
 
-    this.piezas =
+    this.pedales =
       tipo === "acustica"
-        ? [sosten(taller), madera(taller), marea(taller), latido(taller), eco(taller), ampliAcustico(taller)]
-        : [sosten(taller), brasa(taller), trueno(taller), marea(taller), eco(taller), ampliValvulas(taller)];
-    // El cable, de la guitarra al ampli
-    for (const p of this.piezas) {
+        ? [sosten(taller), madera(taller), marea(taller), latido(taller), eco(taller)]
+        : [sosten(taller), brasa(taller), trueno(taller), marea(taller), eco(taller)];
+    // El cable, de la guitarra al último pedal
+    for (const p of this.pedales) {
       tras.connect(p.entrada);
       tras = p.salida;
     }
+    this.alAmpli = tras;
     this.salida = c.createGain();
-    tras.connect(this.salida);
+  }
+
+  /** Enchufa el ampli que toque (si es otro que el que hay): del último pedal a él, y de él a la salida */
+  private ponerAmpli(modelo: string) {
+    const quiere = this.tipo === "acustica" ? "acustico" : modelo in VOCES ? modelo : "clasico";
+    if (this.ampli && quiere === this.modelo) return;
+    if (this.ampli) {
+      try {
+        this.alAmpli.disconnect(this.ampli.entrada);
+      } catch {
+        /* ya estaba suelto */
+      }
+      this.ampli.salida.disconnect();
+      this.ampli.parar?.();
+    }
+    this.ampli = this.tipo === "acustica" ? ampliAcustico(this.taller) : ampliValvulas(this.taller, VOCES[quiere]);
+    this.modelo = quiere;
+    this.alAmpli.connect(this.ampli.entrada);
+    this.ampli.salida.connect(this.salida);
   }
 
   aplicar(a: AjustesEquipo) {
-    // Cuanta más ganancia (o con un pedal de saturar pisado), más se oye el ruido: la puerta cierra antes
+    this.ponerAmpli(a.modelo);
+    // Cuanta más ganancia (o con un pedal de saturar pisado, o con un ampli de los que rugen), más se
+    // oye el ruido: la puerta cierra antes
     if (this.puerta) {
-      const fuerte = a.pedales.brasa?.activo || a.pedales.trueno?.activo ? 1 : n(a.ampli.ganancia, 0.3);
+      const fuerte = a.pedales.brasa?.activo || a.pedales.trueno?.activo || VOCES[this.modelo]?.ruidoso ? 1 : n(a.ampli.ganancia, 0.3);
       poner(this.puerta.parameters.get("umbral")!, -66 + 10 * fuerte, this.ctx);
     }
-    for (const p of this.piezas) p.aplicar(a);
+    for (const p of this.pedales) p.aplicar(a);
+    this.ampli?.aplicar(a);
   }
 
   parar() {
-    for (const p of this.piezas) p.parar?.();
+    for (const p of this.pedales) p.parar?.();
+    this.ampli?.parar?.();
   }
 }

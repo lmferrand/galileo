@@ -5,8 +5,9 @@
 // ampli que hay al fondo del estudio mientras afinas (Afinador), y sube desde abajo como las palas. Todo se maneja como lo de verdad: la palanca enciende el ampli (y abre la entrada de sonido:
 // tiene que ser en ese toque), las ruedas se giran arrastrando arriba y abajo (dos toques: a su
 // sitio de serie; también con las flechas) y los pedales se pisan.
-// Dibujado con estilos, sin fotos ni marcas: los amplis son «Galileo» (el de la eléctrica, forrado
-// en negro; el de la acústica, de madera) y los pedales tienen nombre propio. El sonido es lib/ampli/cadena; quien lo enciende, lib/ampli/ampli.
+// Dibujado con estilos, sin fotos ni marcas: los amplis son «Galileo» (los de la eléctrica, cuatro a
+// elegir, cada uno con su forro, su frente y su tela; el de la acústica, de madera) y los pedales
+// tienen nombre propio. Al cambiar de ampli los mandos se quedan como están: se compara al momento. El sonido es lib/ampli/cadena; quien lo enciende, lib/ampli/ampli.
 // Lo que se mueve en cada fotograma (la luz de señal) va por fuera de React.
 // Vale de dos maneras. Suelto (desde el afinador): la palanca enciende el ampli, que abre la entrada
 // por su cuenta (lib/ampli/ampli) y se apaga al cerrar. Enchufado a una entrada de la Mesa
@@ -189,6 +190,8 @@ export default function Equipo({ tipo, onCerrar, enMesa }: { tipo: EquipoId; onC
     };
   }, [encendido, entradaMesa]);
 
+  const modelo = equipo.amplis.find((m) => m.id === ajustes.modelo) ?? equipo.amplis[0];
+
   const palanca = () => {
     if (saliendo) return;
     if (enMesa) enMesa.onPulsar();
@@ -216,7 +219,7 @@ export default function Equipo({ tipo, onCerrar, enMesa }: { tipo: EquipoId; onC
 
   return (
     <div
-      className={`equipo es-${tipo}${saliendo ? " sale" : ""}${encendido ? " encendido" : ""}${estado === "abriendo" ? " abriendo" : ""}`}
+      className={`equipo es-${tipo}${equipo.amplis.length > 1 ? " con-modelos" : ""}${saliendo ? " sale" : ""}${encendido ? " encendido" : ""}${estado === "abriendo" ? " abriendo" : ""}`}
       role="dialog"
       aria-modal="true"
       aria-label={`Amplificador y pedalera ${equipo.de}`}
@@ -239,7 +242,21 @@ export default function Equipo({ tipo, onCerrar, enMesa }: { tipo: EquipoId; onC
       )}
 
       <div className="eq-escena">
-        <section className="eq-ampli" aria-label="Amplificador">
+        {equipo.amplis.length > 1 && (
+          <div className="eq-modelos">
+            <div className="eq-pastillas" role="group" aria-label="Amplificador">
+              {equipo.amplis.map((m) => (
+                <button key={m.id} type="button" aria-pressed={m.id === modelo.id} onClick={() => m.id !== modelo.id && cambiar({ ...ajustes, modelo: m.id })}>
+                  {m.nombre}
+                </button>
+              ))}
+            </div>
+            <p className="eq-caracter">{modelo.caracter}</p>
+          </div>
+        )}
+
+        {/* (con su clave: al cambiar de ampli entra el nuevo, no se repinta el viejo) */}
+        <section key={modelo.id} className={`eq-ampli amp-${modelo.id}`} aria-label={`Amplificador ${modelo.nombre}`}>
           <div className="eq-panel">
             <button type="button" className="eq-palanca" role="switch" aria-checked={encendido} aria-label="Encender el amplificador" onClick={palanca}>
               <span className="eq-palanca-base" aria-hidden="true">
@@ -272,6 +289,7 @@ export default function Equipo({ tipo, onCerrar, enMesa }: { tipo: EquipoId; onC
           <div className="eq-rejilla" aria-hidden="true">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="eq-logo" src="/logo-galileo-disco.webp" alt="" draggable={false} />
+            {equipo.amplis.length > 1 && <span className="eq-placa">{modelo.nombre}</span>}
           </div>
         </section>
 

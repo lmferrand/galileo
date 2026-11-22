@@ -2,8 +2,8 @@
 // Diseños y nombres propios (ninguna marca). Aquí van sus mandos, cómo vienen de serie y dónde se
 // recuerdan (en este aparato, cada equipo por su lado). El sonido lo hace lib/ampli/cadena y lo
 // enciende lib/ampli/ampli.
-//  - Eléctrica: un ampli de válvulas (satura al subirle la ganancia, reverb de muelles) y Sostén,
-//    Brasa, Trueno, Marea y Eco.
+//  - Eléctrica: cuatro amplis de válvulas a elegir (Clásico, Cristal, Corona y Volcán: del limpio
+//    al de mucha ganancia; todos con reverb de muelles) y Sostén, Brasa, Trueno, Marea y Eco.
 //  - Acústica: un ampli limpio de toda la gama (reverb de sala) y Sostén, Madera, Marea, Latido y Eco.
 // Todos los mandos van de 0 a 1 (en pantalla, de 0 a 10, como en un ampli de verdad).
 
@@ -110,6 +110,15 @@ export const MANDOS_AMPLI: MandoEquipo[] = [
   { k: "volumen", nombre: "Volumen" },
 ];
 
+/** Un amplificador que se puede elegir: su sonido está en lib/ampli/cadena (VOCES) y su dibujo en equipo.css (.amp-<id>) */
+export interface ModeloAmpli {
+  id: string;
+  /** Su nombre, en la placa */
+  nombre: string;
+  /** Cómo suena, en una línea */
+  caracter: string;
+}
+
 export interface Equipo {
   id: EquipoId;
   /** «de la eléctrica», «de la acústica» */
@@ -118,6 +127,8 @@ export interface Equipo {
   pedales: Pedal[];
   /** Cómo vienen de serie los mandos del ampli */
   ampli: Record<string, number>;
+  /** Los amplis entre los que se elige (el primero, el de serie). Los mandos son los mismos al cambiar de uno a otro */
+  amplis: ModeloAmpli[];
 }
 
 export const EQUIPOS: Record<EquipoId, Equipo> = {
@@ -126,12 +137,19 @@ export const EQUIPOS: Record<EquipoId, Equipo> = {
     de: "de la eléctrica",
     pedales: [SOSTEN, BRASA, TRUENO, MAREA, ECO],
     ampli: { ganancia: 0.3, graves: 0.5, medios: 0.5, agudos: 0.55, reverb: 0.25, volumen: 0.5 },
+    amplis: [
+      { id: "clasico", nombre: "Clásico", caracter: "Cálido: limpio con poca ganancia y rasga al subirla." },
+      { id: "cristal", nombre: "Cristal", caracter: "Limpio y brillante, de los que casi no saturan." },
+      { id: "corona", nombre: "Corona", caracter: "Los medios por delante: el crujido del rock de siempre." },
+      { id: "volcan", nombre: "Volcán", caracter: "Mucha ganancia y graves prietos, para solos y rock duro." },
+    ],
   },
   acustica: {
     id: "acustica",
     de: "de la acústica",
     pedales: [SOSTEN, MADERA, MAREA, LATIDO, ECO],
     ampli: { ganancia: 0.3, graves: 0.5, medios: 0.5, agudos: 0.5, reverb: 0.3, volumen: 0.5 },
+    amplis: [{ id: "acustico", nombre: "Acústico", caracter: "Limpio y de toda la gama: no colorea." }],
   },
 };
 
@@ -140,6 +158,8 @@ export type AjustesPedal = { activo: boolean } & Record<string, number | boolean
 export interface AjustesEquipo {
   /** La entrada de la interfaz por la que entra la guitarra: 0 (la 1) o 1 (la 2) */
   entrada: 0 | 1;
+  /** El ampli elegido (el id de uno de los de su equipo) */
+  modelo: string;
   ampli: Record<string, number>;
   /** Por el id de cada pedal del equipo */
   pedales: Record<string, AjustesPedal>;
@@ -150,6 +170,7 @@ export function equipoDeSerie(id: EquipoId): AjustesEquipo {
   const e = EQUIPOS[id];
   return {
     entrada: 0,
+    modelo: e.amplis[0].id,
     ampli: { ...e.ampli },
     pedales: Object.fromEntries(e.pedales.map((p) => [p.id, { activo: false, ...p.serie }])),
   };
@@ -166,6 +187,7 @@ export function leerEquipo(id: EquipoId): AjustesEquipo {
     const g = JSON.parse(localStorage.getItem(clave(id)) ?? "null") as Partial<AjustesEquipo> | null;
     if (!g || typeof g !== "object") return serie;
     if (g.entrada === 1) serie.entrada = 1;
+    if (EQUIPOS[id].amplis.some((m) => m.id === g.modelo)) serie.modelo = g.modelo as string;
     for (const m of MANDOS_AMPLI) serie.ampli[m.k] = entre01(g.ampli?.[m.k], serie.ampli[m.k]);
     for (const p of EQUIPOS[id].pedales) {
       const guardado = g.pedales?.[p.id];
