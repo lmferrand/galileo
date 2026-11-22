@@ -140,12 +140,12 @@ export default function DiscoGalileo({
   }, []);
 
   const tienes = useMemo(() => new Map(canciones.lista.map((c) => [c.id, c])), [canciones.lista]);
-  const faltan = DISCO.temas.filter((t) => !tienes.has(idDisco(t)));
+  const faltan = DISCO.temas.filter((t) => !t.pronto && !tienes.has(idDisco(t)));
 
   const poner = async (t: TemaDisco) => {
     const ya = tienes.get(idDisco(t));
     if (ya) return cerrar(ya.id === canciones.actual ? undefined : ya);
-    if (bajando) return;
+    if (bajando || t.pronto) return;
     setFallo(null);
     setBajando({ id: t.id, fraccion: 0 });
     try {
@@ -171,8 +171,8 @@ export default function DiscoGalileo({
     (temaBajando
       ? `Bajando «${temaBajando.titulo}»: al acabar se pone sola en la grabadora.`
       : faltan.length > 0
-        ? `Las que llevan la flecha se bajan antes de sonar (unos ${formatoMB(Math.max(...faltan.map((t) => t.bytes)))} cada una) y se quedan en el aparato.`
-        : "Las tienes todas en el aparato: suenan también sin conexión.");
+        ? `Se baja al tocarla (unos ${formatoMB(Math.max(...faltan.map((t) => t.bytes)))}) y se queda en el aparato.`
+        : null);
 
   return (
     <div
@@ -209,25 +209,27 @@ export default function DiscoGalileo({
                   const ya = tienes.get(idDisco(t));
                   const suena = !!ya && ya.id === canciones.actual;
                   const aqui = bajando?.id === t.id ? bajando : null;
+                  // (aún sin subir: se ve, pero no se toca)
+                  const pronto = !!t.pronto && !ya;
                   return (
                     <li key={t.id}>
                       <button
                         type="button"
                         className={`disco-tema${suena ? " suena" : ""}`}
                         onClick={() => void poner(t)}
-                        disabled={bajando !== null && !aqui}
+                        disabled={pronto || (bajando !== null && !aqui)}
                         aria-current={suena ? "true" : undefined}
-                        aria-label={`${i + 1}. ${t.titulo}, ${formatoTiempo(t.duracion)}${suena ? ", suena ahora" : ya ? "" : ", se baja al tocarla"}`}
+                        aria-label={`${i + 1}. ${t.titulo}, ${formatoTiempo(t.duracion)}${suena ? ", suena ahora" : ya ? "" : pronto ? ", llega pronto" : ", se baja al tocarla"}`}
                       >
                         <span className="disco-n">{i + 1}</span>
                         <span className="disco-titulo">{t.titulo}</span>
                         <span className="disco-puntos" />
-                        {!ya && !aqui && (
+                        {!ya && !aqui && !pronto && (
                           <svg className="disco-baja" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 4v11M7 10.5l5 5 5-5M5.5 20h13" />
                           </svg>
                         )}
-                        <span className="disco-dato">{aqui ? `${Math.round(aqui.fraccion * 100)} %` : suena ? "Suena" : formatoTiempo(t.duracion)}</span>
+                        <span className="disco-dato">{aqui ? `${Math.round(aqui.fraccion * 100)} %` : suena ? "Suena" : pronto ? "Pronto" : formatoTiempo(t.duracion)}</span>
                         {aqui && (
                           <span className="disco-barra">
                             <span style={{ width: `${Math.max(4, aqui.fraccion * 100)}%` }} />
@@ -238,9 +240,17 @@ export default function DiscoGalileo({
                   );
                 })}
               </ol>
-              <p className={`disco-pie${fallo ? " fallo" : ""}`} role={fallo ? "alert" : "status"}>
-                {pie}
-              </p>
+              {/* Qué quiere decir la flecha (con todas ya bajadas no hace falta: más sitio para la lista) */}
+              {pie && (
+                <p className={`disco-pie${fallo ? " fallo" : ""}`} role={fallo ? "alert" : "status"}>
+                  {!fallo && !temaBajando && (
+                    <svg className="disco-baja" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 4v11M7 10.5l5 5 5-5M5.5 20h13" />
+                    </svg>
+                  )}
+                  {pie}
+                </p>
+              )}
             </div>
           </div>
         </div>

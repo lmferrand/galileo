@@ -2940,7 +2940,7 @@ html.con-mesa body::before {
 /* El estuche abierto, a pantalla entera: el escritorio se queda a oscuras detrás.
    --lado: el alto del estuche; cada mitad mide --ancho. Dentro, todo va en «em» (un veinteavo del alto). */
 .disco-velo {
-  --lado: min(calc((100vw - 28px) / 2.256), calc(100dvh - 62px), 440px);
+  --lado: min(calc((100vw - 28px) / 2.256), calc(100dvh - 62px), 480px);
   --ancho: calc(var(--lado) * 1.128);
   position: fixed;
   inset: 0;
@@ -3218,6 +3218,10 @@ html.con-mesa body::before {
   touch-action: pan-y;
   scrollbar-width: thin;
   scrollbar-color: rgba(42, 26, 20, 0.35) transparent;
+  /* Si no caben todas se desliza: las de abajo se desvanecen (y la última sube por encima de eso) */
+  padding-bottom: 1em;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 1.3em), transparent);
+  mask-image: linear-gradient(#000 calc(100% - 1.3em), transparent);
 }
 .disco-tema {
   position: relative;
@@ -3232,10 +3236,17 @@ html.con-mesa body::before {
   background: none;
   color: inherit;
   font: inherit;
+  /* (después de «font»: si no, lo pisa) */
+  line-height: 1.15;
   text-align: left;
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  .disco-tema {
+    min-height: 1.3em;
+  }
 }
 .disco-tema:disabled {
   opacity: 0.45;
@@ -3269,7 +3280,7 @@ html.con-mesa body::before {
   white-space: nowrap;
   font-family: var(--f-display);
   font-weight: 700;
-  font-size: max(1.2em, 16px);
+  font-size: max(1.1em, 16px);
 }
 /* Los puntos que llevan del título a su duración */
 .disco-puntos {
@@ -3318,9 +3329,14 @@ html.con-mesa body::before {
   background: #9b2a2f;
   transition: width 300ms ease;
 }
+.disco-pie .disco-baja {
+  display: inline-block;
+  margin-right: 0.4em;
+  vertical-align: -0.18em;
+}
 .disco-pie {
-  margin: 0.5em 0 0;
-  padding-top: 0.55em;
+  margin: 0;
+  padding-top: 0.5em;
   border-top: 1px solid rgba(42, 26, 20, 0.2);
   font-family: var(--f-ui);
   font-size: max(0.68em, 11px);

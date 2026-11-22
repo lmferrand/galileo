@@ -5,6 +5,8 @@
 // La lista va aquí dentro y no se pide a internet: el estuche se abre al instante, también sin
 // conexión, y lo que ya tengas bajado suena igual.
 // Con la lista vacía el estuche del escritorio no se toca: es solo la foto, como antes.
+// Las sube herramientas/disco-galileo/subir.mjs (TheClavija/galileo-manana, en Hugging Face), que
+// también escribe las líneas de `temas`.
 
 import { importarPistas } from "./importar";
 import { PISTAS, type Cancion, type Pista } from "./tipos";
@@ -18,14 +20,28 @@ export interface TemaDisco {
   frames: number;
   /** lo que ocupan sus 6 pistas */
   bytes: number;
+  /** Aún no está subida: se ve en el libreto, pero no se puede poner */
+  pronto?: boolean;
 }
 
 export const DISCO: { artista: string; titulo: string; base: string; motor?: string; temas: TemaDisco[] } = {
   artista: "Galileo",
   titulo: "Mañana…",
   /** Donde están las carpetas de las canciones (acaba en «/») */
-  base: "",
-  temas: [],
+  base: "https://huggingface.co/datasets/TheClavija/galileo-manana/resolve/main/",
+  // (separadas con BS-RoFormer: no se les limpia el bajo al reproducir)
+  motor: "roformer",
+  temas: [
+    { id: "loco", titulo: "Loco", duracion: 178.91, frames: 7890048, bytes: 15030858 },
+    { id: "un-segundo-mas", titulo: "Un segundo más", duracion: 264, frames: 0, bytes: 0, pronto: true },
+    { id: "manana", titulo: "Mañana", duracion: 250, frames: 0, bytes: 0, pronto: true },
+    { id: "no-mirar-atras", titulo: "No mirar atrás", duracion: 214, frames: 0, bytes: 0, pronto: true },
+    { id: "ultimo-cafe", titulo: "Último café", duracion: 243, frames: 0, bytes: 0, pronto: true },
+    { id: "descuido", titulo: "Descuido", duracion: 217, frames: 0, bytes: 0, pronto: true },
+    { id: "barco-de-papel", titulo: "Barco de Papel", duracion: 229, frames: 0, bytes: 0, pronto: true },
+    { id: "me-escape", titulo: "Me escapé", duracion: 227, frames: 0, bytes: 0, pronto: true },
+    { id: "confundido", titulo: "Confundido", duracion: 231.26, frames: 10198656, bytes: 19428204 },
+  ],
 };
 
 /** El id con que se guarda en el aparato (así se sabe cuáles ya tienes). */
@@ -41,7 +57,7 @@ export function bajarTemaDisco(t: TemaDisco, alProgreso: (fraccion: number) => v
       nombre: `${DISCO.artista} - ${t.titulo}`,
       grupo: DISCO.artista,
       creada: Date.now(),
-      credito: `«${t.titulo}», de ${DISCO.artista}. Del disco «${DISCO.titulo}».`,
+      credito: `«${t.titulo}», de ${DISCO.artista}. Del disco «${DISCO.titulo}». Separada en pistas con BS-RoFormer SW (jarredou).`,
       motor: DISCO.motor,
       frames: t.frames,
       duracion: t.duracion,
