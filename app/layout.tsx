@@ -6,6 +6,7 @@ import "./globals.css";
 import "./pistas.css";
 import "./aprender.css";
 import "./mesa.css";
+import "./equipo.css";
 
 const bodoni = Bodoni_Moda({
   subsets: ["latin", "symbols"],

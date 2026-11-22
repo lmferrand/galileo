@@ -117,6 +117,9 @@ export default function FondoEstudio({
         // La pala, un poco al revés (profundidad), con su transform directo: nada más se recalcula.
         const marco = el.closest(".app.con-estudio")?.querySelector<HTMLElement>(".pala-marco");
         if (marco) marco.style.transform = `translate3d(${(gx * -0.22).toFixed(1)}px, ${(gy * -0.22).toFixed(1)}px, 0)`;
+        // Lo que va pegado a la foto (el botón que hay sobre el ampli del fondo) se mueve con ella
+        const pegado = el.closest(".app.con-estudio")?.querySelector<HTMLElement>("[data-sigue-fondo]");
+        if (pegado) pegado.style.transform = `translate3d(${gx}px, ${gy}px, 0)`;
       }
       if (Math.abs(objetivo.x - actual.x) > 0.002 || Math.abs(objetivo.y - actual.y) > 0.002) raf = requestAnimationFrame(paso);
     };

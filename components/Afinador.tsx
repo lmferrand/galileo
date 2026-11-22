@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Roseta from "./Roseta";
 import Pala from "./Pala";
@@ -16,12 +16,13 @@ import BarraAbajo from "./BarraAbajo";
 import MetronomoPanel from "./MetronomoPanel";
 import Grabadora from "./Grabadora";
 import LooperPanel from "./LooperPanel";
+import EquipoElectrica from "./EquipoElectrica";
 import { leerAjusteRetraso, Looper, type EstadoLooper, type ModoLooper } from "@/lib/looper";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo, type Compas } from "@/lib/metronomo";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
 import { enLetra, INSTRUMENTOS, instrumentoDe, marcarElegido, yaSeEligio, type InstrumentoId, marcarPortada, yaSeVioPortada } from "@/lib/instrumentos";
 import { sonarInstrumento } from "@/lib/sonidos";
-import { instrumentoDelFondo } from "@/lib/fondoInstrumentos";
+import { instrumentoDelFondo, sitioDelFondo, type DelFondo } from "@/lib/fondoInstrumentos";
 import { useHorizontal } from "@/lib/horizontal";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
@@ -41,7 +42,19 @@ const MS_TRANSICION = 900;
 const MS_BAJA_PALA = 430;
 const MS_SUBE_PALA = 680;
 /** Lo que no es fondo aunque tenga un instrumento detrás: los mandos, la pala y el círculo */
-const NO_ES_FONDO = 'button, a, input, select, textarea, label, [role="button"], [role="switch"], [role="dialog"], .pala, .roseta, .cabecera, .barra-abajo, .elegir, .portada, .hoja-fondo';
+const NO_ES_FONDO = 'button, a, input, select, textarea, label, [role="button"], [role="switch"], [role="dialog"], .pala, .roseta, .cabecera, .barra-abajo, .elegir, .portada, .hoja-fondo, .equipo';
+
+/** Lo que mide la pantalla («ancho alto»), al día: para saber dónde cae el ampli del fondo */
+const alCambiarTamano = (aviso: () => void) => {
+  window.addEventListener("resize", aviso);
+  return () => window.removeEventListener("resize", aviso);
+};
+const useTamano = () =>
+  useSyncExternalStore(
+    alCambiarTamano,
+    () => `${window.innerWidth} ${window.innerHeight}`,
+    () => "",
+  );
 
 interface WakeLock {
   release: () => Promise<void>;
@@ -75,6 +88,8 @@ export default function Afinador() {
   const [subeLaPala, setSubeLaPala] = useState<boolean | "cambio">(false);
   // Has tocado un instrumento del fondo: la pala que hay se está yendo y viene la suya
   const [cambiandoA, setCambiandoA] = useState<InstrumentoId | null>(null);
+  // El ampli y la pedalera de la eléctrica: «yendo», la pala se está yendo para dejarles sitio
+  const [equipo, setEquipo] = useState<"no" | "yendo" | "si">("no");
   // Metrónomo: vive aquí para que siga sonando con su hoja cerrada.
   const metronomo = useRef<Metronomo | null>(null);
   const [metro, setMetro] = useState<AjustesMetronomo>({ bpm: 90, compas: 4 });
@@ -124,6 +139,7 @@ export default function Afinador() {
       setTonoEn(null);
       setSubeLaPala(false);
       setCambiandoA(null);
+      setEquipo("no");
       setEleccion((e) => (e.fase === "saliendo" ? { fase: "no", id: null } : e.fase === "volviendo" ? { fase: "si", id: null } : e));
       setMetroSonando(false);
       setMetroGolpe((g) => (g.tiempo === -1 ? g : { tiempo: -1, n: g.n }));
@@ -237,9 +253,9 @@ export default function Afinador() {
       }, MS_BAJA_PALA),
     );
   };
-  /** El instrumento del fondo que hay bajo el dedo (o el ratón), si lo que se toca es el fondo */
-  const delFondo = (e: React.MouseEvent<HTMLElement>): InstrumentoId | null => {
-    if (!listo || !instrumento.fondo || eleccion.fase !== "no" || portada || cambiandoA) return null;
+  /** Lo que hay bajo el dedo (o el ratón), si lo que se toca es el fondo: un instrumento o el ampli */
+  const delFondo = (e: React.MouseEvent<HTMLElement>): DelFondo | null => {
+    if (!listo || !instrumento.fondo || eleccion.fase !== "no" || portada || cambiandoA || equipo !== "no") return null;
     if ((e.target as Element).closest(NO_ES_FONDO)) return null;
     const fondo = e.currentTarget.querySelector<HTMLElement>(".fondo-estudio");
     if (!fondo) return null;
@@ -250,8 +266,33 @@ export default function Afinador() {
   };
   const alTocarFondo = (e: React.MouseEvent<HTMLElement>) => {
     const id = delFondo(e);
-    if (id) cambiarPorElFondo(id);
+    if (id === "ampli") abrirEquipo();
+    else if (id) cambiarPorElFondo(id);
   };
+  // ---------- El ampli del fondo ----------
+  // Con la eléctrica en las manos, el amplificador que hay junto a la batería se toca: la pala baja
+  // y se va, y sube el ampli con su pedalera (EquipoElectrica). El afinador deja de escuchar (el
+  // ampli abre la entrada por su cuenta al encenderlo). Al volver, la pala sube otra vez.
+  const abrirEquipo = () => {
+    parar();
+    setHoja(null);
+    setEquipo("yendo");
+    temporizadores.current.push(setTimeout(() => setEquipo("si"), MS_BAJA_PALA));
+  };
+  const cerrarEquipo = useCallback(() => {
+    setEquipo("no");
+    setSubeLaPala("cambio");
+    temporizadores.current.push(setTimeout(() => setSubeLaPala(false), MS_SUBE_PALA + 200));
+  }, []);
+  // El ampli lleva además un botón de verdad encima (invisible): en el móvil queda pegado a una
+  // clavija de la pala y, sin él, el navegador le daba el toque a la clavija. Sigue a la foto cuando
+  // se mueve con el giroscopio (FondoEstudio, «data-sigue-fondo»).
+  const tamano = useTamano();
+  const sitioAmpli = useMemo(() => {
+    const [w, h] = tamano.split(" ").map(Number);
+    return w && h ? sitioDelFondo(instrumento.id, "ampli", { w, h }) : null;
+  }, [tamano, instrumento.id]);
+  const ampliALaVista = listo && !!instrumento.fondo && eleccion.fase === "no" && !portada && !cambiandoA && equipo === "no";
   // Con ratón: la mano sobre los instrumentos que se pueden coger
   const alMoverRaton = (e: React.MouseEvent<HTMLElement>) => {
     const cursor = delFondo(e) ? "pointer" : "";
@@ -519,7 +560,12 @@ export default function Afinador() {
   }, [listo, instrumento.id, instrumento.pala, eleccion.fase]);
 
   return (
-    <main ref={raiz} className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""}`} onClick={alTocarFondo} onMouseMove={alMoverRaton}>
+    <main
+      ref={raiz}
+      className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""} ${equipo === "si" ? "con-equipo" : ""}`}
+      onClick={alTocarFondo}
+      onMouseMove={alMoverRaton}
+    >
       {/* (al tocar un instrumento del fondo, su foto se pone ya: se va de su soporte) */}
       {listo && instrumento.fondo && <FondoEstudio foto={enFondo.fondo ?? instrumento.fondo} fotoHorizontal={enFondo.fondoHorizontal} vertical velo={false} />}
       {portada && (
@@ -631,11 +677,11 @@ export default function Afinador() {
         <div className="zona-pala">
           <div className="pala-marco">
             {/* Hasta saber qué instrumento tienes elegido no se pinta ninguna pala */}
-            {listo && eleccion.fase !== "si" && (
+            {listo && eleccion.fase !== "si" && equipo !== "si" && (
               <Pala
                 key={instrumento.id}
                 sube={subeLaPala}
-                baja={cambiandoA ? "cambio" : eleccion.fase === "volviendo"}
+                baja={cambiandoA || equipo === "yendo" ? "cambio" : eleccion.fase === "volviendo"}
                 geometria={instrumento.pala}
                 notas={afinacion.notas}
                 notacion={prefs.notacion}
@@ -696,6 +742,26 @@ export default function Afinador() {
           golpe={metroGolpe.n}
         />
       )}
+
+      {ampliALaVista && sitioAmpli && (
+        <button
+          type="button"
+          className="ampli-fondo"
+          data-sigue-fondo
+          ref={(el) => {
+            // (al aparecer, donde esté ya la foto: el fondo solo lo mueve cuando ella se mueve)
+            const fondo = el?.parentElement?.querySelector<HTMLElement>(".fondo-estudio");
+            if (el && fondo) el.style.transform = `translate3d(${fondo.style.getPropertyValue("--gx") || "0px"}, ${fondo.style.getPropertyValue("--gy") || "0px"}, 0)`;
+          }}
+          style={{ left: sitioAmpli.x, top: sitioAmpli.y, width: sitioAmpli.w, height: sitioAmpli.h }}
+          aria-label="Amplificador y pedalera"
+          onClick={(e) => {
+            e.stopPropagation();
+            abrirEquipo();
+          }}
+        />
+      )}
+      {equipo === "si" && <EquipoElectrica onCerrar={cerrarEquipo} />}
 
       <Hoja abierta={hoja === "metronomo"} titulo="Metrónomo" onCerrar={() => setHoja(null)}>
         <MetronomoPanel
