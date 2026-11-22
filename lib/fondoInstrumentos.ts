@@ -1,7 +1,9 @@
 // Los instrumentos que se ven al fondo del afinador (los que no tienes en las manos). Se tocan y
 // cambian el instrumento que afinas (Afinador: la pala baja y sube la del que has tocado).
-// También el amplificador que hay junto a la batería: con la eléctrica en las manos, tocarlo abre el
-// ampli con su pedalera (components/EquipoElectrica).
+// También el amplificador que hay junto a la batería: con una guitarra en las manos, tocarlo abre su
+// ampli con su pedalera (components/Equipo). Con la acústica, el bajo lo tapa a medias: en la foto
+// horizontal se toca la parte que asoma; en la vertical casi no se ve (y en el móvil lo tapa una
+// clavija), así que ahí no es zona: para eso está el botón «Ampli» de abajo.
 // Cada foto del fondo (lib/instrumentos: `fondo` y `fondoHorizontal`) enseña el estudio sin el
 // instrumento elegido y con los otros dos en sus soportes. Aquí va dónde cae cada uno en su foto
 // (una elipse, en píxeles de la foto) y la cuenta de dónde queda en la pantalla, que repite la de
@@ -48,7 +50,7 @@ const VERTICAL: Record<InstrumentoId, FotoFondo> = {
 };
 /** Las horizontales (ordenador, tableta tumbada) */
 const HORIZONTAL: Record<InstrumentoId, FotoFondo> = {
-  acustica: { ancho: 1536, alto: 1024, y: 0.5, zonas: [{ id: "bajo", cx: 1243, cy: 615, rx: 64, ry: 240 }, ELECTRICA_H] },
+  acustica: { ancho: 1536, alto: 1024, y: 0.5, zonas: [{ id: "bajo", cx: 1243, cy: 615, rx: 64, ry: 240 }, ELECTRICA_H, { id: "ampli", cx: 1158, cy: 592, rx: 46, ry: 74 }] },
   bajo: { ancho: 1536, alto: 1024, y: 0.5, zonas: [ACUSTICA_H, ELECTRICA_H] },
   electrica: { ancho: 1536, alto: 1024, y: 0.5, zonas: [ACUSTICA_H, { id: "bajo", cx: 1335, cy: 655, rx: 72, ry: 245 }, { id: "ampli", cx: 1206, cy: 592, rx: 96, ry: 78 }] },
 };

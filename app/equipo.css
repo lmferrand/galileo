@@ -361,6 +361,50 @@
   pointer-events: none;
 }
 
+/* El ampli de la acústica: caja de madera clara, frente de esmalte marfil con ruedas oscuras y una
+   tela marrón (el de la eléctrica va forrado en negro, con el frente de latón y la tela clara) */
+.es-acustica .eq-ampli {
+  background:
+    repeating-linear-gradient(91deg, rgba(70, 36, 10, 0.16) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(89deg, rgba(255, 230, 190, 0.08) 0 2px, transparent 2px 13px),
+    linear-gradient(#c9945a, #a06c38 55%, #7f5228);
+  box-shadow:
+    0 1.4em 2.6em rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(255, 236, 200, 0.22),
+    inset 0 0.16em 0.2em rgba(255, 240, 210, 0.28);
+}
+.es-acustica .eq-ampli::before {
+  background:
+    linear-gradient(90deg, #d9b26a 0 0.9em, transparent 0.9em calc(100% - 0.9em), #d9b26a calc(100% - 0.9em)),
+    linear-gradient(#2c1c12, #140c07);
+}
+.es-acustica .eq-panel {
+  background: linear-gradient(#f6eedb, #e6d9bb 62%, #d3c4a2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 0.2em 0.5em rgba(0, 0, 0, 0.4);
+}
+.es-acustica .eq-panel .eq-rueda {
+  background: radial-gradient(circle at 50% 40%, #c9a45c, #7a5a26 72%);
+}
+.es-acustica .eq-panel .eq-rueda-tapa {
+  background: radial-gradient(circle at 36% 30%, #7a5638, #3a2416 52%, #1c100a);
+}
+.es-acustica .eq-panel .eq-rueda-tapa::after {
+  background: #f6eedb;
+}
+.es-acustica .eq-rejilla {
+  background:
+    radial-gradient(circle at 50% 54%, rgba(0, 0, 0, 0.34) 0 4.6em, transparent 4.8em),
+    repeating-linear-gradient(0deg, rgba(255, 220, 170, 0.1) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(255, 220, 170, 0.08) 0 1px, transparent 1px 4px),
+    linear-gradient(#4a3222, #2a1b12);
+  box-shadow:
+    inset 0 0 0 0.2em #d9b26a,
+    inset 0 0.7em 1.5em rgba(0, 0, 0, 0.5);
+}
+
 /* ---------------- Lo que dice el ampli ---------------- */
 
 .eq-aviso {
@@ -463,6 +507,14 @@
 .eq-eco {
   --esmalte: #d9caa4;
   --tinta: #3b2414;
+}
+.eq-madera {
+  --esmalte: #8a5a2e;
+  --tinta: #fff1dc;
+}
+.eq-latido {
+  --esmalte: #7c2433;
+  --tinta: #ffe7df;
 }
 
 .eq-pedal-mandos {

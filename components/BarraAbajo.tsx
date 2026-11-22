@@ -1,13 +1,16 @@
 "use client";
 
-// Barra de abajo del afinador: volver al estudio, el metrónomo y grabarte. Ocupa
-// el borde de abajo de la pantalla (también el hueco que deja el iPhone en modo app).
+// Barra de abajo del afinador: volver al estudio, la Mesa, el ampli de la guitarra (con la
+// eléctrica y la acústica; el bajo no tiene), el metrónomo, el looper y grabarte. Ocupa el borde
+// de abajo de la pantalla (también el hueco que deja el iPhone en modo app).
 
 import { useEstadoMesa } from "@/lib/mesa/usarMesa";
 
 interface Props {
   onEstudio: () => void;
   onMesa: () => void;
+  /** Abre el ampli y la pedalera de la guitarra. Sin él (el bajo), el botón no sale. */
+  onAmpli?: () => void;
   onMetronomo: () => void;
   onLooper: () => void;
   onGrabar: () => void;
@@ -18,10 +21,10 @@ interface Props {
   golpe: number;
 }
 
-export default function BarraAbajo({ onEstudio, onMesa, onMetronomo, onLooper, onGrabar, looperActivo, metronomoSonando, golpe }: Props) {
+export default function BarraAbajo({ onEstudio, onMesa, onAmpli, onMetronomo, onLooper, onGrabar, looperActivo, metronomoSonando, golpe }: Props) {
   const mesaEncendida = useEstadoMesa() === "encendida";
   return (
-    <nav className="barra-abajo" aria-label="Herramientas">
+    <nav className={`barra-abajo${onAmpli ? " seis" : ""}`} aria-label="Herramientas">
       <button type="button" onClick={onEstudio} aria-label="Volver al estudio para elegir otro instrumento">
         <IconoEstudio />
         <span>Estudio</span>
@@ -30,6 +33,12 @@ export default function BarraAbajo({ onEstudio, onMesa, onMetronomo, onLooper, o
         <IconoMesa />
         <span>Mesa</span>
       </button>
+      {onAmpli && (
+        <button type="button" onClick={onAmpli} aria-label="Amplificador y pedalera">
+          <IconoAmpli />
+          <span>Ampli</span>
+        </button>
+      )}
       <button type="button" onClick={onMetronomo} className={metronomoSonando ? "activo" : ""} aria-label={metronomoSonando ? "Metrónomo, sonando" : "Metrónomo"}>
         <span key={metronomoSonando ? golpe : -1} className={`barra-icono ${metronomoSonando ? "late" : ""}`}>
           <IconoMetronomo />
@@ -47,6 +56,18 @@ export default function BarraAbajo({ onEstudio, onMesa, onMetronomo, onLooper, o
         <span>Grabar</span>
       </button>
     </nav>
+  );
+}
+
+/** Un ampli de guitarra: la caja, sus mandos arriba y el altavoz. */
+function IconoAmpli() {
+  return (
+    <svg className="icono" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.2" />
+      <path d="M3.5 9h17" />
+      <path d="M7 6.8h.01M10 6.8h.01M13 6.8h.01" strokeWidth="2.2" />
+      <circle cx="12" cy="14.2" r="3.1" />
+    </svg>
   );
 }
 

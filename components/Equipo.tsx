@@ -1,18 +1,18 @@
 "use client";
 
-// El equipo de la eléctrica: el amplificador y, en el suelo, su pedalera. Se abre al tocar el ampli
-// que hay al fondo del estudio mientras afinas la eléctrica (Afinador), y sube desde abajo como las
-// palas. Todo se maneja como lo de verdad: la palanca enciende el ampli (y abre la entrada de sonido:
+// El equipo de una guitarra: su amplificador y, en el suelo, su pedalera. La eléctrica y la acústica
+// tienen cada una el suyo (lib/ampli/ajustes). Se abre con el botón «Ampli» de abajo o tocando el
+// ampli que hay al fondo del estudio mientras afinas (Afinador), y sube desde abajo como las palas. Todo se maneja como lo de verdad: la palanca enciende el ampli (y abre la entrada de sonido:
 // tiene que ser en ese toque), las ruedas se giran arrastrando arriba y abajo (dos toques: a su
 // sitio de serie; también con las flechas) y los pedales se pisan.
-// Dibujado con estilos, sin fotos ni marcas: el ampli es un «Galileo» y los pedales tienen nombre
-// propio (lib/ampli/ajustes). El sonido es lib/ampli/cadena; quien lo enciende, lib/ampli/ampli.
+// Dibujado con estilos, sin fotos ni marcas: los amplis son «Galileo» (el de la eléctrica, forrado
+// en negro; el de la acústica, de madera) y los pedales tienen nombre propio. El sonido es lib/ampli/cadena; quien lo enciende, lib/ampli/ampli.
 // Lo que se mueve en cada fotograma (la luz de señal) va por fuera de React.
 
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { accesible, useArrastre, type PropsMando } from "./MandosMesa";
 import { ampli, type EstadoAmpli } from "@/lib/ampli/ampli";
-import { EQUIPO_INICIAL, MANDOS_AMPLI, PEDALES, enDiez, guardarEquipo, leerEquipo, type AjustesEquipo, type Pedal, type PedalId } from "@/lib/ampli/ajustes";
+import { EQUIPOS, MANDOS_AMPLI, enDiez, guardarEquipo, leerEquipo, type AjustesEquipo, type AjustesPedal, type EquipoId, type Pedal } from "@/lib/ampli/ajustes";
 import { msDelEco } from "@/lib/ampli/cadena";
 import { RETRASO_BLUETOOTH, RETRASO_QUE_SE_NOTA } from "@/lib/mesa/escucha";
 import { usePasoAtras } from "@/lib/atras";
@@ -57,7 +57,7 @@ function PedalVista({
   onPisar,
 }: {
   pedal: Pedal;
-  valores: AjustesEquipo["pedales"][PedalId];
+  valores: AjustesPedal;
   onMando: (k: string, v: number) => void;
   onPisar: () => void;
 }) {
@@ -74,7 +74,7 @@ function PedalVista({
               min: 0,
               max: 1,
               paso: 0.01,
-              porDefecto: EQUIPO_INICIAL.pedales[pedal.id][m.k] as number,
+              porDefecto: pedal.serie[m.k],
               ver: pedal.id === "eco" && m.k === "tiempo" ? (v) => `${msDelEco(v)} ms` : enDiez,
               onCambio: (v) => onMando(m.k, v),
             }}
@@ -91,11 +91,12 @@ function PedalVista({
   );
 }
 
-export default function EquipoElectrica({ onCerrar }: { onCerrar: () => void }) {
+export default function Equipo({ tipo, onCerrar }: { tipo: EquipoId; onCerrar: () => void }) {
+  const equipo = EQUIPOS[tipo];
   const estado = useEstadoAmpli();
   const encendido = estado === "encendido";
   // (se monta al tocar el ampli, ya en el aparato: lo guardado se puede leer al empezar)
-  const [ajustes, setAjustes] = useState<AjustesEquipo>(leerEquipo);
+  const [ajustes, setAjustes] = useState<AjustesEquipo>(() => leerEquipo(tipo));
   const [saliendo, setSaliendo] = useState(false);
   // Lo que tarda en oírse lo que tocas (ms), cuando el navegador lo sabe
   const [retraso, setRetraso] = useState<number | null>(null);
@@ -103,7 +104,7 @@ export default function EquipoElectrica({ onCerrar }: { onCerrar: () => void }) 
 
   const cambiar = (nuevo: AjustesEquipo) => {
     setAjustes(nuevo);
-    guardarEquipo(nuevo);
+    guardarEquipo(tipo, nuevo);
     ampli.aplicar(nuevo);
   };
 
@@ -171,7 +172,7 @@ export default function EquipoElectrica({ onCerrar }: { onCerrar: () => void }) 
   const palanca = () => {
     if (saliendo) return;
     if (encendido || estado === "abriendo") ampli.apagar();
-    else void ampli.encender(ajustes);
+    else void ampli.encender(tipo, ajustes);
   };
 
   let aviso: string;
@@ -188,10 +189,10 @@ export default function EquipoElectrica({ onCerrar }: { onCerrar: () => void }) 
 
   return (
     <div
-      className={`equipo${saliendo ? " sale" : ""}${encendido ? " encendido" : ""}${estado === "abriendo" ? " abriendo" : ""}`}
+      className={`equipo es-${tipo}${saliendo ? " sale" : ""}${encendido ? " encendido" : ""}${estado === "abriendo" ? " abriendo" : ""}`}
       role="dialog"
       aria-modal="true"
-      aria-label="Amplificador y pedalera de la eléctrica"
+      aria-label={`Amplificador y pedalera ${equipo.de}`}
     >
       <button type="button" className="eq-volver" onClick={cerrar}>
         <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -233,7 +234,7 @@ export default function EquipoElectrica({ onCerrar }: { onCerrar: () => void }) 
                     min: 0,
                     max: 1,
                     paso: 0.01,
-                    porDefecto: EQUIPO_INICIAL.ampli[m.k],
+                    porDefecto: equipo.ampli[m.k],
                     ver: enDiez,
                     onCambio: (v) => cambiar({ ...ajustes, ampli: { ...ajustes.ampli, [m.k]: v } }),
                   }}
@@ -252,7 +253,7 @@ export default function EquipoElectrica({ onCerrar }: { onCerrar: () => void }) 
         </p>
 
         <section className="eq-pedalera" aria-label="Pedalera">
-          {PEDALES.map((p) => (
+          {equipo.pedales.map((p) => (
             <PedalVista
               key={p.id}
               pedal={p}

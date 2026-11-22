@@ -1,4 +1,4 @@
-// El equipo de la eléctrica, encendido: abre la entrada elegida en Ajustes (lib/entrada: el micro o
+// El equipo de una guitarra (el de la eléctrica o el de la acústica), encendido: abre la entrada elegida en Ajustes (lib/entrada: el micro o
 // la interfaz con la guitarra enchufada), la pasa por la pedalera y el ampli (lib/ampli/cadena) y la
 // saca por los cascos, con el limitador sin espera de la Mesa al final (nunca satura).
 // Como en la Mesa: se le pide al navegador la entrada y la salida más rápidas que tenga y nada de lo
@@ -10,7 +10,7 @@ import { pedirAudio } from "../entrada";
 import { apuntarMicro, sonarAunqueEnSilencio } from "../sesionAudio";
 import { mesa, picoDe } from "../mesa/mesa";
 import { CadenaEquipo } from "./cadena";
-import type { AjustesEquipo } from "./ajustes";
+import type { AjustesEquipo, EquipoId } from "./ajustes";
 
 export type EstadoAmpli = "apagado" | "abriendo" | "encendido" | "denegado" | "error" | "sin-soporte";
 
@@ -44,7 +44,7 @@ class Ampli {
   }
 
   /** Hay que llamarlo desde un toque (el iPhone no deja sonar ni escuchar si no). */
-  async encender(ajustes: AjustesEquipo): Promise<EstadoAmpli> {
+  async encender(tipo: EquipoId, ajustes: AjustesEquipo): Promise<EstadoAmpli> {
     if (this.estado === "encendido" || this.estado === "abriendo") return this.estado;
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof AudioContext === "undefined") {
       this.cambiar("sin-soporte");
@@ -96,7 +96,7 @@ class Ampli {
     const separador = ctx.createChannelSplitter(2);
     fuente.connect(separador);
 
-    const cadena = new CadenaEquipo(ctx, { puerta, compresor });
+    const cadena = new CadenaEquipo(ctx, tipo, { puerta, compresor });
     this.porEntrada = [0, 1].map((i) => {
       const g = ctx.createGain();
       g.gain.value = 0;
@@ -176,5 +176,5 @@ class Ampli {
   }
 }
 
-/** El equipo de la eléctrica (uno solo). */
+/** El equipo que suena (uno solo a la vez: el de la guitarra que tengas). */
 export const ampli = new Ampli();

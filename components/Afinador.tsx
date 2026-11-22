@@ -16,7 +16,7 @@ import BarraAbajo from "./BarraAbajo";
 import MetronomoPanel from "./MetronomoPanel";
 import Grabadora from "./Grabadora";
 import LooperPanel from "./LooperPanel";
-import EquipoElectrica from "./EquipoElectrica";
+import Equipo from "./Equipo";
 import { leerAjusteRetraso, Looper, type EstadoLooper, type ModoLooper } from "@/lib/looper";
 import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesMetronomo, type Compas } from "@/lib/metronomo";
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
@@ -28,6 +28,7 @@ import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/n
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
 import { sonarAunqueEnSilencio } from "@/lib/sesionAudio";
 import { tocarArpegio, tocarNota } from "@/lib/tono";
+import type { EquipoId } from "@/lib/ampli/ajustes";
 import { usePestanaVisible } from "@/lib/pestana";
 import { guardarPreferencias, leerPreferencias, PREFERENCIAS_INICIALES, type Preferencias } from "@/lib/preferencias";
 
@@ -88,7 +89,7 @@ export default function Afinador() {
   const [subeLaPala, setSubeLaPala] = useState<boolean | "cambio">(false);
   // Has tocado un instrumento del fondo: la pala que hay se está yendo y viene la suya
   const [cambiandoA, setCambiandoA] = useState<InstrumentoId | null>(null);
-  // El ampli y la pedalera de la eléctrica: «yendo», la pala se está yendo para dejarles sitio
+  // El ampli y la pedalera de la guitarra que tienes: «yendo», la pala se está yendo para dejarles sitio
   const [equipo, setEquipo] = useState<"no" | "yendo" | "si">("no");
   // Metrónomo: vive aquí para que siga sonando con su hoja cerrada.
   const metronomo = useRef<Metronomo | null>(null);
@@ -270,10 +271,13 @@ export default function Afinador() {
     else if (id) cambiarPorElFondo(id);
   };
   // ---------- El ampli del fondo ----------
-  // Con la eléctrica en las manos, el amplificador que hay junto a la batería se toca: la pala baja
-  // y se va, y sube el ampli con su pedalera (EquipoElectrica). El afinador deja de escuchar (el
-  // ampli abre la entrada por su cuenta al encenderlo). Al volver, la pala sube otra vez.
+  // Con una guitarra en las manos (la eléctrica o la acústica; el bajo no tiene), el botón «Ampli» de
+  // abajo y el amplificador que hay junto a la batería abren su equipo: la pala baja y se va, y sube
+  // el ampli con su pedalera (Equipo). El afinador deja de escuchar (el ampli abre la entrada por su
+  // cuenta al encenderlo). Al volver, la pala sube otra vez.
+  const equipoDe: EquipoId | null = instrumento.id === "electrica" || instrumento.id === "acustica" ? instrumento.id : null;
   const abrirEquipo = () => {
+    if (!equipoDe || equipo !== "no" || cambiandoA) return;
     parar();
     setHoja(null);
     setEquipo("yendo");
@@ -734,6 +738,7 @@ export default function Afinador() {
         <BarraAbajo
           onEstudio={volverAlEstudio}
           onMesa={() => router.push("/mesa")}
+          onAmpli={equipoDe ? abrirEquipo : undefined}
           onMetronomo={() => setHoja("metronomo")}
           onLooper={abrirLooper}
           onGrabar={() => setHoja("grabar")}
@@ -761,7 +766,7 @@ export default function Afinador() {
           }}
         />
       )}
-      {equipo === "si" && <EquipoElectrica onCerrar={cerrarEquipo} />}
+      {equipo === "si" && equipoDe && <Equipo key={equipoDe} tipo={equipoDe} onCerrar={cerrarEquipo} />}
 
       <Hoja abierta={hoja === "metronomo"} titulo="Metrónomo" onCerrar={() => setHoja(null)}>
         <MetronomoPanel
