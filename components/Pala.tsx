@@ -54,10 +54,11 @@ interface Props {
   sonando: number | null;
   afinadas: Set<number>;
   desactivada?: boolean;
-  /** Al venir de elegir el instrumento: el clavijero sube desde abajo. */
-  sube?: boolean;
-  /** Al volver al estudio: el clavijero baja y se va. */
-  baja?: boolean;
+  /** Al venir de elegir el instrumento: el clavijero sube desde abajo. «cambio»: has tocado un
+   *  instrumento del fondo y sube entero desde el borde de abajo, sin espera. */
+  sube?: boolean | "cambio";
+  /** Al volver al estudio: el clavijero baja y se va. «cambio»: se va entero por abajo (viene otro). */
+  baja?: boolean | "cambio";
   onElegir: (indice: number) => void;
 }
 
@@ -68,7 +69,7 @@ export default function Pala({ geometria: g, notas, notacion, bemoles, seleccion
   const m = g.mastil;
   // Se decide al aparecer y no cambia: si al acabar de subir se quitara la clase, el
   // navegador arrancaría la animación de entrada y la pala parpadearía.
-  const [subio] = useState(Boolean(sube));
+  const [subio] = useState(sube ?? false);
   const total = notas.length;
   const estilo = {
     aspectRatio: `${ANCHO} / ${ALTO}`,
@@ -78,7 +79,7 @@ export default function Pala({ geometria: g, notas, notacion, bemoles, seleccion
   } as CSSProperties;
 
   return (
-    <div className={`pala ${g.metal} ${desactivada ? "es-desactivada" : ""} ${subio ? "sube" : ""} ${baja ? "baja" : ""}`} style={estilo}>
+    <div className={`pala ${g.metal} ${desactivada ? "es-desactivada" : ""} ${subio === "cambio" ? "sube-cambio" : subio ? "sube" : ""} ${baja === "cambio" ? "baja-cambio" : baja ? "baja" : ""}`} style={estilo}>
       {/* El mástil sigue debajo de la foto hasta el borde de la pantalla */}
       <svg className="pala-capa pala-mastil" viewBox={`0 0 ${ANCHO} ${ALTO}`} preserveAspectRatio="none" aria-hidden="true">
         <defs>

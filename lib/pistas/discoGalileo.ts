@@ -33,13 +33,13 @@ export const DISCO: { artista: string; titulo: string; base: string; motor?: str
   motor: "roformer",
   temas: [
     { id: "loco", titulo: "Loco", duracion: 178.91, frames: 7890048, bytes: 15030858 },
-    { id: "un-segundo-mas", titulo: "Un segundo más", duracion: 264, frames: 0, bytes: 0, pronto: true },
+    { id: "un-segundo-mas", titulo: "Un segundo más", duracion: 264.1, frames: 11646720, bytes: 22186422 },
     { id: "manana", titulo: "Mañana", duracion: 250, frames: 0, bytes: 0, pronto: true },
     { id: "no-mirar-atras", titulo: "No mirar atrás", duracion: 214, frames: 0, bytes: 0, pronto: true },
     { id: "ultimo-cafe", titulo: "Último café", duracion: 243, frames: 0, bytes: 0, pronto: true },
     { id: "descuido", titulo: "Descuido", duracion: 217, frames: 0, bytes: 0, pronto: true },
     { id: "barco-de-papel", titulo: "Barco de Papel", duracion: 229, frames: 0, bytes: 0, pronto: true },
-    { id: "me-escape", titulo: "Me escapé", duracion: 227, frames: 0, bytes: 0, pronto: true },
+    { id: "me-escape", titulo: "Me escapé", duracion: 227.37, frames: 10027008, bytes: 19101258 },
     { id: "confundido", titulo: "Confundido", duracion: 231.26, frames: 10198656, bytes: 19428204 },
   ],
 };

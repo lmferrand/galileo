@@ -21,6 +21,8 @@ import { guardarAjustesMetronomo, leerAjustesMetronomo, Metronomo, type AjustesM
 import { afinacionesDe, estandarDe, familiaDe, ESTANDAR, type Afinacion } from "@/lib/afinaciones";
 import { enLetra, INSTRUMENTOS, instrumentoDe, marcarElegido, yaSeEligio, type InstrumentoId, marcarPortada, yaSeVioPortada } from "@/lib/instrumentos";
 import { sonarInstrumento } from "@/lib/sonidos";
+import { instrumentoDelFondo } from "@/lib/fondoInstrumentos";
+import { useHorizontal } from "@/lib/horizontal";
 import { centsEntre, formatoHz, frecuenciaDe, midiDe, partesNota } from "@/lib/notas";
 import { crearContextoAudio, Motor, type EstadoMicro, type LecturaEstable } from "@/lib/motor";
 import { sonarAunqueEnSilencio } from "@/lib/sesionAudio";
@@ -35,6 +37,11 @@ const HISTERESIS = 60; // cents que tiene que ganar otra cuerda para cambiar en 
 type HojaAbierta = null | "afinacion" | "ajustes" | "editor" | "metronomo" | "grabar" | "looper";
 
 const MS_TRANSICION = 900;
+/** Al tocar un instrumento del fondo: lo que tarda en irse la pala que hay y en subir la nueva (como sus animaciones, en globals.css) */
+const MS_BAJA_PALA = 430;
+const MS_SUBE_PALA = 680;
+/** Lo que no es fondo aunque tenga un instrumento detrás: los mandos, la pala y el círculo */
+const NO_ES_FONDO = 'button, a, input, select, textarea, label, [role="button"], [role="switch"], [role="dialog"], .pala, .roseta, .cabecera, .barra-abajo, .elegir, .portada, .hoja-fondo';
 
 interface WakeLock {
   release: () => Promise<void>;
@@ -65,7 +72,9 @@ export default function Afinador() {
   }));
   // Portada con el logo al abrir la app (4 s), encima de la pantalla de elegir.
   const [portada, setPortada] = useState(() => !yaSeVioPortada() && !yaSeEligio());
-  const [subeLaPala, setSubeLaPala] = useState(false);
+  const [subeLaPala, setSubeLaPala] = useState<boolean | "cambio">(false);
+  // Has tocado un instrumento del fondo: la pala que hay se está yendo y viene la suya
+  const [cambiandoA, setCambiandoA] = useState<InstrumentoId | null>(null);
   // Metrónomo: vive aquí para que siga sonando con su hoja cerrada.
   const metronomo = useRef<Metronomo | null>(null);
   const [metro, setMetro] = useState<AjustesMetronomo>({ bpm: 90, compas: 4 });
@@ -114,6 +123,7 @@ export default function Afinador() {
       setCelebrando(false);
       setTonoEn(null);
       setSubeLaPala(false);
+      setCambiandoA(null);
       setEleccion((e) => (e.fase === "saliendo" ? { fase: "no", id: null } : e.fase === "volviendo" ? { fase: "si", id: null } : e));
       setMetroSonando(false);
       setMetroGolpe((g) => (g.tiempo === -1 ? g : { tiempo: -1, n: g.n }));
@@ -209,6 +219,56 @@ export default function Afinador() {
     setCuerdaManual(0);
     setAfinadas(new Set());
   };
+
+  // ---------- Los instrumentos del fondo ----------
+  // Detrás, en el estudio, están los otros dos instrumentos (lib/fondoInstrumentos). Se tocan y se
+  // cambia a ellos: la pala que tienes baja y se va por abajo y la del que has tocado sube desde
+  // abajo. El fondo cambia en el mismo toque (el instrumento se va de su soporte: lo has cogido) y
+  // el afinador, con su afinación y sus textos, cuando la pala vieja ya no se ve.
+  const cambiarPorElFondo = (id: InstrumentoId) => {
+    sonarInstrumento(id);
+    setCambiandoA(id);
+    temporizadores.current.push(
+      setTimeout(() => {
+        setSubeLaPala("cambio");
+        cambiarInstrumento(id);
+        setCambiandoA(null);
+        temporizadores.current.push(setTimeout(() => setSubeLaPala(false), MS_SUBE_PALA + 200));
+      }, MS_BAJA_PALA),
+    );
+  };
+  /** El instrumento del fondo que hay bajo el dedo (o el ratón), si lo que se toca es el fondo */
+  const delFondo = (e: React.MouseEvent<HTMLElement>): InstrumentoId | null => {
+    if (!listo || !instrumento.fondo || eleccion.fase !== "no" || portada || cambiandoA) return null;
+    if ((e.target as Element).closest(NO_ES_FONDO)) return null;
+    const fondo = e.currentTarget.querySelector<HTMLElement>(".fondo-estudio");
+    if (!fondo) return null;
+    const caja = fondo.getBoundingClientRect();
+    // (lo que el giroscopio tiene movida la foto en este momento)
+    const movida = { x: parseFloat(fondo.style.getPropertyValue("--gx")) || 0, y: parseFloat(fondo.style.getPropertyValue("--gy")) || 0 };
+    return instrumentoDelFondo(instrumento.id, { x: e.clientX - caja.left, y: e.clientY - caja.top }, { w: caja.width, h: caja.height }, movida);
+  };
+  const alTocarFondo = (e: React.MouseEvent<HTMLElement>) => {
+    const id = delFondo(e);
+    if (id) cambiarPorElFondo(id);
+  };
+  // Con ratón: la mano sobre los instrumentos que se pueden coger
+  const alMoverRaton = (e: React.MouseEvent<HTMLElement>) => {
+    const cursor = delFondo(e) ? "pointer" : "";
+    if (e.currentTarget.style.cursor !== cursor) e.currentTarget.style.cursor = cursor;
+  };
+  // Las fotos del fondo de los otros instrumentos, ya bajadas para cuando se toquen (con la pantalla ya quieta)
+  const horizontal = useHorizontal();
+  useEffect(() => {
+    if (!listo || horizontal === null || eleccion.fase !== "no") return;
+    const t = setTimeout(() => {
+      for (const i of INSTRUMENTOS) {
+        const foto = horizontal ? (i.fondoHorizontal ?? i.fondo) : i.fondo;
+        if (foto && i.id !== instrumento.id) new Image().src = foto;
+      }
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [listo, horizontal, eleccion.fase, instrumento.id]);
 
   // Cambiar de afinación (o de La) deja todas las cuerdas por afinar.
   useEffect(() => {
@@ -413,6 +473,8 @@ export default function Afinador() {
     detalle = grave ? "Está grave: tensa la cuerda." : "Está aguda: afloja la cuerda.";
   }
 
+  // El fondo es el del instrumento que afinas o, mientras cambias, ya el del que has tocado
+  const enFondo = cambiandoA ? instrumentoDe(cambiandoA) : instrumento;
   const sonandoCuerda = tonoEn ?? (viva ? cuerda : null);
   const celebrandoAhora = celebrando && !cromatico;
 
@@ -457,8 +519,9 @@ export default function Afinador() {
   }, [listo, instrumento.id, instrumento.pala, eleccion.fase]);
 
   return (
-    <main ref={raiz} className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""}`}>
-      {listo && instrumento.fondo && <FondoEstudio key={instrumento.id} foto={instrumento.fondo} fotoHorizontal={instrumento.fondoHorizontal} vertical velo={false} />}
+    <main ref={raiz} className={`app ${listo ? "es-lista" : ""} ${instrumento.fondo ? "con-estudio" : ""}`} onClick={alTocarFondo} onMouseMove={alMoverRaton}>
+      {/* (al tocar un instrumento del fondo, su foto se pone ya: se va de su soporte) */}
+      {listo && instrumento.fondo && <FondoEstudio foto={enFondo.fondo ?? instrumento.fondo} fotoHorizontal={enFondo.fondoHorizontal} vertical velo={false} />}
       {portada && (
         <Portada
           onFin={() => {
@@ -572,7 +635,7 @@ export default function Afinador() {
               <Pala
                 key={instrumento.id}
                 sube={subeLaPala}
-                baja={eleccion.fase === "volviendo"}
+                baja={cambiandoA ? "cambio" : eleccion.fase === "volviendo"}
                 geometria={instrumento.pala}
                 notas={afinacion.notas}
                 notacion={prefs.notacion}

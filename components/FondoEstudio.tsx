@@ -7,11 +7,19 @@
 // foto horizontal si la hay. Los desplazamientos van en --gx y --gy del propio fondo, y la pala
 // se mueve con su transform (nunca en <html>: recalcularía toda la página en cada fotograma).
 
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 const MAX_X = 30; // px que se mueve la foto hacia los lados
 const MAX_Y = 20;
 const GRADOS = 24; // inclinación que da el máximo
+/** Lo que tarda la foto nueva en fundirse sobre la anterior (como su animación, en globals.css) */
+const MS_FUNDIDO = 620;
+
+interface Capa {
+  foto: string;
+  fotoH: string;
+}
+const fotosDe = (c: Capa) => ({ "--foto": `url("${c.foto}")`, "--foto-h": `url("${c.fotoH}")` }) as CSSProperties;
 
 type ConPermiso = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<"granted" | "denied"> };
 
@@ -35,6 +43,8 @@ export function pedirPermisoMovimiento() {
  * `vertical`: la foto ya es vertical y no hace falta enseñarla entera a lo ancho.
  * `velo`: oscurecerla para que se lea texto encima (en el afinador va sin velo, solo desenfocada).
  * `fotoHorizontal`: la que se usa en pantallas apaisadas.
+ * Si la foto cambia (en el afinador, al cambiar de instrumento), la nueva se funde sobre la anterior:
+ * es la misma pieza y sigue moviéndose igual con el móvil (antes se quitaba y se ponía otra, de golpe).
  */
 export default function FondoEstudio({
   foto,
@@ -48,6 +58,19 @@ export default function FondoEstudio({
   velo?: boolean;
 }) {
   const caja = useRef<HTMLDivElement>(null);
+  // La foto puesta y, mientras la nueva se funde, la anterior debajo
+  const fotoH = fotoHorizontal ?? foto;
+  const [puesta, setPuesta] = useState<Capa>({ foto, fotoH });
+  const [anterior, setAnterior] = useState<Capa | null>(null);
+  if (puesta.foto !== foto || puesta.fotoH !== fotoH) {
+    setAnterior(puesta);
+    setPuesta({ foto, fotoH });
+  }
+  useEffect(() => {
+    if (!anterior) return;
+    const t = setTimeout(() => setAnterior(null), MS_FUNDIDO + 80);
+    return () => clearTimeout(t);
+  }, [anterior]);
 
   useEffect(() => {
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -115,8 +138,11 @@ export default function FondoEstudio({
   }, []);
 
   return (
-    <div ref={caja} className={`fondo-estudio ${vertical ? "vertical" : ""}`} style={{ "--foto": `url("${foto}")`, "--foto-h": `url("${fotoHorizontal ?? foto}")` } as CSSProperties} aria-hidden="true">
-      <div className="fondo-ambiente" />
+    <div ref={caja} className={`fondo-estudio ${vertical ? "vertical" : ""}`} style={fotosDe(puesta)} aria-hidden="true">
+      {/* (cada capa con su clave: la anterior sigue siendo la misma pieza y no parpadea) */}
+      {(anterior ? [anterior, puesta] : [puesta]).map((c) => (
+        <div key={c.foto} className={`fondo-ambiente${anterior && c === puesta ? " cambia" : ""}`} style={fotosDe(c)} />
+      ))}
       <div className="fondo-panorama" />
       {velo && <div className="fondo-velo" />}
     </div>
