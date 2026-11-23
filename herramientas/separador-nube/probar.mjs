@@ -1,13 +1,13 @@
 // Prueba el Space como lo hace la app (lib/estudio/nube.ts): sube una canción, espera, baja el
 // .zip, mira que traiga cancion.json + las 6 pistas y cuenta cuánto tarda cada paso.
-// También comprueba que el Space deja llamar desde la app (CORS para the-clavija.vercel.app).
+// También comprueba que el Space deja llamar desde la app (CORS para galileomusic.vercel.app).
 // Uso: node probar.mjs <https://usuario-separador.hf.space> <cancion.mp3> [nombre]
 import fs from "node:fs";
 import path from "node:path";
 
 const [space, archivo, nombre = "Prueba del Space"] = process.argv.slice(2);
 if (!space || !archivo) throw new Error("Uso: node probar.mjs <dirección del Space> <canción> [nombre]");
-const ORIGEN = "https://the-clavija.vercel.app";
+const ORIGEN = "https://galileomusic.vercel.app";
 const t0 = Date.now();
 const seg = () => ((Date.now() - t0) / 1000).toFixed(1) + " s";
 const paso = (texto) => console.log(`[${seg()}] ${texto}`);
