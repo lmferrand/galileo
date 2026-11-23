@@ -54,7 +54,7 @@ const archivos = [];
   }
 })(AQUI);
 
-const lineas = [{ key: "header", value: { summary: "Separador de The Clavija", description: "" } }];
+const lineas = [{ key: "header", value: { summary: "Separador de Galileo", description: "" } }];
 for (const ruta of archivos) {
   const relativa = path.relative(AQUI, ruta).split(path.sep).join("/");
   const contenido = fs.readFileSync(ruta).toString("utf8").replace(/\r\n/g, "\n");
