@@ -1,5 +1,5 @@
 ---
-title: Separador de The Clavija
+title: Separador de Galileo
 emoji: 🎸
 colorFrom: purple
 colorTo: green
@@ -9,13 +9,13 @@ python_version: "3.12"
 app_file: app.py
 pinned: false
 license: cc-by-nc-sa-4.0
-short_description: Separa canciones en 6 pistas para The Clavija
+short_description: Separa canciones en 6 pistas para Galileo
 ---
 
-# Separador de The Clavija
+# Separador de Galileo
 
 Separa una canción en 6 pistas (voz, guitarra, bajo, batería, piano y resto) para la app
-The Clavija. Devuelve un `.zip` con `cancion.json` y las 6 pistas en mp3, el mismo formato
+Galileo. Devuelve un `.zip` con `cancion.json` y las 6 pistas en mp3, el mismo formato
 que las tandas del PC del estudio.
 
 - Corre en **ZeroGPU** (gráfica gratis de Hugging Face). El tiempo de gráfica se descuenta de
