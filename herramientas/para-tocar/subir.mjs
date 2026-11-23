@@ -14,7 +14,7 @@ const HUB = "https://huggingface.co";
 const AUT = { Authorization: `Bearer ${clave}` };
 const PISTAS = ["voz", "guitarra", "bajo", "bateria", "piano", "resto"];
 const ORDEN_ESTILOS = ["Blues", "Rock and roll", "Rock", "Funk", "Reggae", "Jazz y bossa", "Surf"];
-const CREDITO = "Música de Kevin MacLeod (incompetech.com), licencia CC BY 4.0. Separada en pistas por The Clavija.";
+const CREDITO = "Música de Kevin MacLeod (incompetech.com), licencia CC BY 4.0. Separada en pistas por Galileo.";
 
 function leerZip(buf) {
   const fin = buf.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
@@ -75,7 +75,7 @@ archivos.push({ ruta: "catalogo.json", datos: Buffer.from(JSON.stringify(catalog
 
 const ficha = `---
 license: cc-by-4.0
-pretty_name: The Clavija · Para tocar
+pretty_name: Galileo · Para tocar
 language:
 - es
 tags:
@@ -85,10 +85,10 @@ tags:
 - backing-tracks
 ---
 
-# The Clavija · Para tocar
+# Galileo · Para tocar
 
 Canciones libres separadas en 6 pistas (voz, guitarra, bajo, batería, piano y resto) para tocar
-encima con la app **The Clavija** (https://the-clavija.vercel.app): quitas la guitarra o el bajo y tocas tú.
+encima con la app **Galileo** (https://galileomusic.vercel.app): quitas la guitarra o el bajo y tocas tú.
 
 - Música: **Kevin MacLeod** (incompetech.com), licencia **CC BY 4.0** (https://creativecommons.org/licenses/by/4.0/).
 - Cambios: cada canción está separada en pistas con BS-RoFormer SW (jarredou) y guardada en MP3 a 112 kbps.
