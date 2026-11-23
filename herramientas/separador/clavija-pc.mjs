@@ -2,7 +2,7 @@
 // y se las devuelve a quien las mandó. Se deja abierto; pregunta cada 15 s si hay algo.
 // Uso (desde su carpeta, con token.txt, config.json y el modelo al lado):
 //   node clavija-pc.mjs
-// config.json: { "servidor": "https://the-clavija.vercel.app", "supabaseUrl": "…", "anonKey": "…",
+// config.json: { "servidor": "https://galileomusic.vercel.app", "supabaseUrl": "…", "anonKey": "…",
 //                "modelo": "bs_roformer_sw_fp32.onnx", "hilos": 7 }
 
 import fs from "node:fs";
