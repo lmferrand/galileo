@@ -89,7 +89,7 @@ tags:
 # Galileo · «Mañana…»
 
 Las canciones del disco «Mañana…», de **Galileo**, separadas en 6 pistas (voz, guitarra, bajo,
-batería, piano y resto) para tocarlas en la app **GALILEO** (https://the-clavija.vercel.app): en la
+batería, piano y resto) para tocarlas en la app **GALILEO** (https://galileomusic.vercel.app): en la
 Mesa, tocas el disco del escritorio, eliges una canción y se pone en la grabadora.
 
 © Galileo. Todos los derechos reservados. Están aquí solo para que la app las baje: no se permite
