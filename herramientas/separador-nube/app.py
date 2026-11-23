@@ -1,4 +1,4 @@
-# Separador de The Clavija en Hugging Face (ZeroGPU).
+# Separador de Galileo en Hugging Face (ZeroGPU).
 #
 # La app manda la canción desde el aparato de cada persona y recibe un .zip con las 6 pistas
 # en mp3: el mismo formato que las tandas del PC (cancion.json + voz, guitarra, bajo, bateria,
@@ -227,11 +227,11 @@ def separar(archivo, nombre):
                 pass
 
 
-with gr.Blocks(title="Separador de The Clavija", delete_cache=(1800, 3600)) as demo:
+with gr.Blocks(title="Separador de Galileo", delete_cache=(1800, 3600)) as demo:
     gr.Markdown(
-        "## Separador de The Clavija\n"
+        "## Separador de Galileo\n"
         "Separa una canción en 6 pistas (voz, guitarra, bajo, batería, piano y resto) con "
-        "BS-RoFormer SW. Se usa desde la app The Clavija; aquí puedes probarlo con un archivo. "
+        "BS-RoFormer SW. Se usa desde la app Galileo; aquí puedes probarlo con un archivo. "
         "Uso no comercial."
     )
     entrada = gr.File(label="Canción", file_types=EXTENSIONES, type="filepath")
